@@ -203,6 +203,7 @@ function lireForm() {
   };
 }
 
+let avertiLongueur = "";
 function valider(v) {
   const manque = [];
   if (!v.epaisseur) manque.push("l'épaisseur");
@@ -210,6 +211,10 @@ function valider(v) {
   if (!v.longueur) manque.push("la longueur");
   if (!v.pieces) manque.push("le nombre de pièces");
   if (manque.length) return "Il manque " + manque.join(", ").replace(/, ([^,]*)$/, " et $1") + ".";
+  if (v.longueur > 13 && avertiLongueur !== v.longueur + "|" + v.pieces) {
+    avertiLongueur = v.longueur + "|" + v.pieces;
+    return `Longueur de ${nf(v.longueur, 2)} m : tu as peut-être inversé pièces et longueur. Corrige, ou appuie encore pour confirmer.`;
+  }
   const d = doublon(v.numero, editionId);
   if (d) return `Le n° ${v.numero} est déjà utilisé (commande ${d.commande || "–"}, ${section(d)}).`;
   return null;
@@ -532,7 +537,7 @@ function rendrePC() {
     ${plusieurs ? `<div class="file-pc"><span>Colis ${posPC + 1} sur ${filePC.length}</span>
       <span><button type="button" class="lien" data-p="prec" ${posPC ? "" : "hidden"}>Précédent</button>
       <button type="button" class="lien" data-p="suiv" ${posPC < filePC.length - 1 ? "" : "hidden"}>Passer</button></span></div>` : ""}
-    ${bandeauLecture(lec)}
+    ${bandeauLecture(lec, c)}
     <p class="fiche-section" style="font-size:34px">${esc(section(c))}</p>
     <p class="fiche-sous">${np(c.pieces)} pièces de ${esc(nf(c.longueur, 2))} m</p>
     <div class="carte carte-or">
@@ -618,11 +623,16 @@ function sauverChampsPC(extra = {}) {
   if (c.commande || c.lieu) dernierPC = { commande: c.commande, lieu: c.lieu, options: c.options, ref_client: c.ref_client };
   return c;
 }
+let avertiNumero = "";
 function validerNumeroPC() {
   const a = $("#pc-alerte"), erreur = m => { a.textContent = m; a.hidden = false; };
   const ch = champsPC();
   if (pcType === "stock" ? !ch.lieu : (!ch.commande || !ch.lieu)) return erreur(pcType === "stock" ? "Choisis le lieu de stockage." : "Renseigne la commande et le lieu de stock (feuille de commande).");
   const numero = formatNumero(PC("numero").value);
+  if (numero.replace(/\D/g, "").length < 7 && avertiNumero !== numero) {
+    avertiNumero = numero;
+    return erreur(`N° incomplet : il manque le chiffre après le dernier tiret (ex. ${numero || "203-482"}-1). Complète-le, ou appuie encore pour confirmer.`);
+  }
   if (!numero) return erreur("Tape le n° imprimé sur l'étiquette.");
   const id = filePC[posPC], dbl = doublon(numero, id);
   if (dbl) return erreur(`Le n° ${numero} est déjà utilisé (commande ${dbl.commande || "–"}, ${section(dbl)}).`);
@@ -650,6 +660,12 @@ $("#pc-corps").addEventListener("click", e => {
   if (p === "valider") validerNumeroPC();
   if (p === "imprimer") { const c = sauverChampsPC(); imprimer(c.id); }
   if (p === "photo") $("#photo-input").click();
+  if (p === "desinverser") {
+    garderPC(); const id = filePC[posPC], c = parId(id), l = lectures[id];
+    enregistrer({ ...c, pieces: c.longueur, longueur: c.pieces });
+    if (l) { l.corrige = false; l.verifs = Lecture.verifier(parId(id), l.texte); }
+    rendrePC();
+  }
   if (p === "suiv") { garderPC(); posPC++; rendrePC(); }
   if (p === "prec") { garderPC(); posPC--; rendrePC(); }
 });
@@ -733,17 +749,23 @@ function traiterLecture(texte) {
     if (!isNaN(t0) && t0 <= Date.now() + 2 * 3600e3 && t0 >= Date.now() - 14 * 86400e3 && t0 >= t(trouve.colis.cree_le) - 3600e3) dateIso = d.toISOString();
   }
   if (!$("#pc").hidden) garderPC();
-  lectures[trouve.colis.id] = { numero, lieu: champs.lieu, choix: champs.choix, essence: champs.essence, options: champs.options, dateIso, verifs: trouve.verifs };
+  let colis = trouve.colis, verifs = trouve.verifs, corrige = false;
+  if (verifs.inverse) { // la note avait pièces et longueur inversés : on corrige d'après l'étiquette (annulable)
+    colis = { ...colis, pieces: colis.longueur, longueur: colis.pieces };
+    enregistrer(colis); verifs = Lecture.verifier(colis, texte); corrige = true;
+  }
+  lectures[colis.id] = { numero, lieu: champs.lieu, choix: champs.choix, essence: champs.essence, options: champs.options, dateIso, verifs, corrige, texte };
   const ids = filePCTous();
-  filePC = ids; posPC = Math.max(0, ids.indexOf(trouve.colis.id));
+  filePC = ids; posPC = Math.max(0, ids.indexOf(colis.id));
   rendrePC(); montrer("#pc");
 }
-function bandeauLecture(lec) {
+function bandeauLecture(lec, c) {
   if (!lec) return "";
-  const v = lec.verifs, tout = v.section && v.pieces && v.longueur && v.volume && lec.numero;
+  const v = lec.verifs, tout = v.section && v.pieces && v.longueur && v.volume && lec.numero && lec.numero.replace(/\D/g, "").length >= 7;
   const lignes = [["Section", v.section], ["Pièces", v.pieces], ["Longueur", v.longueur], ["Volume", v.volume]];
   return `<div class="lecture${tout ? "" : " attention"}"><b>📷 Lu sur l'étiquette</b>
-    <p>${lec.numero ? "n° <b>" + esc(lec.numero) + "</b>" : "n° non lu : tape-le ci-dessous"}${lec.lieu ? ", lieu " + esc(lec.lieu) : ""}${lec.dateIso ? ", imprimée le " + esc(dh(lec.dateIso)) : ""}</p>
+    <p>${lec.numero ? "n° <b>" + esc(lec.numero) + "</b>" + (lec.numero.replace(/\D/g, "").length < 7 ? " (fin du n° non lue : ajoute-la)" : "") : "n° non lu : tape-le ci-dessous"}${lec.lieu ? ", lieu " + esc(lec.lieu) : ""}${lec.dateIso ? ", imprimée le " + esc(dh(lec.dateIso)) : ""}</p>
+    ${lec.corrige ? `<p><b>↔ Corrigé :</b> ta note avait pièces et longueur inversés. Maintenant : ${np(c.pieces)} pièces de ${nf(c.longueur, 2)} m. <button type="button" class="lien" data-p="desinverser">Annuler</button></p>` : ""}
     <div class="verifs">${lignes.map(([l, ok]) => `<i class="${ok ? "ok" : "ko"}">${l} ${ok ? "✔" : "?"}</i>`).join("")}</div>
     ${tout ? "" : `<p class="note-stats">Un « ? » veut dire non lu ou différent de ta note : compare avec l'étiquette avant de pointer.</p>`}</div>`;
 }

@@ -26,8 +26,18 @@
     const code = new RegExp(DEB + c.pieces + "\\s*/\\s*" + Math.round(c.longueur * 100) + FIN).test(T); // ex. « 80/400 »
     const [ve, vd] = volume(c).toFixed(3).split(".");
     const vol = new RegExp(DEB + ve + "[.,]\\s?" + vd + FIN).test(T);
-    const score = (section ? 3 : largeurSeule ? 1 : 0) + (pieces ? 2 : 0) + (longueur ? 2 : 0) + (vol ? 3 : 0) + (code ? 2 : 0);
-    return { section, pieces: pieces || code, longueur: longueur || code, volume: vol, score };
+    let score = (section ? 3 : largeurSeule ? 1 : 0) + (pieces ? 2 : 0) + (longueur ? 2 : 0) + (vol ? 3 : 0) + (code ? 2 : 0);
+
+    // Pièces et longueur inversés dans la note ? (ex. noté « 6 pièces de 48 m » alors que l'étiquette dit 48 P et 6,00 m)
+    // Le volume, lui, reste juste dans les deux cas : il ne peut pas révéler l'inversion.
+    let inverse = false;
+    if (!(pieces || longueur || code) && Number.isInteger(c.longueur) && c.longueur > 0) {
+      const pInv = new RegExp(DEB + c.longueur + "\\s*P(?![A-Z])").test(T);
+      const lInv = motifLongueur(c.pieces).test(T);
+      const cInv = new RegExp(DEB + c.longueur + "\\s*/\\s*" + Math.round(c.pieces * 100) + FIN).test(T);
+      if ((pInv || cInv) && (lInv || cInv)) { inverse = true; score += (pInv ? 2 : 0) + (lInv ? 2 : 0) + (cInv ? 2 : 0); }
+    }
+    return { section, pieces: pieces || code, longueur: longueur || code, volume: vol, score, inverse };
   }
 
   // Le colis en attente qui correspond le mieux à la photo (ou null)
@@ -48,9 +58,10 @@
     if ((m = T.match(/(?:^|\D)(\d{3})\s*-\s*(\d{3})\s*-\s*(\d{1,2})(?!\d)/))) numero = m[1] + m[2] + m[3];
     else if ((m = T.match(/(?:^|\D)(\d{6})[ \t]+(\d{1,2})(?!\d)/))) numero = m[1] + m[2];
     else if ((m = T.match(/(?:^|\D)(\d{6})(\d{1,2})(?!\d)/))) numero = m[1] + m[2];
+    else if ((m = T.match(/(?:^|\D)(\d{6})(?!\d)/))) numero = m[1]; // 6 chiffres lus, suffixe non lu
 
     let choix = "", essence = "", lieu = "";
-    if ((m = T.match(/(?:^|\D)(\d{2})[ \t]+([A-Z]{1,2})[ \t]+([A-Z]\d{1,2})(?![A-Z0-9])/))) {
+    if ((m = T.match(/(?:^|\D)(\d{2})[ \t]*([A-Z]{1,2})[ \t]+([A-Z]\d{1,2})(?![A-Z0-9])/))) {
       choix = m[1]; essence = (essenceInverse && essenceInverse[m[2]]) || m[2]; lieu = m[3];
     }
 

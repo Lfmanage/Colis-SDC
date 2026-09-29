@@ -24,7 +24,9 @@ window.COLIS_CONFIG = {
   PHOTO: true,
 
   // Options proposées en un tap (légende de tes feuilles de commande)
-  OPTIONS: { TR: "Fongi. coloré (PT)", CR: "Cœur refendu" },
+  // Les options qui peuvent être imprimées sur l'étiquette (aucune = pas d'option).
+  // Le texte à droite est une aide facultative sous le bouton.
+  OPTIONS: { TR: "Fongi. coloré (PT)", TA: "", TI: "", PR: "", CR: "Cœur refendu", S: "", "MI-BOIS": "" },
 
   // Code essence imprimé sur la copie d'étiquette (ton étiquette montre « SE » pour S)
   ESSENCE_ETIQUETTE: { S: "SE" },

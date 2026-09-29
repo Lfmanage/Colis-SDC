@@ -65,8 +65,23 @@
       choix = m[1]; essenceCode = m[2]; essence = (essenceInverse && essenceInverse[m[2]]) || ""; lieu = m[3];
     }
 
-    const options = /\bTR\s*CR\b|\bTRCR\b/.test(T) ? ["TR", "CR"]
-      : [/\bTR\b/.test(T) && "TR", /\bCR\b/.test(T) && "CR"].filter(Boolean);
+    // Options possibles : TR, TA, TI, PR, CR, S, MI-BOIS (plusieurs possibles, aucune = pas d'option)
+    const DEUX = ["TR", "TA", "TI", "PR", "CR"], trouvees = new Set();
+    const eclater = tok => tok === "MI-BOIS" || tok === "S" || DEUX.includes(tok) ? [tok]
+      : /^(TR|TA|TI|PR|CR)+$/.test(tok) ? tok.match(/../g) : null;           // « TRCR » collé
+    for (const ligne of T.split(/\n/)) {
+      const propre = ligne.replace(/MI\s*[-–]?\s*BOIS/g, "MI-BOIS").trim();
+      if (!propre || propre.length > 24) continue;
+      const toks = propre.split(/[^A-Z-]+/).filter(x => x && x !== "-");
+      const codes = toks.map(eclater);
+      if (!toks.length || codes.some(x => !x)) continue;                     // la ligne ne contient que des options
+      const liste = codes.flat();
+      if (liste.length === 1 && liste[0] === "S") continue;                   // un « S » seul : trop souvent un bruit de lecture
+      liste.forEach(x => trouvees.add(x));
+    }
+    for (const x of DEUX) if (new RegExp("(?:^|[^A-Z])" + x + "(?![A-Z])").test(T)) trouvees.add(x);
+    if (/MI\s*[-–]?\s*BOIS/.test(T)) trouvees.add("MI-BOIS");
+    const options = ["TR", "TA", "TI", "PR", "CR", "S", "MI-BOIS"].filter(x => trouvees.has(x));
 
     let date = null;
     if ((m = T.match(/(?:^|\D)(\d{2})\.(\d{2})\.(\d{2})\s+(\d{2})[:H]?(\d{2})(?!\d)/)))

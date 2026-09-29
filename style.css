@@ -476,3 +476,6 @@ input, textarea { font: inherit; color: inherit; }
 .terminal span { flex: 0 1 auto; min-width: 0; font-size: 14px; line-height: 1.15; }
 .terminal b { flex: none; white-space: nowrap; overflow-wrap: normal; font-size: clamp(22px, 7vw, 30px); }
 .ecart { background: var(--orange-fond); border-radius: 14px; padding: 10px 12px; margin: 8px 0; font-size: 15px; }
+
+#pc-options .puce, #f-options .puce { min-width: 64px; justify-content: center; }
+.puce small:empty { display: none; }

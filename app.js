@@ -526,7 +526,7 @@ function ouvrirPC(ids) { filePC = ids; posPC = 0; rendrePC(); montrer("#pc"); }
 function rendrePC() {
   const c = parId(filePC[posPC]); if (!c) { cacher("#pc"); return; }
   const d = dernierPC || {}, lec = lectures[c.id];
-  pcOptions = new Set(c.options && c.options.length ? c.options : lec ? lec.options : (c.numero ? [] : (d.options || [])));
+  pcOptions = new Set(lec ? (c.options || []) : c.options && c.options.length ? c.options : (c.numero ? [] : (d.options || [])));
   const brut = c.commande || d.commande || "", lieu = c.lieu || (lec && lec.lieu) || d.lieu || "", ref = c.ref_client || d.ref_client || "";
   pcType = brut === STOCK ? "stock" : "cde";
   const commande = brut === STOCK ? "" : brut;
@@ -793,6 +793,8 @@ function traiterLecture(texte, cible) {
     Object.assign(lectures[id], { avant, corrige: true });
   }
   lectures[id].verifs = Lecture.verifier(parId(id), texte);
+  // Options : exactement celles imprimées sur l'étiquette (aucune = pas d'option)
+  enregistrer({ ...parId(id), options: champs.options });
 
   const ids = filePCTous();
   filePC = ids; posPC = Math.max(0, ids.indexOf(id));

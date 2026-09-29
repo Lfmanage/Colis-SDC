@@ -130,6 +130,73 @@
     return { colis: egaux[0].c, exact: max === 5, auto: egaux[0].sec === 3 && identiques };
   }
 
-  const API = { verifier, trouver, lireChamps, lireSpec, correspondance };
+  // ───── Code-barres (Code 39) : le n° d'étiquette y est codé en entier, ex. « 203458001 » = 203-458-1 ─────
+  const ALPHABET39 = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ-. $/+%";
+  const CODES39 = [0x034, 0x121, 0x061, 0x160, 0x031, 0x130, 0x070, 0x025, 0x124, 0x064,
+    0x109, 0x049, 0x148, 0x019, 0x118, 0x058, 0x00D, 0x10C, 0x04C, 0x01C,
+    0x103, 0x043, 0x142, 0x013, 0x112, 0x052, 0x007, 0x106, 0x046, 0x016,
+    0x181, 0x0C1, 0x1C0, 0x091, 0x190, 0x0D0, 0x085, 0x184, 0x0C4, 0x0A8, 0x0A2, 0x08A, 0x02A];
+  const ETOILE39 = 0x094;
+  const CAR39 = new Map(CODES39.map((c, i) => [c, ALPHABET39[i]])); CAR39.set(ETOILE39, "*");
+
+  function car39(runs, i) { // 9 éléments (barre, espace, …) → caractère, ou null
+    if (i + 9 > runs.length) return null;
+    const w = runs.slice(i, i + 9), tri = [...w].sort((a, b) => a - b);
+    if (tri[6] < tri[5] * 1.3 || tri[8] > tri[0] * 7) return null;
+    const seuil = (tri[5] + tri[6]) / 2;
+    let code = 0; for (const x of w) code = (code << 1) | (x > seuil ? 1 : 0);
+    return CAR39.get(code) || null;
+  }
+  function ligne39(px, n, fac, div) { // une ligne de pixels gris → texte du code-barres, ou null
+    // seuil local : moyenne glissante
+    const R = Math.max(8, Math.floor(n / div)), cum = new Float64Array(n + 1);
+    for (let x = 0; x < n; x++) cum[x + 1] = cum[x] + px[x];
+    const runs = [], noir = [];
+    let prec = null, lg = 0;
+    for (let x = 0; x < n; x++) {
+      const a = Math.max(0, x - R), b = Math.min(n, x + R + 1), moy = (cum[b] - cum[a]) / (b - a);
+      const d = px[x] < moy * fac;
+      if (d === prec) lg++; else { if (prec !== null) { runs.push(lg); noir.push(prec); } prec = d; lg = 1; }
+    }
+    runs.push(lg); noir.push(prec);
+    for (let i = 0; i + 9 <= runs.length; i++) {
+      if (!noir[i] || car39(runs, i) !== "*") continue;
+      const larg = runs.slice(i, i + 9).reduce((s, x) => s + x, 0);
+      if (i > 0 && runs[i - 1] < larg * 0.5) continue;          // zone calme avant le code
+      let j = i + 10, txt = "";
+      while (j + 9 <= runs.length) {
+        const c = car39(runs, j);
+        if (!c) break;
+        if (c === "*") return txt.length >= 3 ? txt : null;
+        txt += c; j += 10;
+      }
+    }
+    return null;
+  }
+  // gris : tableau d'octets (L × H), lecture de gauche à droite et à l'envers
+  function codeBarres(gris, L, H) {
+    const votes = new Map(), row = new Uint8Array(L), inv = new Uint8Array(L);
+    const essais = [[0.85, 16], [0.92, 32], [0.97, 16], [0.85, 32], [0.92, 16]]; // plusieurs réglages de contraste
+    let best = null, n = 0;
+    for (const [fac, div] of essais) {
+      for (let y = 0; y < H; y++) {
+        const o = y * L;
+        for (let x = 0; x < L; x++) { row[x] = gris[o + x]; inv[L - 1 - x] = gris[o + x]; }
+        for (const r of [row, inv]) {
+          const t = ligne39(r, L, fac, div);
+          if (t) { const v = (votes.get(t) || 0) + 1; votes.set(t, v); if (v > n) { best = t; n = v; } }
+        }
+      }
+      if (n >= 3) break; // assez de lignes d'accord : inutile d'essayer d'autres réglages
+    }
+    return best && n >= 2 ? best : null;
+  }
+  // « 203458001 » → n° 2034581 (6 chiffres + suffixe sans les zéros)
+  function numeroDepuisCode(code) {
+    const m = /^(\d{6})(\d{1,3})$/.exec(code || "");
+    return m ? m[1] + String(+m[2]) : "";
+  }
+
+  const API = { verifier, trouver, lireChamps, lireSpec, correspondance, codeBarres, numeroDepuisCode };
   if (typeof module !== "undefined" && module.exports) module.exports = API; else racine.Lecture = API;
 })(typeof window !== "undefined" ? window : this);

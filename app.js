@@ -710,40 +710,120 @@ function etatLecture(msg) {
   $("#lecture-etat").hidden = !msg;
   if (msg) $("#lecture-txt").textContent = msg;
 }
-async function preparerImage(fichier) {
-  let img;
-  try { img = await createImageBitmap(fichier, { imageOrientation: "from-image" }); }
-  catch { img = await new Promise((ok, ko) => { const i = new Image(); i.onload = () => ok(i); i.onerror = ko; i.src = URL.createObjectURL(fichier); }); }
-  const L = img.width || img.naturalWidth, H = img.height || img.naturalHeight, k = Math.min(1, 2000 / Math.max(L, H));
-  const cv = document.createElement("canvas"); cv.width = Math.round(L * k); cv.height = Math.round(H * k);
+// ── Préparation de la photo : code-barres sur l'image entière, puis étiquette recadrée, agrandie, en noir et blanc ──
+async function ouvrirImage(fichier) {
+  try { return await createImageBitmap(fichier, { imageOrientation: "from-image" }); }
+  catch { return await new Promise((ok, ko) => { const i = new Image(); i.onload = () => ok(i); i.onerror = ko; i.src = URL.createObjectURL(fichier); }); }
+}
+function dessiner(img, L, H, sx = 0, sy = 0, sw, sh) {
+  const cv = document.createElement("canvas"); cv.width = L; cv.height = H;
   const ctx = cv.getContext("2d", { willReadFrequently: true });
-  ctx.drawImage(img, 0, 0, cv.width, cv.height);
-  const data = ctx.getImageData(0, 0, cv.width, cv.height), p = data.data;
-  for (let i = 0; i < p.length; i += 4) { // gris + un peu de contraste : le texte noir ressort mieux
-    let g = (0.299 * p[i] + 0.587 * p[i + 1] + 0.114 * p[i + 2] - 128) * 1.3 + 128;
-    p[i] = p[i + 1] = p[i + 2] = g < 0 ? 0 : g > 255 ? 255 : g;
+  ctx.imageSmoothingQuality = "high";
+  ctx.drawImage(img, sx, sy, sw ?? (img.width || img.naturalWidth), sh ?? (img.height || img.naturalHeight), 0, 0, L, H);
+  return [cv, ctx];
+}
+function gris(ctx, L, H) {
+  const p = ctx.getImageData(0, 0, L, H).data, g = new Uint8Array(L * H);
+  for (let i = 0, k = 0; k < g.length; i += 4, k++) g[k] = (p[i] * 299 + p[i + 1] * 587 + p[i + 2] * 114) / 1000;
+  return g;
+}
+function otsu(g) {
+  const h = new Float64Array(256); for (const v of g) h[v]++;
+  let tot = 0, sum = 0; for (let t = 0; t < 256; t++) { tot += h[t]; sum += t * h[t]; }
+  let w0 = 0, m0 = 0, best = 0, seuil = 128;
+  for (let t = 0; t < 256; t++) {
+    w0 += h[t]; m0 += t * h[t]; if (!w0 || w0 === tot) continue;
+    const a = m0 / w0, b = (sum - m0) / (tot - w0), s = w0 * (tot - w0) * (a - b) * (a - b);
+    if (s > best) { best = s; seuil = t; }
   }
-  ctx.putImageData(data, 0, 0);
-  return cv;
+  return seuil;
+}
+function zoneEtiquette(img, W, H) { // la plus grande zone blanche et peu colorée = l'étiquette
+  const k = 400 / Math.max(W, H), l = Math.round(W * k), h = Math.round(H * k);
+  const [, ctx] = dessiner(img, l, h), p = ctx.getImageData(0, 0, l, h).data;
+  const score = new Uint8Array(l * h);
+  for (let i = 0, j = 0; j < score.length; i += 4, j++) {
+    const mn = Math.min(p[i], p[i + 1], p[i + 2]), mx = Math.max(p[i], p[i + 1], p[i + 2]);
+    score[j] = Math.max(0, Math.min(255, mn - 2 * (mx - mn)));
+  }
+  const s = Math.max(otsu(score), 120);
+  let m = score.map(v => (v > s ? 1 : 0));
+  const filtre = (src, max) => { // fermeture 7×7 : bouche les lettres noires dans le blanc
+    const out = new Uint8Array(src.length), tmp = new Uint8Array(src.length), r = 3;
+    for (let y = 0; y < h; y++) for (let x = 0; x < l; x++) {
+      let v = max ? 0 : 1; for (let d = -r; d <= r; d++) { const xx = x + d; if (xx < 0 || xx >= l) continue; const q = src[y * l + xx]; v = max ? Math.max(v, q) : Math.min(v, q); }
+      tmp[y * l + x] = v;
+    }
+    for (let y = 0; y < h; y++) for (let x = 0; x < l; x++) {
+      let v = max ? 0 : 1; for (let d = -r; d <= r; d++) { const yy = y + d; if (yy < 0 || yy >= h) continue; const q = tmp[yy * l + x]; v = max ? Math.max(v, q) : Math.min(v, q); }
+      out[y * l + x] = v;
+    }
+    return out;
+  };
+  m = filtre(filtre(m, true), false);
+  const vu = new Uint8Array(l * h), pile = new Int32Array(l * h); let best = null;
+  for (let s0 = 0; s0 < m.length; s0++) {
+    if (!m[s0] || vu[s0]) continue;
+    let n = 0, top = 0, x0 = l, x1 = 0, y0 = h, y1 = 0; pile[top++] = s0; vu[s0] = 1;
+    while (top) {
+      const q = pile[--top], x = q % l, y = (q / l) | 0; n++;
+      if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y;
+      for (const r of [q - 1, q + 1, q - l, q + l]) {
+        if (r < 0 || r >= m.length || vu[r] || !m[r] || (r === q - 1 && x === 0) || (r === q + 1 && x === l - 1)) continue;
+        vu[r] = 1; pile[top++] = r;
+      }
+    }
+    if (!best || n > best.n) best = { n, x0, y0, x1, y1 };
+  }
+  if (!best || best.n < l * h * 0.03) return null; // rien de convaincant : on garde la photo entière
+  const mx = (best.x1 - best.x0) * 0.02, my = (best.y1 - best.y0) * 0.04;
+  const x = Math.max(0, (best.x0 - mx) / k), y = Math.max(0, (best.y0 - my) / k);
+  return { x, y, w: Math.min(W, (best.x1 + 1 + mx) / k) - x, h: Math.min(H, (best.y1 + 1 + my) / k) - y };
+}
+async function preparerImage(fichier) {
+  const img = await ouvrirImage(fichier);
+  const W = img.width || img.naturalWidth, H = img.height || img.naturalHeight;
+  // 1. code-barres : image entière en haute résolution
+  const kb = Math.min(1, 3000 / Math.max(W, H)), lb = Math.round(W * kb), hb = Math.round(H * kb);
+  const [, cb] = dessiner(img, lb, hb);
+  const code = Lecture.codeBarres(gris(cb, lb, hb), lb, hb);
+  // 2. étiquette recadrée, agrandie à 2400 px de large, contraste étiré, puis noir et blanc
+  const z = zoneEtiquette(img, W, H) || { x: 0, y: 0, w: W, h: H };
+  const k = Math.min(2400 / z.w, 3200 / z.h), l = Math.round(z.w * k), h = Math.round(z.h * k);
+  const [cvG, ctx] = dessiner(img, l, h, z.x, z.y, z.w, z.h);
+  const g = gris(ctx, l, h), tri = Uint8Array.from(g).sort();
+  const bas = tri[Math.floor(g.length * 0.02)], haut = tri[Math.floor(g.length * 0.98)], e = 255 / Math.max(1, haut - bas);
+  for (let i = 0; i < g.length; i++) g[i] = Math.max(0, Math.min(255, (g[i] - bas) * e));
+  const s = otsu(g), id = ctx.createImageData(l, h), cvB = document.createElement("canvas");
+  const idG = ctx.createImageData(l, h);
+  for (let i = 0, j = 0; i < g.length; i++, j += 4) {
+    const v = g[i] > s ? 255 : 0;
+    id.data[j] = id.data[j + 1] = id.data[j + 2] = v; id.data[j + 3] = 255;
+    idG.data[j] = idG.data[j + 1] = idG.data[j + 2] = g[i]; idG.data[j + 3] = 255;
+  }
+  ctx.putImageData(idG, 0, 0);
+  cvB.width = l; cvB.height = h; cvB.getContext("2d").putImageData(id, 0, 0);
+  return { code, noirBlanc: cvB, grisImg: cvG };
 }
 let photoCible = null; // colis affiché au pointage quand la photo est prise depuis cet écran
 async function lireEtiquette(fichier, cible) {
   if (!filePCTous().length) { toast("Aucun colis en attente de pointage."); return; }
   let worker;
   try {
-    etatLecture("Préparation de la photo…");
-    const image = await preparerImage(fichier);
+    etatLecture("Lecture du code-barres…");
+    const prep = await preparerImage(fichier);
     etatLecture("Chargement du lecteur (la première fois, ça peut être long)…");
     const T = await chargerTesseract();
+    const passes = [[prep.noirBlanc, "6"], [prep.noirBlanc, "11"], [prep.grisImg, "6"]]; // trois lectures, on garde tout ce qui a été compris
     let passe = 0;
-    worker = await T.createWorker("eng", 1, { logger: m => { if (m.status === "recognizing text") etatLecture(`Lecture de l'étiquette… ${Math.round(((passe - 1) + m.progress) / 2 * 100)} %`); } });
+    worker = await T.createWorker("eng", 1, { logger: m => { if (m.status === "recognizing text") etatLecture(`Lecture de l'étiquette… ${Math.round(((passe - 1) + m.progress) / passes.length * 100)} %`); } });
     let texte = "";
-    for (const psm of ["6", "11"]) { // deux façons de lire : on garde ce que chacune a compris
+    for (const [img, psm] of passes) {
       passe++; await worker.setParameters({ tessedit_pageseg_mode: psm });
-      texte += "\n" + (await worker.recognize(image)).data.text;
+      texte += "\n" + (await worker.recognize(img)).data.text;
     }
     etatLecture(null);
-    traiterLecture(texte, cible);
+    traiterLecture(texte, cible, prep.code);
   } catch (err) {
     etatLecture(null);
     toast(err && err.message ? err.message : "Lecture impossible : réessaie avec une photo plus nette.");
@@ -757,10 +837,11 @@ function appliquerSpec(id, spec) { // l'étiquette fait foi : la note est rempla
   enregistrer({ ...c, ...Object.fromEntries(CHAMPS_NOTE.map(k => [k, spec[k]])) });
   if (l) { l.avant = avant; l.corrige = true; l.spec = null; l.verifs = Lecture.verifier(parId(id), l.texte); }
 }
-function traiterLecture(texte, cible) {
+function traiterLecture(texte, cible, code) {
   const attente = filePCTous().map(parId);
   const champs = Lecture.lireChamps(texte, ESSENCE_INVERSE), spec = Lecture.lireSpec(texte);
-  const numero = champs.numero ? formatNumero(champs.numero) : "";
+  const numCode = Lecture.numeroDepuisCode(code); // le code-barres est bien plus sûr que le texte
+  const numero = numCode ? formatNumero(numCode) : champs.numero ? formatNumero(champs.numero) : "";
 
   // 1. Quel colis ? Celui affiché au pointage, sinon celui qui ressemble le plus à l'étiquette
   let colis = cible && parId(cible) && parId(cible).statut === "a_etiqueter" ? parId(cible) : null;
@@ -782,7 +863,7 @@ function traiterLecture(texte, cible) {
   }
   if (!$("#pc").hidden) garderPC();
   const id = colis.id;
-  lectures[id] = { numero, lieu: champs.lieu, choix: champs.choix, essence: champs.essence, essenceCode: champs.essenceCode, options: champs.options, dateIso, texte, spec: null, corrige: false, avant: null, verifs: null };
+  lectures[id] = { numero, parCode: !!numCode, lieu: champs.lieu, choix: champs.choix, essence: champs.essence, essenceCode: champs.essenceCode, options: champs.options, dateIso, texte, spec: null, corrige: false, avant: null, verifs: null };
 
   // 2. L'étiquette corrige la note toute seule (section, pièces, longueur) — annulable
   const c0 = parId(id), avant = Object.fromEntries(CHAMPS_NOTE.map(k => [k, c0[k]]));
@@ -807,7 +888,7 @@ function bandeauLecture(lec, c) {
   const lignes = [["Section", v.section], ["Pièces", v.pieces], ["Longueur", v.longueur], ["Volume", v.volume]];
   const txt = x => `${x.epaisseur} × ${x.largeur}, ${np(x.pieces)} pièces de ${nf(x.longueur, 2)} m`;
   return `<div class="lecture${tout ? "" : " attention"}"><b>📷 Lu sur l'étiquette</b>
-    <p>${lec.numero ? "n° <b>" + esc(lec.numero) + "</b>" + (lec.numero.replace(/\D/g, "").length < 7 ? " (fin du n° non lue : ajoute-la)" : "") : "n° non lu : tape-le ci-dessous"}${lec.lieu ? ", lieu " + esc(lec.lieu) : ""}${lec.dateIso ? ", imprimée le " + esc(dh(lec.dateIso)) : ""}</p>
+    <p>${lec.numero ? "n° <b>" + esc(lec.numero) + "</b>" + (lec.parCode ? " (code-barres ✔)" : "") + (lec.numero.replace(/\D/g, "").length < 7 ? " (fin du n° non lue : ajoute-la)" : "") : "n° non lu : tape-le ci-dessous"}${lec.lieu ? ", lieu " + esc(lec.lieu) : ""}${lec.dateIso ? ", imprimée le " + esc(dh(lec.dateIso)) : ""}</p>
     ${lec.corrige && lec.avant ? `<p class="ecart"><b>✔ Corrigé d'après l'étiquette :</b> ${CHAMPS_NOTE.filter(k => lec.avant[k] !== c[k]).map(k => `${{ epaisseur: "épaisseur", largeur: "largeur", pieces: "pièces", longueur: "longueur" }[k]} ${k === "longueur" ? nf(lec.avant[k], 2) : np(lec.avant[k])} → <b>${k === "longueur" ? nf(c[k], 2) : np(c[k])}</b>`).join(", ")}. <button type="button" class="lien" data-p="desinverser">Annuler</button></p>` : ""}
     ${lec.spec ? `<p class="ecart"><b>≠ L'étiquette dit</b> ${esc(txt(lec.spec))} (ta note : ${esc(txt(c))}). <button type="button" class="lien" data-p="prendre">Prendre l'étiquette</button></p>` : ""}
     ${lec.essenceCode && !lec.essence ? `<p class="note-stats">Essence lue sur l'étiquette : « ${esc(lec.essenceCode)} ». Choisis la lettre du terminal.</p>` : ""}

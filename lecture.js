@@ -85,9 +85,36 @@
     for (const [epaisseur, largeur] of sections) for (const [pieces, longueur] of codes) for (const v of vols)
       if (pieces > 0 && longueur >= 0.5 && longueur <= 13 && Math.abs(epaisseur / 1000 * largeur / 1000 * pieces * longueur - v) < 0.0015)
         return { epaisseur, largeur, pieces, longueur, volume: v };
+    // Volume illisible : on garde quand même pièces et longueur si le code « 150/400 » est confirmé
+    // par « 150 P » ou par la longueur « 4,00 » imprimée à côté.
+    for (const [pieces, longueur] of codes) {
+      if (!(pieces > 0 && longueur >= 0.5 && longueur <= 13)) continue;
+      const pOk = new RegExp("(?:^|\\D)" + pieces + "\\s*P(?![A-Z])").test(T);
+      const [e, d] = longueur.toFixed(2).split(".");
+      const lOk = new RegExp("(?:^|\\D)" + e + "\\s?[.,]\\s?" + d + "(?!\\d)").test(T);
+      if (pOk || lOk) return { pieces, longueur, partiel: true };
+    }
     return null;
   }
 
-  const API = { verifier, trouver, lireChamps, lireSpec };
+  // Retrouve le colis en attente qui correspond à l'étiquette, même si la note contient une faute.
+  // « auto » = la section est identique (donc c'est bien le même colis : seules les pièces ou la longueur sont fausses)
+  // et un seul colis convient : on peut corriger sans demander.
+  function correspondance(spec, colis) {
+    const meme = (x, y) => x.epaisseur === y.epaisseur && x.largeur === y.largeur && x.pieces === y.pieces && x.longueur === y.longueur;
+    const scores = [];
+    for (const c of colis) {
+      const sec = (c.epaisseur === spec.epaisseur && c.largeur === spec.largeur) ? 3 : (c.epaisseur === spec.epaisseur || c.largeur === spec.largeur) ? 1 : 0;
+      const pl = Math.max((c.pieces === spec.pieces) + (c.longueur === spec.longueur), (c.pieces === spec.longueur && c.longueur === spec.pieces) ? 2 : 0);
+      if (sec + pl >= 3) scores.push({ c, sec, score: sec + pl });
+    }
+    if (!scores.length) return null;
+    const max = Math.max(...scores.map(s => s.score));
+    const egaux = scores.filter(s => s.score === max);
+    const identiques = egaux.every(s => meme(s.c, egaux[0].c));
+    return { colis: egaux[0].c, exact: max === 5, auto: egaux[0].sec === 3 && identiques };
+  }
+
+  const API = { verifier, trouver, lireChamps, lireSpec, correspondance };
   if (typeof module !== "undefined" && module.exports) module.exports = API; else racine.Lecture = API;
 })(typeof window !== "undefined" ? window : this);

@@ -671,17 +671,12 @@ $("#pc-corps").addEventListener("click", e => {
   const p = b.dataset.p;
   if (p === "valider") validerNumeroPC();
   if (p === "imprimer") { const c = sauverChampsPC(); imprimer(c.id); }
-  if (p === "photo") $("#photo-input").click();
+  if (p === "photo") { photoCible = filePC[posPC]; $("#photo-input").click(); }
   if (p === "modifier") { garderPC(); const id = filePC[posPC]; cacher("#pc"); commencerEdition(id); }
-  if (p === "prendre") { // l'étiquette fait foi : on remplace la note par ce qu'elle indique
+  if (p === "prendre") { garderPC(); const id = filePC[posPC], l = lectures[id]; if (l && l.spec) appliquerSpec(id, l.spec); rendrePC(); }
+  if (p === "desinverser") { // annuler la correction faite d'après l'étiquette
     garderPC(); const id = filePC[posPC], l = lectures[id];
-    if (l && l.spec) { enregistrer({ ...parId(id), ...l.spec, volume: undefined }); l.spec = null; l.verifs = Lecture.verifier(parId(id), l.texte); }
-    rendrePC();
-  }
-  if (p === "desinverser") {
-    garderPC(); const id = filePC[posPC], c = parId(id), l = lectures[id];
-    enregistrer({ ...c, pieces: c.longueur, longueur: c.pieces });
-    if (l) { l.corrige = false; l.verifs = Lecture.verifier(parId(id), l.texte); }
+    if (l && l.avant) { enregistrer({ ...parId(id), ...l.avant }); l.corrige = false; l.avant = null; l.verifs = Lecture.verifier(parId(id), l.texte); }
     rendrePC();
   }
   if (p === "suiv") { garderPC(); posPC++; rendrePC(); }
@@ -731,7 +726,8 @@ async function preparerImage(fichier) {
   ctx.putImageData(data, 0, 0);
   return cv;
 }
-async function lireEtiquette(fichier) {
+let photoCible = null; // colis affiché au pointage quand la photo est prise depuis cet écran
+async function lireEtiquette(fichier, cible) {
   if (!filePCTous().length) { toast("Aucun colis en attente de pointage."); return; }
   let worker;
   try {
@@ -747,57 +743,77 @@ async function lireEtiquette(fichier) {
       texte += "\n" + (await worker.recognize(image)).data.text;
     }
     etatLecture(null);
-    traiterLecture(texte);
+    traiterLecture(texte, cible);
   } catch (err) {
     etatLecture(null);
     toast(err && err.message ? err.message : "Lecture impossible : réessaie avec une photo plus nette.");
   } finally { if (worker) worker.terminate().catch(() => {}); }
 }
-function traiterLecture(texte) {
+const CHAMPS_NOTE = ["epaisseur", "largeur", "pieces", "longueur"];
+const differe = (spec, c) => CHAMPS_NOTE.some(k => spec[k] !== c[k]);
+function appliquerSpec(id, spec) { // l'étiquette fait foi : la note est remplacée (annulable)
+  const c = parId(id), l = lectures[id];
+  const avant = Object.fromEntries(CHAMPS_NOTE.map(k => [k, c[k]]));
+  enregistrer({ ...c, ...Object.fromEntries(CHAMPS_NOTE.map(k => [k, spec[k]])) });
+  if (l) { l.avant = avant; l.corrige = true; l.spec = null; l.verifs = Lecture.verifier(parId(id), l.texte); }
+}
+function traiterLecture(texte, cible) {
   const attente = filePCTous().map(parId);
   const champs = Lecture.lireChamps(texte, ESSENCE_INVERSE), spec = Lecture.lireSpec(texte);
-  let trouve = Lecture.trouver(texte, attente);
-  if (!trouve && spec) { // la note contient une erreur : on retrouve le colis par sa section
-    const memes = attente.filter(c => c.epaisseur === spec.epaisseur && c.largeur === spec.largeur);
-    if (memes.length) trouve = { colis: memes[0], verifs: Lecture.verifier(memes[0], texte) };
-  }
   const numero = champs.numero ? formatNumero(champs.numero) : "";
+
+  // 1. Quel colis ? Celui affiché au pointage, sinon celui qui ressemble le plus à l'étiquette
+  let colis = cible && parId(cible) && parId(cible).statut === "a_etiqueter" ? parId(cible) : null;
+  if (!colis && spec && !spec.partiel) { const r = Lecture.correspondance(spec, attente); if (r) colis = r.colis; }
+  if (!colis) { const r = Lecture.trouver(texte, attente); if (r) colis = r.colis; }
+  if (!colis && spec && spec.partiel) {
+    const memeSection = attente.filter(c => Lecture.verifier(c, texte).section);
+    colis = memeSection.find(c => c.pieces === spec.pieces || c.longueur === spec.longueur) || memeSection[0] || null;
+  }
+  if (!colis) { toast(`Aucun colis en attente ne correspond${numero ? " (lu : n° " + numero + ")" : ""}. Ouvre le colis dans « Pointer » puis reprends la photo depuis cet écran.`); return; }
   if (numero) {
-    const d = doublon(numero, null);
+    const d = doublon(numero, colis.id);
     if (d) { toast(`Le n° ${numero} est déjà pointé : ${section(d)}, ${cdeTxt(d)}.`); return; }
   }
-  if (!trouve) { toast(`Aucun colis en attente ne correspond${numero ? " (lu : n° " + numero + ")" : ""}. Rapproche-toi de l'étiquette, à plat et bien éclairée, puis réessaie.`); return; }
   let dateIso = null;
   if (champs.date) {
     const d = new Date(champs.date.an, champs.date.mois - 1, champs.date.jour, champs.date.h, champs.date.min), t0 = d.getTime();
-    if (!isNaN(t0) && t0 <= Date.now() + 2 * 3600e3 && t0 >= Date.now() - 14 * 86400e3 && t0 >= t(trouve.colis.cree_le) - 3600e3) dateIso = d.toISOString();
+    if (!isNaN(t0) && t0 <= Date.now() + 2 * 3600e3 && t0 >= Date.now() - 14 * 86400e3 && t0 >= t(colis.cree_le) - 3600e3) dateIso = d.toISOString();
   }
   if (!$("#pc").hidden) garderPC();
-  let colis = trouve.colis, verifs = trouve.verifs, corrige = false;
-  if (verifs.inverse) { // la note avait pièces et longueur inversés : on corrige d'après l'étiquette (annulable)
-    colis = { ...colis, pieces: colis.longueur, longueur: colis.pieces };
-    enregistrer(colis); verifs = Lecture.verifier(colis, texte); corrige = true;
+  const id = colis.id;
+  lectures[id] = { numero, lieu: champs.lieu, choix: champs.choix, essence: champs.essence, essenceCode: champs.essenceCode, options: champs.options, dateIso, texte, spec: null, corrige: false, avant: null, verifs: null };
+
+  // 2. L'étiquette corrige la note toute seule (section, pièces, longueur) — annulable
+  const c0 = parId(id), avant = Object.fromEntries(CHAMPS_NOTE.map(k => [k, c0[k]]));
+  const nouveau = spec ? Object.fromEntries(CHAMPS_NOTE.filter(k => spec[k] != null).map(k => [k, spec[k]])) : {};
+  if (!spec && Lecture.verifier(c0, texte).inverse) { nouveau.pieces = c0.longueur; nouveau.longueur = c0.pieces; }
+  if (Object.keys(nouveau).some(k => nouveau[k] !== c0[k])) {
+    enregistrer({ ...c0, ...nouveau });
+    Object.assign(lectures[id], { avant, corrige: true });
   }
-  const different = spec && (spec.epaisseur !== colis.epaisseur || spec.largeur !== colis.largeur || spec.pieces !== colis.pieces || spec.longueur !== colis.longueur);
-  lectures[colis.id] = { numero, lieu: champs.lieu, choix: champs.choix, essence: champs.essence, essenceCode: champs.essenceCode, options: champs.options, dateIso, verifs, corrige, texte, spec: different ? spec : null };
+  lectures[id].verifs = Lecture.verifier(parId(id), texte);
+
   const ids = filePCTous();
-  filePC = ids; posPC = Math.max(0, ids.indexOf(colis.id));
+  filePC = ids; posPC = Math.max(0, ids.indexOf(id));
   rendrePC(); montrer("#pc");
+  toast(lectures[id].corrige ? "Note corrigée d'après l'étiquette" : numero ? `N° ${numero} ajouté` : "Étiquette lue");
 }
 function bandeauLecture(lec, c) {
   if (!lec) return "";
   const v = lec.verifs, tout = v.section && v.pieces && v.longueur && v.volume && lec.numero && lec.numero.replace(/\D/g, "").length >= 7;
   const lignes = [["Section", v.section], ["Pièces", v.pieces], ["Longueur", v.longueur], ["Volume", v.volume]];
+  const txt = x => `${x.epaisseur} × ${x.largeur}, ${np(x.pieces)} pièces de ${nf(x.longueur, 2)} m`;
   return `<div class="lecture${tout ? "" : " attention"}"><b>📷 Lu sur l'étiquette</b>
     <p>${lec.numero ? "n° <b>" + esc(lec.numero) + "</b>" + (lec.numero.replace(/\D/g, "").length < 7 ? " (fin du n° non lue : ajoute-la)" : "") : "n° non lu : tape-le ci-dessous"}${lec.lieu ? ", lieu " + esc(lec.lieu) : ""}${lec.dateIso ? ", imprimée le " + esc(dh(lec.dateIso)) : ""}</p>
-    ${lec.spec ? `<p class="ecart"><b>≠ L'étiquette dit</b> ${lec.spec.epaisseur} × ${lec.spec.largeur}, ${np(lec.spec.pieces)} pièces de ${nf(lec.spec.longueur, 2)} m (ta note : ${esc(section(c))}, ${np(c.pieces)} pièces de ${nf(c.longueur, 2)} m). <button type="button" class="lien" data-p="prendre">Prendre l'étiquette</button></p>` : ""}
+    ${lec.corrige && lec.avant ? `<p class="ecart"><b>✔ Corrigé d'après l'étiquette :</b> ${CHAMPS_NOTE.filter(k => lec.avant[k] !== c[k]).map(k => `${{ epaisseur: "épaisseur", largeur: "largeur", pieces: "pièces", longueur: "longueur" }[k]} ${k === "longueur" ? nf(lec.avant[k], 2) : np(lec.avant[k])} → <b>${k === "longueur" ? nf(c[k], 2) : np(c[k])}</b>`).join(", ")}. <button type="button" class="lien" data-p="desinverser">Annuler</button></p>` : ""}
+    ${lec.spec ? `<p class="ecart"><b>≠ L'étiquette dit</b> ${esc(txt(lec.spec))} (ta note : ${esc(txt(c))}). <button type="button" class="lien" data-p="prendre">Prendre l'étiquette</button></p>` : ""}
     ${lec.essenceCode && !lec.essence ? `<p class="note-stats">Essence lue sur l'étiquette : « ${esc(lec.essenceCode)} ». Choisis la lettre du terminal.</p>` : ""}
-    ${lec.corrige ? `<p><b>↔ Corrigé :</b> ta note avait pièces et longueur inversés. Maintenant : ${np(c.pieces)} pièces de ${nf(c.longueur, 2)} m. <button type="button" class="lien" data-p="desinverser">Annuler</button></p>` : ""}
     <div class="verifs">${lignes.map(([l, ok]) => `<i class="${ok ? "ok" : "ko"}">${l} ${ok ? "✔" : "?"}</i>`).join("")}</div>
     ${tout ? "" : `<p class="note-stats">Un « ? » veut dire non lu ou différent de ta note : compare avec l'étiquette avant de pointer.</p>`}</div>`;
 }
-$("#photo-input").addEventListener("change", e => { const f = e.target.files && e.target.files[0]; e.target.value = ""; if (f) lireEtiquette(f); });
-$("#btn-photo").addEventListener("click", () => $("#photo-input").click());
+$("#photo-input").addEventListener("change", e => { const f = e.target.files && e.target.files[0]; e.target.value = ""; const cible = photoCible; photoCible = null; if (f) lireEtiquette(f, cible); });
+$("#btn-photo").addEventListener("click", () => { photoCible = null; $("#photo-input").click(); });
 
 /* ═════════════ Copie d'étiquette imprimable ═════════════ */
 function htmlEtiquette(c) {

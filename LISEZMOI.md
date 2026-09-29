@@ -29,6 +29,7 @@ Ensuite les colis, les dates de pointage et tes couleurs sont sauvegardés en li
 Au PC, après l'impression : bouton « 📷 Photo de l'étiquette » (onglet Colis, ou dans l'écran de pointage).
 L'appli lit l'étiquette, retrouve le colis en attente qui correspond, remplit le n°, le lieu et les options,
 et vérifie section, pièces, longueur et volume. Tu ajoutes la commande (ou Stock) puis tu appuies sur « Pointer ».
+- Si ta note contient une faute sur les pièces ou la longueur (ex. 45 au lieu de 150), l'étiquette la corrige toute seule, et un bouton « Annuler » remet ta saisie. En cas de doute (plusieurs colis proches, section différente), l'appli propose seulement « Prendre l'étiquette ».
 - Il faut internet la première fois (le lecteur se télécharge une fois, puis reste dans l'appli).
 - Photo à plat, bien éclairée, étiquette bien cadrée. Si un « ? » apparaît, compare avec l'étiquette avant de pointer.
 - Pour masquer les boutons photo : `PHOTO: false` dans `config.js`.

@@ -1,0 +1,246 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Colis SDC</title>
+<meta name="theme-color" content="#7C9577">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Colis">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600&family=Figtree:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="fond" aria-hidden="true"></div>
+
+<!-- ───────── Connexion ───────── -->
+<div id="login" class="login" hidden>
+  <form class="carte login-carte" id="login-form">
+    <img src="icons/icon-192.png" alt="" class="login-logo">
+    <h1 class="titre">Colis SDC</h1>
+    <label class="champ"><span>E-mail</span><input type="email" id="login-email" autocomplete="username" required></label>
+    <label class="champ"><span>Mot de passe</span><input type="password" id="login-mdp" autocomplete="current-password" required></label>
+    <p class="erreur" id="login-erreur" hidden></p>
+    <button class="btn btn-principal" type="submit">Se connecter</button>
+  </form>
+</div>
+
+<!-- ───────── En-tête ───────── -->
+<header class="entete">
+  <h1 class="titre" id="entete-titre">Calepin</h1>
+  <button class="pastille-synchro" id="synchro-pastille" type="button" aria-label="État de la synchronisation"></button>
+</header>
+
+<main class="contenu">
+
+  <!-- ───────── Nouveau colis ───────── -->
+  <section id="vue-nouveau" class="vue">
+    <button type="button" class="btn btn-pc" id="btn-pointer" hidden></button>
+    <form id="form-colis" autocomplete="off" novalidate>
+      <div class="bandeau-edition" id="bandeau-edition" hidden>
+        <span>Modification du colis <b id="edition-ref"></b></span>
+        <button type="button" class="lien" id="btn-annuler-edition">Annuler</button>
+      </div>
+
+      <div class="carte carte-or" id="carte-commande" hidden>
+        <div class="carte-tete">
+          <h2 class="sous-titre">Commande</h2>
+          <button type="button" class="lien" id="btn-nouvelle-cde">Nouvelle commande</button>
+        </div>
+        <div class="ligne-2">
+          <label class="champ"><span>N° commande</span>
+            <input id="f-commande" inputmode="numeric" placeholder="34114"></label>
+          <label class="champ"><span>Lieu de stock</span>
+            <input id="f-lieu" class="majuscules" placeholder="G7" autocapitalize="characters"></label>
+        </div>
+      </div>
+
+      <div class="carte">
+        <h2 class="sous-titre">Colis</h2>
+        <span class="etiquette-champ">Section (mm)</span>
+        <div class="section">
+          <label class="champ"><input id="f-epaisseur" inputmode="numeric" placeholder="75" aria-label="Épaisseur"><small>épaisseur</small></label>
+          <span class="fois">×</span>
+          <label class="champ"><input id="f-largeur" inputmode="numeric" placeholder="110" aria-label="Largeur"><small>largeur</small></label>
+        </div>
+
+        <label class="champ"><span>Longueur</span>
+          <div class="avec-unite"><input id="f-longueur" inputmode="decimal" placeholder="4,00"><em>m</em></div></label>
+        <div class="champ"><span>Pièces</span>
+          <div class="stepper stepper-grand">
+            <button type="button" data-pas="-1" aria-label="Moins">−</button>
+            <input id="f-pieces" inputmode="numeric" placeholder="0">
+            <button type="button" data-pas="1" aria-label="Plus">+</button>
+          </div></div>
+
+        <p class="volume" id="volume-live">Volume : –</p>
+
+        <div id="bloc-plus" hidden>
+        <span class="etiquette-champ">Options</span>
+        <div class="puces" id="f-options"></div>
+
+        <details class="details" id="details">
+          <summary><span>Plus de détails</span><span class="resume" id="resume-details"></span></summary>
+          <div class="ligne-3">
+            <label class="champ"><span>Essence</span><input id="f-essence" class="majuscules" autocapitalize="characters"></label>
+            <label class="champ"><span>Choix</span><input id="f-choix" inputmode="numeric"></label>
+            <label class="champ"><span>Nature</span><input id="f-nature" class="majuscules" autocapitalize="characters"></label>
+          </div>
+          <label class="champ"><span>Autres options <i>facultatif</i></span><input id="f-options-libres" class="majuscules" placeholder="séparées par un espace" autocapitalize="characters"></label>
+          <label class="champ"><span>Référence client <i>facultatif</i></span><input id="f-ref"></label>
+          <label class="champ"><span>Observation <i>facultatif</i></span><textarea id="f-observation" rows="2"></textarea></label>
+        </details>
+        </div>
+      </div>
+
+      <div class="carte" id="carte-numero" hidden>
+        <label class="champ"><span>N° étiquette <i>ex. 2000001</i></span>
+          <input id="f-numero" inputmode="numeric" class="gros-chiffre" placeholder="200-000-1"></label>
+        <p class="alerte" id="alerte-numero" hidden></p>
+      </div>
+
+      <p class="erreur" id="form-erreur" hidden></p>
+      <div class="actions">
+        <button type="submit" class="btn btn-principal" id="btn-generer">Ajouter au calepin</button>
+        <button type="button" class="btn btn-secondaire" id="btn-suivant" hidden>Enregistrer</button>
+      </div>
+    </form>
+    <div id="calepin" hidden>
+      <div class="groupe"><h3>Dans le calepin</h3><span id="calepin-total"></span></div>
+      <div id="calepin-liste"></div>
+    </div>
+  </section>
+
+  <!-- ───────── Liste des colis ───────── -->
+  <section id="vue-colis" class="vue" hidden>
+    <div class="recherche">
+      <input type="search" id="recherche" placeholder="N° étiquette, commande, lieu, section…" enterkeyhint="search">
+    </div>
+    <div class="filtres" id="filtres">
+      <button type="button" data-filtre="a_etiqueter" class="actif">En attente de pointage <b></b></button>
+      <button type="button" data-filtre="a_sortir">Pointés ✅ <b></b></button>
+      <button type="button" data-filtre="sorti">Sortis</button>
+    </div>
+    <button type="button" class="btn btn-pc" id="btn-file-pc" hidden></button>
+    <button type="button" class="btn btn-secondaire btn-photo" id="btn-photo" hidden>📷 Photo de l'étiquette</button>
+    <div id="liste"></div>
+  </section>
+
+  <!-- ───────── Statistiques ───────── -->
+  <section id="vue-stats" class="vue" hidden>
+    <div class="filtres" id="stats-periode">
+      <button type="button" data-per="1">Aujourd'hui</button>
+      <button type="button" data-per="hier">Hier</button>
+      <button type="button" data-per="7" class="actif">7 jours</button>
+      <button type="button" data-per="30">30 jours</button>
+      <button type="button" data-per="mois">Ce mois</button>
+      <button type="button" data-per="tout">Tout</button>
+    </div>
+    <div id="stats-corps"></div>
+    <details class="pli">
+      <summary><span>Dates précises</span></summary>
+      <div class="pli-corps"><div class="ligne-2 stats-plage">
+        <label class="champ"><span>Du</span><input type="date" id="stats-du"></label>
+        <label class="champ"><span>Au</span><input type="date" id="stats-au"></label>
+      </div></div>
+    </details>
+  </section>
+
+  <!-- ───────── Réglages ───────── -->
+  <section id="vue-reglages" class="vue" hidden>
+    <details class="pli">
+      <summary><span>Apparence</span></summary>
+      <div class="pli-corps">
+      <div class="puces" id="themes"></div>
+      <div class="couleurs">
+        <label class="couleur"><span>Principale</span><input type="color" id="c-vert"></label>
+        <label class="couleur"><span>Accent</span><input type="color" id="c-or"></label>
+        <label class="couleur"><span>Fond</span><input type="color" id="c-fond"></label>
+      </div>
+      <label class="interrupteur"><input type="checkbox" id="c-image"><span>Image de forêt en fond</span></label>
+      </div>
+    </details>
+    <details class="pli">
+      <summary><span>Base de données Supabase</span></summary>
+      <div class="pli-corps">
+      <p id="reglage-synchro"></p>
+      <div id="bloc-liaison" hidden>
+        <label class="champ"><span>URL du projet</span><input id="sb-url" inputmode="url" autocapitalize="off" autocorrect="off" placeholder="https://xxxx.supabase.co"></label>
+        <label class="champ"><span>Clé « anon public »</span><input id="sb-cle" autocapitalize="off" autocorrect="off" placeholder="eyJ…"></label>
+        <button type="button" class="btn btn-principal" id="btn-lier">Relier à Supabase</button>
+      </div>
+      <div class="actions">
+        <button type="button" class="btn btn-secondaire" id="btn-synchro">Synchroniser maintenant</button>
+        <button type="button" class="btn btn-discret" id="btn-deconnexion" hidden>Se déconnecter</button>
+        <button type="button" class="btn btn-discret" id="btn-delier" hidden>Délier de Supabase</button>
+      </div>
+      </div>
+    </details>
+    <details class="pli">
+      <summary><span>Exporter</span></summary>
+      <div class="pli-corps">
+      <p>Tous les colis dans un fichier lisible par Excel.</p>
+      <button type="button" class="btn btn-secondaire" id="btn-export">Télécharger en CSV</button>
+      </div>
+    </details>
+    <p class="version">Colis SDC · v1.7</p>
+  </section>
+</main>
+
+<!-- ───────── Barre d'onglets ───────── -->
+<nav class="onglets">
+  <button type="button" data-vue="nouveau" class="actif">
+    <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg><span>Calepin</span></button>
+  <button type="button" data-vue="colis">
+    <svg viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="4" rx="1"/><rect x="3" y="10" width="18" height="4" rx="1"/><rect x="3" y="14" width="18" height="4" rx="1"/></svg><span>Colis</span></button>
+  <button type="button" data-vue="stats">
+    <svg viewBox="0 0 24 24"><path d="M5 20V11M12 20V4M19 20v-6"/></svg><span>Stats</span></button>
+  <button type="button" data-vue="reglages">
+    <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1 7 17M17 7l2.1-2.1"/></svg><span>Réglages</span></button>
+</nav>
+
+<!-- ───────── Fiche colis ───────── -->
+<div class="feuille" id="fiche" hidden>
+  <div class="feuille-fond" data-fermer></div>
+  <div class="feuille-panneau" role="dialog" aria-modal="true" aria-labelledby="fiche-titre">
+    <div class="feuille-tete">
+      <h2 class="titre" id="fiche-titre"></h2>
+      <button type="button" class="fermer" data-fermer aria-label="Fermer">×</button>
+    </div>
+    <div id="fiche-corps"></div>
+  </div>
+</div>
+
+<!-- ───────── Mode PC ───────── -->
+<div class="feuille" id="pc" hidden>
+  <div class="feuille-fond" data-fermer></div>
+  <div class="feuille-panneau feuille-large" role="dialog" aria-modal="true" aria-labelledby="pc-titre">
+    <div class="feuille-tete">
+      <h2 class="titre" id="pc-titre">Pointage au PC</h2>
+      <button type="button" class="fermer" data-fermer aria-label="Fermer">×</button>
+    </div>
+    <div id="pc-corps"></div>
+  </div>
+</div>
+
+<input type="file" id="photo-input" accept="image/*" capture="environment" hidden>
+<div class="lecture-etat" id="lecture-etat" hidden><i class="tourne"></i><span id="lecture-txt"></span></div>
+
+<div class="toast" id="toast" hidden><span id="toast-txt"></span><button type="button" id="toast-action" hidden></button></div>
+
+<!-- Zone imprimée (copie d'étiquette) -->
+<div id="impression" aria-hidden="true"></div>
+
+<script src="config.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script src="lecture.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

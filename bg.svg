@@ -1,0 +1,77 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 1600" preserveAspectRatio="xMidYMid slice">
+  <defs>
+    <linearGradient id="ciel" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#E6ECE2"/>
+      <stop offset="0.55" stop-color="#D3DDCC"/>
+      <stop offset="1" stop-color="#C4CFB8"/>
+    </linearGradient>
+    <filter id="flou" x="-10%" y="-10%" width="120%" height="120%"><feGaussianBlur stdDeviation="14"/></filter>
+    <filter id="flouLeger"><feGaussianBlur stdDeviation="3"/></filter>
+    <radialGradient id="bout" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#E7D3AA"/>
+      <stop offset="0.8" stop-color="#D6B887"/>
+      <stop offset="1" stop-color="#A9855B"/>
+    </radialGradient>
+    <g id="sapin"><path d="M0 0 L-38 70 L-18 70 L-52 140 L-24 140 L-64 220 L64 220 L24 140 L52 140 L18 70 L38 70 Z"/></g>
+    <g id="rondin">
+      <circle r="60" fill="url(#bout)"/>
+      <circle r="44" fill="none" stroke="#BE9C6C" stroke-width="3"/>
+      <circle r="28" fill="none" stroke="#BE9C6C" stroke-width="3"/>
+      <circle r="12" fill="none" stroke="#BE9C6C" stroke-width="3"/>
+    </g>
+  </defs>
+
+  <rect width="1200" height="1600" fill="url(#ciel)"/>
+
+  <!-- forêt lointaine -->
+  <g fill="#BACAB3" filter="url(#flouLeger)">
+    <use href="#sapin" transform="translate(60 420) scale(1.3)"/>
+    <use href="#sapin" transform="translate(190 470) scale(1.1)"/>
+    <use href="#sapin" transform="translate(320 400) scale(1.4)"/>
+    <use href="#sapin" transform="translate(470 460) scale(1.15)"/>
+    <use href="#sapin" transform="translate(600 410) scale(1.35)"/>
+    <use href="#sapin" transform="translate(740 470) scale(1.1)"/>
+    <use href="#sapin" transform="translate(870 400) scale(1.4)"/>
+    <use href="#sapin" transform="translate(1010 450) scale(1.2)"/>
+    <use href="#sapin" transform="translate(1140 410) scale(1.35)"/>
+  </g>
+  <rect y="690" width="1200" height="120" fill="#BACAB3" filter="url(#flouLeger)"/>
+  <g fill="#A3B79E" filter="url(#flouLeger)">
+    <use href="#sapin" transform="translate(0 560) scale(1.6)"/>
+    <use href="#sapin" transform="translate(150 610) scale(1.3)"/>
+    <use href="#sapin" transform="translate(1060 580) scale(1.5)"/>
+    <use href="#sapin" transform="translate(1200 620) scale(1.3)"/>
+  </g>
+  <rect y="790" width="1200" height="810" fill="#C8D1BC"/>
+
+  <!-- pile de rondins, floue comme l'appli de ventes -->
+  <g filter="url(#flou)" opacity="0.9">
+    <use href="#rondin" transform="translate(80 1330) scale(1.5)"/>
+    <use href="#rondin" transform="translate(260 1330) scale(1.5)"/>
+    <use href="#rondin" transform="translate(440 1330) scale(1.5)"/>
+    <use href="#rondin" transform="translate(620 1330) scale(1.5)"/>
+    <use href="#rondin" transform="translate(800 1330) scale(1.5)"/>
+    <use href="#rondin" transform="translate(980 1330) scale(1.5)"/>
+    <use href="#rondin" transform="translate(1160 1330) scale(1.5)"/>
+    <use href="#rondin" transform="translate(170 1480) scale(1.5)"/>
+    <use href="#rondin" transform="translate(350 1480) scale(1.5)"/>
+    <use href="#rondin" transform="translate(530 1480) scale(1.5)"/>
+    <use href="#rondin" transform="translate(710 1480) scale(1.5)"/>
+    <use href="#rondin" transform="translate(890 1480) scale(1.5)"/>
+    <use href="#rondin" transform="translate(1070 1480) scale(1.5)"/>
+  </g>
+
+  <!-- tronc couché avec la tronçonneuse posée -->
+  <g filter="url(#flouLeger)" opacity="0.85">
+    <rect x="300" y="1040" width="620" height="120" rx="24" fill="#9E8263"/>
+    <path d="M320 1070 H900 M330 1110 H880 M340 1140 H860" stroke="#8A6E51" stroke-width="4" fill="none"/>
+    <ellipse cx="920" cy="1100" rx="42" ry="60" fill="url(#bout)"/>
+    <ellipse cx="920" cy="1100" rx="26" ry="38" fill="none" stroke="#BE9C6C" stroke-width="3"/>
+    <!-- tronçonneuse -->
+    <rect x="560" y="1000" width="300" height="22" rx="11" fill="#9AA29C"/>
+    <rect x="566" y="1004" width="288" height="14" rx="7" fill="none" stroke="#7E8781" stroke-width="3" stroke-dasharray="6 5"/>
+    <rect x="450" y="962" width="140" height="80" rx="18" fill="#B98A5E"/>
+    <rect x="470" y="944" width="90" height="26" rx="12" fill="none" stroke="#5E675F" stroke-width="10"/>
+    <rect x="430" y="1000" width="36" height="34" rx="10" fill="#5E675F"/>
+  </g>
+</svg>

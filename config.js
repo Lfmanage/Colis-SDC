@@ -9,7 +9,12 @@ window.COLIS_CONFIG = {
   SUPABASE_ANON_KEY: "",
 
   // Valeurs pré-remplies dans « Nouveau colis »
-  DEFAUTS: { essence: "S", choix: "20", nature: "G", options: ["TR"] },
+  // Seule la nature (G) ne change jamais. L'essence et le lieu changent : ils se choisissent à chaque colis.
+  DEFAUTS: { essence: "", choix: "20", nature: "G", options: [] },
+
+  // Essences proposées en un tap au pointage (lettre du terminal, ex. ["S", "D"]).
+  // Celles déjà utilisées sur des colis apparaissent aussi toutes seules.
+  ESSENCES: [],
 
   // Lieux de stockage proposés en un tap quand tu choisis « Stock » (ex. ["G7", "H1"]).
   // Les lieux déjà utilisés sur des colis apparaissent aussi tout seuls.

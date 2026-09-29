@@ -39,6 +39,7 @@ Si l'ancienne version reste affichée, augmente `VERSION` dans `sw.js` (ex. `col
 
 ## Réglages utiles (config.js)
 - `DEFAUTS` : essence, choix, nature et options pré-remplis.
+- `ESSENCES` : essences proposées en un tap au pointage (lettre du terminal). `ESSENCE_ETIQUETTE` : le code imprimé sur l'étiquette pour chaque lettre (ex. S → SE).
 - `LIEUX` : lieux de stockage proposés en un tap quand tu choisis « Stock » (les lieux déjà utilisés apparaissent aussi tout seuls).
 - `OPTIONS` : les options proposées en un tap (TR, CR…).
 - `ESSENCE_ETIQUETTE` : code imprimé sur la copie (S → SE).

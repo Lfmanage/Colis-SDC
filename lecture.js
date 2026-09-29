@@ -60,9 +60,9 @@
     else if ((m = T.match(/(?:^|\D)(\d{6})(\d{1,2})(?!\d)/))) numero = m[1] + m[2];
     else if ((m = T.match(/(?:^|\D)(\d{6})(?!\d)/))) numero = m[1]; // 6 chiffres lus, suffixe non lu
 
-    let choix = "", essence = "", lieu = "";
+    let choix = "", essence = "", essenceCode = "", lieu = "";
     if ((m = T.match(/(?:^|\D)(\d{2})[ \t]*([A-Z]{1,2})[ \t]+([A-Z]\d{1,2})(?![A-Z0-9])/))) {
-      choix = m[1]; essence = (essenceInverse && essenceInverse[m[2]]) || m[2]; lieu = m[3];
+      choix = m[1]; essenceCode = m[2]; essence = (essenceInverse && essenceInverse[m[2]]) || ""; lieu = m[3];
     }
 
     const options = /\bTR\s*CR\b|\bTRCR\b/.test(T) ? ["TR", "CR"]
@@ -72,9 +72,22 @@
     if ((m = T.match(/(?:^|\D)(\d{2})\.(\d{2})\.(\d{2})\s+(\d{2})[:H]?(\d{2})(?!\d)/)))
       date = { jour: +m[1], mois: +m[2], an: 2000 + +m[3], h: +m[4], min: +m[5] };
 
-    return { numero, choix, essence, lieu, options, date };
+    return { numero, choix, essence, essenceCode, lieu, options, date };
   }
 
-  const API = { verifier, trouver, lireChamps };
+  // Section, pièces et longueur imprimées sur l'étiquette. Elles ne sont gardées que si le calcul
+  // épaisseur × largeur × pièces × longueur retombe sur le volume imprimé : sinon la lecture n'est pas fiable.
+  function lireSpec(texte) {
+    const T = N(texte);
+    const vols = [...T.matchAll(/(?:^|\D)(\d{1,3})[.,]\s?(\d{3})(?!\d)/g)].map(m => +(m[1] + "." + m[2]));
+    const sections = [...T.matchAll(/(?:^|\D)(\d{2,3})\s*[X*]\s*(\d{2,3})(?!\d)/g)].map(m => [+m[1], +m[2]]);
+    const codes = [...T.matchAll(/(?:^|\D)(\d{1,4})\s*\/\s*(\d{3,4})(?!\d)/g)].map(m => [+m[1], +m[2] / 100]);
+    for (const [epaisseur, largeur] of sections) for (const [pieces, longueur] of codes) for (const v of vols)
+      if (pieces > 0 && longueur >= 0.5 && longueur <= 13 && Math.abs(epaisseur / 1000 * largeur / 1000 * pieces * longueur - v) < 0.0015)
+        return { epaisseur, largeur, pieces, longueur, volume: v };
+    return null;
+  }
+
+  const API = { verifier, trouver, lireChamps, lireSpec };
   if (typeof module !== "undefined" && module.exports) module.exports = API; else racine.Lecture = API;
 })(typeof window !== "undefined" ? window : this);

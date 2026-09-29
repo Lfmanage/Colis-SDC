@@ -2,7 +2,7 @@
 "use strict";
 
 const CFG = window.COLIS_CONFIG || {};
-const DEF = Object.assign({ essence: "S", choix: "20", nature: "G", options: [] }, CFG.DEFAUTS || {});
+const DEF = Object.assign({ essence: "", choix: "20", nature: "G", options: [] }, CFG.DEFAUTS || {});
 const OPTIONS = CFG.OPTIONS || { TR: "Fongi. coloré", CR: "Cœur refendu" };
 const K = { reglages: "colis.reglages.v1", data: "colis.donnees.v1", attente: "colis.attente.v1", tire: "colis.tire.v1", memo: "colis.memo.v1", synchro: "colis.synchroOk.v1" };
 const STOCK = "STOCK"; // un colis « du stock » n'a pas de commande : sa commande vaut STOCK
@@ -180,7 +180,7 @@ function remplirForm(c) {
 
 function formVierge() {
   // au calepin on ne note que section, longueur et pièces : commande, lieu et options se complètent au PC
-  remplirForm({ commande: "", lieu: "", ref_client: "", essence: DEF.essence, choix: DEF.choix, nature: DEF.nature, options: [] });
+  remplirForm({ commande: "", lieu: "", ref_client: "", essence: "", choix: DEF.choix, nature: DEF.nature, options: [] });
 }
 
 function lireForm() {
@@ -530,6 +530,8 @@ function rendrePC() {
   const brut = c.commande || d.commande || "", lieu = c.lieu || (lec && lec.lieu) || d.lieu || "", ref = c.ref_client || d.ref_client || "";
   pcType = brut === STOCK ? "stock" : "cde";
   const commande = brut === STOCK ? "" : brut;
+  const essenceVal = (lec && lec.essence) || c.essence || "";
+  const essencesHtml = essencesConnues().map(x => `<button type="button" class="puce" data-ess="${esc(x)}" aria-pressed="${x === essenceVal.toUpperCase()}">${esc(x)}</button>`).join("");
   const lieuxHtml = lieuxConnus().map(l => `<button type="button" class="puce" data-lieu="${esc(l)}" aria-pressed="false">${esc(l)}</button>`).join("");
   const plusieurs = filePC.length > 1;
   const cell = (lab, id, cls = "") => `<div class="${cls}"><span>${lab}</span><b id="t-${id}" class="vide">—</b></div>`;
@@ -545,21 +547,19 @@ function rendrePC() {
         <button type="button" data-type="cde" aria-pressed="true">Commande</button>
         <button type="button" data-type="stock" aria-pressed="false">Stock</button>
       </div>
-      <div id="pc-lieux" hidden>
-        <span class="etiquette-champ">Lieu de stockage</span>
-        <div class="puces">${lieuxHtml || `<small class="note-stats">Aucun lieu enregistré : tape-le ci-dessous.</small>`}</div>
-      </div>
       <div class="ligne-2" id="pc-ligne">
         <label class="champ" id="pc-champ-commande"><span>N° commande</span><input id="pc-commande" inputmode="numeric" placeholder="34114" value="${esc(commande)}"></label>
         <label class="champ"><span id="pc-lieu-lab">Lieu de stock</span><input id="pc-lieu" class="majuscules" placeholder="G7" autocapitalize="characters" value="${esc(lieu)}"></label>
       </div>
+      ${lieuxHtml ? `<div id="pc-lieux"><span class="etiquette-champ">Lieux récents</span><div class="puces">${lieuxHtml}</div></div>` : ""}
+      <label class="champ"><span>Essence</span><input id="pc-essence" class="majuscules" autocapitalize="characters" placeholder="S" value="${esc(essenceVal)}"></label>
+      ${essencesHtml ? `<div class="puces" id="pc-essences">${essencesHtml}</div>` : ""}
       <span class="etiquette-champ">Options</span>
       <div class="puces" id="pc-options">${Object.entries(OPTIONS).map(([k, lib]) =>
         `<button type="button" class="puce" data-popt="${esc(k)}" aria-pressed="${pcOptions.has(k)}">${esc(k)} <small>${esc(lib)}</small></button>`).join("")}</div>
       <details class="details">
         <summary><span>Plus de détails</span></summary>
-        <div class="ligne-3">
-          <label class="champ"><span>Essence</span><input id="pc-essence" class="majuscules" autocapitalize="characters" value="${esc((lec && lec.essence) || c.essence || DEF.essence)}"></label>
+        <div class="ligne-2">
           <label class="champ"><span>Choix</span><input id="pc-choix" inputmode="numeric" value="${esc((lec && lec.choix) || c.choix || DEF.choix)}"></label>
           <label class="champ"><span>Nature</span><input id="pc-nature" class="majuscules" autocapitalize="characters" value="${esc(c.nature || DEF.nature)}"></label>
         </div>
@@ -579,11 +579,22 @@ function rendrePC() {
     </div>
     <p class="alerte" id="pc-alerte" hidden></p>
     <div class="actions" style="margin-top:6px">
+      <button type="button" class="btn btn-secondaire" data-p="modifier">✏️ Corriger la note (section, pièces, longueur)</button>
       <button type="button" class="btn btn-secondaire" data-p="photo">📷 Photo de l'étiquette</button>
       <button type="button" class="btn btn-secondaire" data-p="imprimer">Imprimer la copie de l'étiquette</button>
     </div>`;
   appliquerTypePC(); majTerminal();
   if (matchMedia("(pointer: fine)").matches) PC(pcType === "stock" ? (lieu ? "numero" : "lieu") : (commande && lieu ? "numero" : commande ? "lieu" : "commande")).focus();
+}
+function essencesConnues() {
+  const n = {};
+  actifs().forEach(c => { if (c.essence) n[c.essence] = (n[c.essence] || 0) + 1; });
+  const frequentes = Object.entries(n).sort((x, y) => y[1] - x[1]).map(x => x[0]);
+  return [...new Set([...(CFG.ESSENCES || []), ...frequentes])].slice(0, 8);
+}
+function majChipsEssence() {
+  const v = PC("essence").value.trim().toUpperCase();
+  $$("#pc-essences [data-ess]").forEach(b => b.setAttribute("aria-pressed", b.dataset.ess === v));
 }
 function lieuxConnus() {
   const n = {};
@@ -600,8 +611,6 @@ function appliquerTypePC() {
   $$("#pc-type [data-type]").forEach(b => b.setAttribute("aria-pressed", b.dataset.type === pcType));
   $("#pc-champ-commande").hidden = stock;
   $("#pc-ligne").classList.toggle("une-colonne", stock);
-  $("#pc-lieux").hidden = !stock;
-  $("#pc-lieu-lab").textContent = stock ? "Autre lieu" : "Lieu de stock";
   majChipsLieu();
 }
 function champsPC() {
@@ -628,6 +637,7 @@ function validerNumeroPC() {
   const a = $("#pc-alerte"), erreur = m => { a.textContent = m; a.hidden = false; };
   const ch = champsPC();
   if (pcType === "stock" ? !ch.lieu : (!ch.commande || !ch.lieu)) return erreur(pcType === "stock" ? "Choisis le lieu de stockage." : "Renseigne la commande et le lieu de stock (feuille de commande).");
+  if (!ch.essence) return erreur("Choisis l'essence du bois (S, D…).");
   const numero = formatNumero(PC("numero").value);
   if (numero.replace(/\D/g, "").length < 7 && avertiNumero !== numero) {
     avertiNumero = numero;
@@ -648,6 +658,8 @@ const garderPC = () => { if (PC("lieu") && (PC("lieu").value.trim() || (pcType !
 $("#pc-corps").addEventListener("click", e => {
   const ty = e.target.closest("[data-type]");
   if (ty) { pcType = ty.dataset.type; appliquerTypePC(); majTerminal(); return; }
+  const es = e.target.closest("[data-ess]");
+  if (es) { PC("essence").value = es.dataset.ess; majChipsEssence(); majTerminal(); return; }
   const li = e.target.closest("[data-lieu]");
   if (li) { PC("lieu").value = li.dataset.lieu; majChipsLieu(); majTerminal(); return; }
   const o = e.target.closest("[data-popt]");
@@ -660,6 +672,12 @@ $("#pc-corps").addEventListener("click", e => {
   if (p === "valider") validerNumeroPC();
   if (p === "imprimer") { const c = sauverChampsPC(); imprimer(c.id); }
   if (p === "photo") $("#photo-input").click();
+  if (p === "modifier") { garderPC(); const id = filePC[posPC]; cacher("#pc"); commencerEdition(id); }
+  if (p === "prendre") { // l'étiquette fait foi : on remplace la note par ce qu'elle indique
+    garderPC(); const id = filePC[posPC], l = lectures[id];
+    if (l && l.spec) { enregistrer({ ...parId(id), ...l.spec, volume: undefined }); l.spec = null; l.verifs = Lecture.verifier(parId(id), l.texte); }
+    rendrePC();
+  }
   if (p === "desinverser") {
     garderPC(); const id = filePC[posPC], c = parId(id), l = lectures[id];
     enregistrer({ ...c, pieces: c.longueur, longueur: c.pieces });
@@ -672,6 +690,7 @@ $("#pc-corps").addEventListener("click", e => {
 $("#pc-corps").addEventListener("input", e => {
   majTerminal();
   if (e.target.id === "pc-lieu") majChipsLieu();
+  if (e.target.id === "pc-essence") majChipsEssence();
   if (e.target.id === "pc-numero") {
     const d = doublon(e.target.value.replace(/\s/g, ""), filePC[posPC]), al = $("#pc-alerte");
     al.hidden = !d; if (d) al.textContent = `Ce n° existe déjà : ${section(d)}, commande ${d.commande || "–"}.`;
@@ -736,7 +755,12 @@ async function lireEtiquette(fichier) {
 }
 function traiterLecture(texte) {
   const attente = filePCTous().map(parId);
-  const champs = Lecture.lireChamps(texte, ESSENCE_INVERSE), trouve = Lecture.trouver(texte, attente);
+  const champs = Lecture.lireChamps(texte, ESSENCE_INVERSE), spec = Lecture.lireSpec(texte);
+  let trouve = Lecture.trouver(texte, attente);
+  if (!trouve && spec) { // la note contient une erreur : on retrouve le colis par sa section
+    const memes = attente.filter(c => c.epaisseur === spec.epaisseur && c.largeur === spec.largeur);
+    if (memes.length) trouve = { colis: memes[0], verifs: Lecture.verifier(memes[0], texte) };
+  }
   const numero = champs.numero ? formatNumero(champs.numero) : "";
   if (numero) {
     const d = doublon(numero, null);
@@ -754,7 +778,8 @@ function traiterLecture(texte) {
     colis = { ...colis, pieces: colis.longueur, longueur: colis.pieces };
     enregistrer(colis); verifs = Lecture.verifier(colis, texte); corrige = true;
   }
-  lectures[colis.id] = { numero, lieu: champs.lieu, choix: champs.choix, essence: champs.essence, options: champs.options, dateIso, verifs, corrige, texte };
+  const different = spec && (spec.epaisseur !== colis.epaisseur || spec.largeur !== colis.largeur || spec.pieces !== colis.pieces || spec.longueur !== colis.longueur);
+  lectures[colis.id] = { numero, lieu: champs.lieu, choix: champs.choix, essence: champs.essence, essenceCode: champs.essenceCode, options: champs.options, dateIso, verifs, corrige, texte, spec: different ? spec : null };
   const ids = filePCTous();
   filePC = ids; posPC = Math.max(0, ids.indexOf(colis.id));
   rendrePC(); montrer("#pc");
@@ -765,6 +790,8 @@ function bandeauLecture(lec, c) {
   const lignes = [["Section", v.section], ["Pièces", v.pieces], ["Longueur", v.longueur], ["Volume", v.volume]];
   return `<div class="lecture${tout ? "" : " attention"}"><b>📷 Lu sur l'étiquette</b>
     <p>${lec.numero ? "n° <b>" + esc(lec.numero) + "</b>" + (lec.numero.replace(/\D/g, "").length < 7 ? " (fin du n° non lue : ajoute-la)" : "") : "n° non lu : tape-le ci-dessous"}${lec.lieu ? ", lieu " + esc(lec.lieu) : ""}${lec.dateIso ? ", imprimée le " + esc(dh(lec.dateIso)) : ""}</p>
+    ${lec.spec ? `<p class="ecart"><b>≠ L'étiquette dit</b> ${lec.spec.epaisseur} × ${lec.spec.largeur}, ${np(lec.spec.pieces)} pièces de ${nf(lec.spec.longueur, 2)} m (ta note : ${esc(section(c))}, ${np(c.pieces)} pièces de ${nf(c.longueur, 2)} m). <button type="button" class="lien" data-p="prendre">Prendre l'étiquette</button></p>` : ""}
+    ${lec.essenceCode && !lec.essence ? `<p class="note-stats">Essence lue sur l'étiquette : « ${esc(lec.essenceCode)} ». Choisis la lettre du terminal.</p>` : ""}
     ${lec.corrige ? `<p><b>↔ Corrigé :</b> ta note avait pièces et longueur inversés. Maintenant : ${np(c.pieces)} pièces de ${nf(c.longueur, 2)} m. <button type="button" class="lien" data-p="desinverser">Annuler</button></p>` : ""}
     <div class="verifs">${lignes.map(([l, ok]) => `<i class="${ok ? "ok" : "ko"}">${l} ${ok ? "✔" : "?"}</i>`).join("")}</div>
     ${tout ? "" : `<p class="note-stats">Un « ? » veut dire non lu ou différent de ta note : compare avec l'étiquette avant de pointer.</p>`}</div>`;

@@ -470,3 +470,9 @@ input, textarea { font: inherit; color: inherit; }
 @keyframes tourne { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) { .tourne { animation-duration: 2.4s; } }
 .sans-photo .btn-photo, .sans-photo [data-p="photo"] { display: none !important; }
+
+/* Récap du terminal : plus de chevauchement, les valeurs ne se coupent plus lettre par lettre */
+.terminal > div { gap: 8px; }
+.terminal span { flex: 0 1 auto; min-width: 0; font-size: 14px; line-height: 1.15; }
+.terminal b { flex: none; white-space: nowrap; overflow-wrap: normal; font-size: clamp(22px, 7vw, 30px); }
+.ecart { background: var(--orange-fond); border-radius: 14px; padding: 10px 12px; margin: 8px 0; font-size: 15px; }

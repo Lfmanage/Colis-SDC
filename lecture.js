@@ -207,7 +207,22 @@
     }
     return resultat();
   }
-  function codeBarres(gris, L, H, budgetMs) { const r = codeBarresPos(gris, L, H, budgetMs); return r ? r.code : null; }
+  // Fabrication d'un code-barres Code 39 (pour la copie imprimée) : liste de barres [position, largeur] en « modules »
+  function encoder39(texte) {
+    const barres = []; let x = 0;
+    for (const ch of "*" + String(texte) + "*") {
+      const code = ch === "*" ? ETOILE39 : CODES39[ALPHABET39.indexOf(ch)];
+      if (code === undefined) continue;
+      for (let i = 0; i < 9; i++) { const w = (code >> (8 - i)) & 1 ? 3 : 1; if (i % 2 === 0) barres.push([x, w]); x += w; }
+      x += 1; // espace entre deux caractères
+    }
+    return { barres, total: x - 1 };
+  }
+  // n° d'étiquette → texte du code-barres : 203-458-1 devient « 203458001 » (6 chiffres + suffixe sur 3 chiffres)
+  function texteCodeBarres(numero) {
+    const d = String(numero || "").replace(/\D/g, "");
+    return d.length >= 7 ? d.slice(0, 6) + d.slice(6).padStart(3, "0") : d;
+  }
   // « 203458001 » → n° 2034581 (6 chiffres + suffixe sans les zéros)
   function numeroDepuisCode(code) {
     const m = /^(\d{6})(\d{1,3})$/.exec(code || "");
@@ -287,6 +302,6 @@
     return OPTIONS_OK.filter(x => codes.includes(x));
   }
 
-  const API = { ZONES, texteDepuisZones, optionsDepuisZone, motsDepuis, optionsPresDuNumero, verifier, trouver, lireChamps, lireSpec, correspondance, codeBarres, codeBarresPos, numeroDepuisCode };
+  const API = { encoder39, texteCodeBarres, ZONES, texteDepuisZones, optionsDepuisZone, motsDepuis, optionsPresDuNumero, verifier, trouver, lireChamps, lireSpec, correspondance,  codeBarresPos, numeroDepuisCode };
   if (typeof module !== "undefined" && module.exports) module.exports = API; else racine.Lecture = API;
 })(typeof window !== "undefined" ? window : this);

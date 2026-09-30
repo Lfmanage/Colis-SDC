@@ -1,10 +1,11 @@
--- Appli Colis SDC : à coller dans Supabase → SQL Editor → Run (une seule fois)
+-- Colis SDC : à coller dans Supabase → SQL Editor → Run (une seule fois).
+-- Si tu as déjà lancé une ancienne version de ce script, tu n'as rien à refaire : l'appli reste compatible.
 
 create table if not exists public.colis (
   id           uuid primary key,
   user_id      uuid not null default auth.uid() references auth.users(id) on delete cascade,
-  numero       text,
-  commande     text,
+  numero       text,                       -- n° d'étiquette, ex. 203-458-1
+  commande     text,                       -- n° de commande, ou STOCK pour un colis du stock
   lieu         text,
   epaisseur    numeric,
   largeur      numeric,
@@ -17,10 +18,9 @@ create table if not exists public.colis (
   ref_client   text,
   observation  text,
   statut       text not null default 'a_etiqueter'
-               check (statut in ('a_etiqueter','a_sortir','sorti')),
+               check (statut in ('a_etiqueter','a_sortir')),   -- a_etiqueter = en attente de pointage ; a_sortir = pointé
   cree_le      timestamptz not null default now(),
-  etiquete_le  timestamptz,
-  sorti_le     timestamptz,
+  etiquete_le  timestamptz,                -- date et heure du pointage
   maj_le       timestamptz not null default now(),
   supprime     boolean not null default false
 );
@@ -30,25 +30,21 @@ create unique index if not exists colis_numero_unique
   on public.colis (user_id, numero) where numero is not null and supprime = false;
 create index if not exists colis_maj on public.colis (user_id, maj_le);
 
--- Sécurité : chacun ne voit que ses propres colis
-alter table public.colis enable row level security;
-drop policy if exists colis_lire on public.colis;
-drop policy if exists colis_creer on public.colis;
-drop policy if exists colis_modifier on public.colis;
-create policy colis_lire     on public.colis for select using (auth.uid() = user_id);
-create policy colis_creer    on public.colis for insert with check (auth.uid() = user_id);
-create policy colis_modifier on public.colis for update using (auth.uid() = user_id) with check (auth.uid() = user_id);
-
--- Réglages d'apparence (couleurs) : gardés eux aussi dans Supabase
+-- Réglages d'apparence (couleurs)
 create table if not exists public.reglages (
   user_id  uuid primary key default auth.uid() references auth.users(id) on delete cascade,
   valeurs  jsonb not null default '{}',
   maj_le   timestamptz not null default now()
 );
+
+-- Sécurité : chacun ne voit et ne modifie que ses propres données
+alter table public.colis    enable row level security;
 alter table public.reglages enable row level security;
-drop policy if exists reglages_lire on public.reglages;
-drop policy if exists reglages_creer on public.reglages;
-drop policy if exists reglages_modifier on public.reglages;
+drop policy if exists colis_lire on public.colis;      drop policy if exists colis_creer on public.colis;      drop policy if exists colis_modifier on public.colis;
+drop policy if exists reglages_lire on public.reglages; drop policy if exists reglages_creer on public.reglages; drop policy if exists reglages_modifier on public.reglages;
+create policy colis_lire        on public.colis    for select using (auth.uid() = user_id);
+create policy colis_creer       on public.colis    for insert with check (auth.uid() = user_id);
+create policy colis_modifier    on public.colis    for update using (auth.uid() = user_id) with check (auth.uid() = user_id);
 create policy reglages_lire     on public.reglages for select using (auth.uid() = user_id);
 create policy reglages_creer    on public.reglages for insert with check (auth.uid() = user_id);
 create policy reglages_modifier on public.reglages for update using (auth.uid() = user_id) with check (auth.uid() = user_id);

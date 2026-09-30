@@ -4,7 +4,7 @@
 const CFG = window.COLIS_CONFIG || {};
 const DEF = Object.assign({ essence: "", choix: "20", nature: "G", options: [] }, CFG.DEFAUTS || {});
 const OPTIONS = CFG.OPTIONS || { TR: "Fongi. coloré", CR: "Cœur refendu" };
-const K = { reglages: "colis.reglages.v1", data: "colis.donnees.v1", attente: "colis.attente.v1", tire: "colis.tire.v1", memo: "colis.memo.v1", synchro: "colis.synchroOk.v1" };
+const K = { reglages: "colis.reglages.v1", data: "colis.donnees.v1", attente: "colis.attente.v1", tire: "colis.tire.v1", sauvegarde: "colis.sauvegarde.v1", synchro: "colis.synchroOk.v1" };
 const STOCK = "STOCK"; // un colis « du stock » n'a pas de commande : sa commande vaut STOCK
 const cdeTxt = c => c.commande === STOCK ? "Stock" : "Cde " + (c.commande || "–");
 const STATUTS = { a_etiqueter: "En attente de pointage", a_sortir: "Pointé ✅" }; // « a_sortir » = pointé (nom interne)
@@ -21,8 +21,9 @@ function lire(k, d) { try { const v = localStorage.getItem(k); return v ? JSON.p
 function ecrire(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch { toast("Mémoire de l'appareil pleine : exporte puis synchronise."); } }
 
 let liste = lire(K.data, []);
-const sansSortie = () => liste.forEach(c => { if (c.statut === "sorti") c.statut = "a_sortir"; }); // anciens colis « sortis » = pointés
-sansSortie();
+// Anciennes données : un colis « sorti » compte comme pointé ; les vieux réglages inutiles sont effacés.
+const migrer = () => { liste.forEach(c => { if (c.statut === "sorti") c.statut = "a_sortir"; delete c.sorti_le; }); try { localStorage.removeItem("colis.memo.v1"); } catch {} };
+migrer();
 let attente = new Set(lire(K.attente, []));
 function sauverLocal() { ecrire(K.data, liste); ecrire(K.attente, [...attente]); }
 const actifs = () => liste.filter(c => !c.supprime);
@@ -136,13 +137,13 @@ let ficheId = null;
 function montrer(sel) { $(sel).hidden = false; document.body.style.overflow = "hidden"; }
 function cacher(sel) {
   $(sel).hidden = true;
-  if ($("#fiche").hidden && $("#pc").hidden) document.body.style.overflow = "";
+  if ($("#fiche").hidden && $("#pc").hidden && $("#etq").hidden) document.body.style.overflow = "";
   if (sel === "#fiche") ficheId = null;
 }
 $$(".feuille").forEach(f => f.addEventListener("click", e => { if (e.target.closest("[data-fermer]")) cacher("#" + f.id); }));
 document.addEventListener("keydown", e => {
   if (e.key !== "Escape") return;
-  if (!$("#pc").hidden) cacher("#pc"); else if (!$("#fiche").hidden) cacher("#fiche");
+  if (!$("#etq").hidden) cacher("#etq"); else if (!$("#pc").hidden) cacher("#pc"); else if (!$("#fiche").hidden) cacher("#fiche");
 });
 
 /* ═════════════ Formulaire « Nouveau colis » ═════════════ */
@@ -257,7 +258,6 @@ function sauverForm() {
       etiquete_le: v.numero ? maintenant() : null, supprime: false };
   }
   enregistrer(c);
-  ecrire(K.memo, { t: Date.now(), commande: v.commande, lieu: v.lieu, ref_client: v.ref_client });
   return c;
 }
 
@@ -276,16 +276,6 @@ $("#form-colis").addEventListener("submit", e => {
   apresSauvegarde();
   if (etaitEdition) { allerA("colis"); ouvrirFiche(c.id); return; }
   toast(`Dans le calepin : ${section(c)}, ${np(c.pieces)} p`, "Annuler", () => enregistrer({ ...parId(c.id), supprime: true }));
-});
-$("#btn-suivant").addEventListener("click", () => {
-  const etaitEdition = !!editionId;
-  const c = sauverForm(); if (!c) return;
-  apresSauvegarde();
-  toast(etaitEdition ? "Modifications enregistrées" : `Colis ${section(c)} enregistré`, "Voir", () => ouvrirFiche(c.id));
-});
-$("#btn-nouvelle-cde").addEventListener("click", () => {
-  F("commande").value = ""; F("lieu").value = ""; F("ref").value = "";
-  localStorage.removeItem(K.memo); F("commande").focus(); majLive();
 });
 
 function commencerEdition(id) {
@@ -384,13 +374,6 @@ function rendreListe() {
     html += cde.map(ligne).join("");
     res = res.filter(c => !cde.includes(c));
     if (res.length) html += `<div class="groupe"><h3>Autres résultats</h3></div>`;
-  } else if (false) { // (ancien regroupement par lieu retiré : la liste reste dans l'ordre du pointage)
-    const lieux = {};
-    res.forEach(c => (lieux[c.lieu || "Sans lieu"] ||= []).push(c));
-    Object.keys(lieux).sort((a, b) => a.localeCompare(b, "fr", { numeric: true })).forEach(l => {
-      html += `<div class="groupe"><h3>Lieu ${esc(l)}</h3><span>${totaux(lieux[l])}</span></div>` + lieux[l].map(ligne).join("");
-    });
-    res = [];
   }
   html += res.map(ligne).join("");
   el.innerHTML = res0.length ? `<p class="note-stats indice-glisse">Glisse un colis vers la droite pour le pointer, vers la gauche pour le supprimer.</p>` + html : html;
@@ -518,7 +501,7 @@ function rendreFiche() {
       ${actions}
       <div class="boutons-2">
         <button type="button" class="btn btn-secondaire" data-f="pc">À taper sur le PC</button>
-        <button type="button" class="btn btn-secondaire" data-f="imprimer">Imprimer la copie</button>
+        <button type="button" class="btn btn-secondaire" data-f="imprimer">Copie de l'étiquette</button>
         <button type="button" class="btn btn-secondaire" data-f="modifier">Modifier</button>
         <button type="button" class="btn btn-secondaire" data-f="dupliquer">Dupliquer</button>
       </div>
@@ -567,7 +550,13 @@ function rendreAccueil() {
   $("#acc-attente").textContent = np(n);
   $("#acc-auj").textContent = np(actifs().filter(c => c.etiquete_le && jour(c.etiquete_le) === auj).length);
   const b = $("#acc-pointer"); b.hidden = !n; b.textContent = `Pointer les colis (${n} en attente)`;
+  let msg = "";
+  if (!configure) msg = "⚠️ Tes colis ne sont enregistrés que sur cet appareil. Appuie ici pour les sauvegarder en ligne (Supabase).";
+  else if (!session) msg = "Connecte-toi pour sauvegarder tes colis en ligne.";
+  else if (derniereErreur) msg = "⚠️ Sauvegarde en ligne impossible : " + derniereErreur;
+  const al = $("#acc-alerte"); al.hidden = !msg; al.textContent = msg;
 }
+$("#acc-alerte").addEventListener("click", () => { allerA("reglages"); $("#pli-supabase").open = true; });
 $("#acc-noter").addEventListener("click", () => allerA("nouveau"));
 $("#acc-pointer").addEventListener("click", () => ouvrirPC(filePCTous()));
 $("#acc-photo").addEventListener("click", () => { photoCible = null; $("#photo-input").click(); });
@@ -575,6 +564,7 @@ $("#acc-colis").addEventListener("click", () => allerA("colis"));
 function ouvrirPC(ids) { filePC = ids; posPC = 0; rendrePC(); montrer("#pc"); }
 
 function rendrePC() {
+  prechauffer();
   const c = parId(filePC[posPC]); if (!c) { cacher("#pc"); return; }
   const d = dernierPC || {}, lec = lectures[c.id];
   pcOptions = new Set(lec ? (c.options || []) : c.options && c.options.length ? c.options : (c.numero ? [] : (d.options || [])));
@@ -632,7 +622,7 @@ function rendrePC() {
     <p class="alerte" id="pc-alerte" hidden></p>
     <div class="actions" style="margin-top:6px">
       <button type="button" class="btn btn-secondaire" data-p="modifier">✏️ Corriger la note (section, pièces, longueur)</button>
-      <button type="button" class="btn btn-secondaire" data-p="imprimer">Imprimer la copie de l'étiquette</button>
+      <button type="button" class="btn btn-secondaire" data-p="imprimer">Copie de l'étiquette (imprimer)</button>
     </div>`;
   appliquerTypePC(); majTerminal();
   if (matchMedia("(pointer: fine)").matches) PC(pcType === "stock" ? (lieu ? "numero" : "lieu") : (commande && lieu ? "numero" : commande ? "lieu" : "commande")).focus();
@@ -902,6 +892,14 @@ function zoneCalee(img, pos, zone) {
   if (noirs < l * h * 0.002) res.vide = true;
   return res;
 }
+let workerOCR = null;
+function obtenirWorker() {
+  return (workerOCR ||= chargerTesseract().then(T => T.createWorker("eng", 1)).catch(e => { workerOCR = null; throw e; }));
+}
+function prechauffer() { // dès qu'on ouvre le pointage : le lecteur se télécharge pendant que tu prépares la photo
+  if (CFG.PHOTO === false || !navigator.onLine || (navigator.connection && navigator.connection.saveData)) return;
+  obtenirWorker().catch(() => {});
+}
 let photoCible = null; // colis affiché au pointage quand la photo est prise depuis cet écran
 async function lireEtiquette(fichier, cible) {
   if (!filePCTous().length) { toast("Aucun colis en attente de pointage."); return; }
@@ -910,8 +908,7 @@ async function lireEtiquette(fichier, cible) {
     etatLecture("Lecture du code-barres…");
     const prep = await preparerImage(fichier);
     etatLecture("Chargement du lecteur (la première fois, ça peut être long)…");
-    const T = await chargerTesseract();
-    worker = await T.createWorker("eng", 1);
+    worker = await obtenirWorker();
     let texte = "", optionsLues = null, zones = null;
     if (prep.pos) {
       zones = {};
@@ -969,7 +966,8 @@ async function lireEtiquette(fichier, cible) {
   } catch (err) {
     etatLecture(null);
     toast(err && err.message ? err.message : "Lecture impossible : réessaie avec une photo plus nette.");
-  } finally { if (worker) worker.terminate().catch(() => {}); }
+    if (workerOCR) { workerOCR.then(w => w.terminate()).catch(() => {}); workerOCR = null; } // lecteur peut-être abîmé : on repartira d'un neuf
+  }
 }
 function calculerVerifs(lec, c) {
   const s = lec.specLu;
@@ -981,7 +979,6 @@ function calculerVerifs(lec, c) {
   };
 }
 const CHAMPS_NOTE = ["epaisseur", "largeur", "pieces", "longueur"];
-const differe = (spec, c) => CHAMPS_NOTE.some(k => spec[k] !== c[k]);
 function appliquerSpec(id, spec) { // l'étiquette fait foi : la note est remplacée (annulable)
   const c = parId(id), l = lectures[id];
   const avant = Object.fromEntries(CHAMPS_NOTE.map(k => [k, c[k]]));
@@ -1056,48 +1053,118 @@ $("#photo-input").addEventListener("change", e => { const f = e.target.files && 
 $("#btn-photo").addEventListener("click", () => { photoCible = null; $("#photo-input").click(); });
 
 /* ═════════════ Copie d'étiquette imprimable ═════════════ */
-function htmlEtiquette(c) {
+// La copie est dessinée en SVG (unités = mm, 200 × 68) : la même image sert à l'aperçu, à l'impression et au PDF.
+function svgEtiquette(c) {
   const ess = (CFG.ESSENCE_ETIQUETTE || {})[c.essence] || c.essence || "";
   const d = new Date(c.etiquete_le || c.cree_le), p2 = n => String(n).padStart(2, "0");
   const dt = `${p2(d.getDate())}.${p2(d.getMonth() + 1)}.${String(d.getFullYear()).slice(2)} ${p2(d.getHours())}${p2(d.getMinutes())}`;
-  const vol = volume(c);
-  const dim = CFG.ETIQUETTE_MM || { largeur: 190, hauteur: 62 };
-  const traite = (c.options || []).includes("TR");
-  return `<div class="etq" style="--etq-l:${dim.largeur}mm;--etq-h:${dim.hauteur}mm">
-    <div class="g"><div class="nom">Les SCIERIES du CENTRE</div><div class="sdc">SDC</div><div class="tel">33 (0)4.73.84.65.13</div></div>
-    <div class="m">
-      <div class="sec">${esc(c.epaisseur)} x ${esc(c.largeur)}</div>
-      <div class="l2">${esc(c.pieces)} P <span class="lg">${esc(nf(c.longueur, 2))}</span> m</div>
-      <div class="l3"><span>${esc(c.choix)} ${esc(ess)} ${esc(c.lieu)}</span><small>${vol ? nf(vol, 3) + " m3" : ""}</small></div>
-      <div class="opt">${esc((c.options || []).join(" "))}</div>
-      <div class="no">${esc(c.numero || "______")}</div>
-      <div class="bas"><span>${esc(c.pieces)}/${Math.round((c.longueur || 0) * 100)}</span><span>${dt}</span><span>${c.commande ? esc(c.commande === STOCK ? "Stock" : "Cde " + c.commande) : ""}</span></div>
-    </div>
-    <div class="d">
-      <div class="centre">Les Scieries du Centre, 63800 Cournon</div>
-      <div class="norme">EN 14081-1+A1</div>
-      <table>
-        <tr><td>Bois de structure<br><b>C24 (ST II)</b></td><td>Frais de sciage<br><b>WPCA</b></td></tr>
-        ${traite ? `<tr><td colspan="2">Code essence PT (bois traité)</td></tr>` : ""}
-        <tr><td>Norme de classement</td><td>EN 330+NF B52-001-1</td></tr>
-        <tr><td>Réaction au feu</td><td>D-s2.d0</td></tr>
-        <tr><td>Classe de durabilité</td><td>NPD</td></tr>
-      </table>
-      <div class="copie">COPIE – l'étiquette officielle CE est éditée sur le PC</div>
-    </div>
-  </div>`;
+  const vol = volume(c), num = String(c.numero || "").replace(/\D/g, ""), opts = (c.options || []).join(" ");
+  const gros = num.length >= 7 ? [num.slice(0, 6), num.slice(6)] : [num || "______", ""];
+  // « par » = largeur par caractère en mm : le texte est resserré pour tenir dans la place de l'étiquette officielle (police plus étroite qu'Arial)
+  const T = (x, y, taille, txt, o = {}) => `<text x="${x}" y="${y}" font-size="${taille}"${o.par ? ` textLength="${(String(txt).length * o.par).toFixed(1)}" lengthAdjust="spacingAndGlyphs"` : ""}${o.gras ? ' font-weight="700"' : ""}${o.serif ? ' font-family="Times New Roman, serif"' : ""}${o.italique ? ' font-style="italic"' : ""}${o.centre ? ' text-anchor="middle"' : ""}>${esc(txt)}</text>`;
+  let barres = "";
+  const code = Lecture.texteCodeBarres(c.numero);
+  if (code) { const e = Lecture.encoder39(code), u = 42 / e.total; barres = e.barres.map(([x, w]) => `<rect x="${(87 + x * u).toFixed(3)}" y="47" width="${(w * u).toFixed(3)}" height="8.4"/>`).join(""); }
+  const cde = c.commande ? (c.commande === STOCK ? "Stock" : "Cde " + c.commande) : "";
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 68" width="${(CFG.ETIQUETTE_MM || {}).largeur || 190}mm" font-family="Arial, Helvetica, sans-serif" fill="#000">
+  <rect x="0.3" y="0.3" width="199.4" height="67.4" fill="#fff" stroke="#000" stroke-width="0.4"/>
+  ${T(9, 7, 4.6, "Les SCIERIES du CENTRE", { gras: true, par: 2.4 })}
+  ${T(75.5, 12, 13.5, `${c.epaisseur} x ${c.largeur}`, { gras: true, par: 5.75 })}
+  ${T(67.5, 22.5, 7.5, `${c.pieces}`, { gras: true })}${T(79, 22.5, 3.2, "P", { gras: true })}
+  ${T(93.7, 22.5, 13.5, nf(c.longueur, 2), { gras: true, par: 4.6 })}${T(120.5, 22.5, 4.2, "m", { gras: true })}
+  ${T(9, 42, 27, "SDC", { gras: true, par: 13.7 })}
+  ${T(57.6, 35, 8, `${c.choix || ""} ${ess}`, { gras: true, par: 3.6 })}${T(82.4, 35, 10, c.lieu || "", { gras: true })}
+  ${vol ? T(115, 34, 4, nf(vol, 3) + " m3", { gras: true }) : ""}
+  ${opts ? T(57, 43, 3, opts, { gras: true }) : ""}
+  ${T(51.3, 54.5, 9.5, gros[0], { gras: true, par: 3.85 })}${gros[1] ? T(82.6, 54.5, 9.5, gros[1], { gras: true }) : ""}
+  ${barres}
+  ${T(49, 59.5, 3.2, `${c.pieces}/${Math.round((c.longueur || 0) * 100)}`, { gras: true, par: 1.45 })}
+  ${T(11.4, 64.2, 3.8, "33 (0)4.73.84.65.13", { gras: true, par: 2.03 })}${T(71.5, 64.2, 3.4, dt, { gras: true, par: 1.84 })}${cde ? T(112, 64.2, 3.4, cde, { gras: true }) : ""}
+  ${T(133, 27, 2.8, "Les Scieries du Centre, 63800 Cournon", { serif: true })}
+  ${T(153, 31.5, 3.4, "26", { gras: true })}
+  ${T(144, 39.5, 3.7, "EN 14081-1+A1", { gras: true })}
+  ${T(134, 44, 2.7, "Bois de structure", { serif: true })}${T(134, 47.5, 3.6, "C24 (ST II)", { serif: true })}
+  ${T(134, 51, 2.7, "Code essence", { serif: true })}${T(134, 53.6, 2.1, "PT (Bois traité - Voir Informations", { serif: true, italique: true })}
+  ${T(166, 47, 2.7, "Frais de sciage", { serif: true })}${T(166, 50.6, 3.3, "WPCA", { serif: true })}
+  ${T(134, 57.6, 2.7, "Norme de classement", { serif: true })}${T(167, 57.6, 2.7, "EN 330+NF B52-001-1", { serif: true })}
+  ${T(134, 61, 2.7, "Réaction au feu", { serif: true })}${T(167, 61, 2.7, "D-s2.d0", { serif: true })}
+  ${T(134, 64.4, 2.7, "Classe de durabilité", { serif: true })}${T(167, 64.4, 2.7, "NPD", { serif: true })}
+  <rect x="150" y="4" width="42" height="17" rx="2" fill="none" stroke="#000" stroke-width="0.4" stroke-dasharray="1.6 1"/>
+  ${T(171, 11.5, 6, "COPIE", { gras: true, centre: true })}${T(171, 17, 2.3, "l'étiquette officielle est éditée sur le PC", { centre: true })}
+</svg>`;
 }
-function imprimer(id) {
+
+// ── Aperçu, impression et PDF ──
+const surIphone = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+let copiePrete = null; // { id, nom, blob } : le PDF est préparé à l'ouverture pour que « Imprimer » réponde tout de suite
+function pdfDepuisJpeg(jpeg, lpx, hpx, lmm, hmm) {
+  const pt = mm => (mm * 72 / 25.4).toFixed(2), enc = s => new TextEncoder().encode(s), morceaux = [], pos = [];
+  let n = 0;
+  const ajouter = b => { const u = typeof b === "string" ? enc(b) : b; morceaux.push(u); n += u.length; };
+  const objet = (num, corps) => { pos[num] = n; ajouter(`${num} 0 obj\n`); corps.forEach(ajouter); ajouter("\nendobj\n"); };
+  ajouter("%PDF-1.4\n");
+  objet(1, ["<< /Type /Catalog /Pages 2 0 R >>"]);
+  objet(2, ["<< /Type /Pages /Kids [3 0 R] /Count 1 >>"]);
+  objet(3, [`<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${pt(lmm)} ${pt(hmm)}] /Resources << /XObject << /Im0 4 0 R >> >> /Contents 5 0 R >>`]);
+  objet(4, [`<< /Type /XObject /Subtype /Image /Width ${lpx} /Height ${hpx} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${jpeg.length} >>\nstream\n`, jpeg, "\nendstream"]);
+  const flux = `q ${pt(lmm)} 0 0 ${pt(hmm)} 0 0 cm /Im0 Do Q`;
+  objet(5, [`<< /Length ${flux.length} >>\nstream\n${flux}\nendstream`]);
+  const xref = n;
+  ajouter(`xref\n0 6\n0000000000 65535 f \n${[1, 2, 3, 4, 5].map(k => String(pos[k]).padStart(10, "0") + " 00000 n \n").join("")}trailer\n<< /Size 6 /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF`);
+  return new Blob(morceaux, { type: "application/pdf" });
+}
+async function fabriquerPdf(c) {
+  const svg = svgEtiquette(c), lmm = 200, hmm = 68, L = 2362, H = Math.round(L * hmm / lmm);
+  const img = new Image(); img.src = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svg.replace(/width="[\d.]+mm"/, `width="${L}" height="${H}"`));
+  await img.decode();
+  const cv = document.createElement("canvas"); cv.width = L; cv.height = H;
+  const ctx = cv.getContext("2d"); ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, L, H); ctx.drawImage(img, 0, 0, L, H);
+  const jpeg = await new Promise(ok => cv.toBlob(ok, "image/jpeg", 0.95));
+  return pdfDepuisJpeg(new Uint8Array(await jpeg.arrayBuffer()), L, H, lmm, hmm);
+}
+async function donnerFichier(blob, nom, titre) { // feuille de partage (AirPrint, Fichiers, Mail…) ou, à défaut, téléchargement
+  const f = new File([blob], nom, { type: blob.type });
+  if (navigator.canShare && navigator.canShare({ files: [f] })) {
+    try { await navigator.share({ files: [f], title: titre || nom }); return "partage"; }
+    catch (e) { if (e && e.name === "AbortError") return "annule"; }
+  }
+  const url = URL.createObjectURL(blob), a = document.createElement("a");
+  a.href = url; a.download = nom; document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 60000);
+  return "telecharge";
+}
+function imprimer(id) { // ouvre l'aperçu de la copie
   const c = parId(id); if (!c) return;
-  $("#impression").innerHTML = htmlEtiquette(c);
-  setTimeout(() => window.print(), 50);
+  copiePrete = null;
+  $("#etq-apercu").innerHTML = svgEtiquette(c).replace(/ width="[\d.]+mm"/, "");
+  $("#impression").innerHTML = svgEtiquette(c);
+  $("#etq-imprimer").disabled = true; $("#etq-pdf").disabled = true;
+  $("#etq-imprimer").textContent = "Préparation…";
+  $("#etq-pdf").hidden = surIphone;
+  $("#etq-aide").textContent = surIphone ? "Un menu va s'ouvrir : choisis « Imprimer » (AirPrint) ou « Enregistrer dans Fichiers »." : "";
+  montrer("#etq");
+  const nom = `etiquette-${(c.numero || "sans-numero")}.pdf`;
+  fabriquerPdf(c).then(blob => { copiePrete = { id, nom, blob }; })
+    .catch(() => { copiePrete = { id, nom, erreur: true }; })
+    .finally(() => { $("#etq-imprimer").disabled = false; $("#etq-pdf").disabled = false; $("#etq-imprimer").textContent = surIphone ? "🖨 Imprimer / partager" : "🖨 Imprimer"; });
 }
+$("#etq-imprimer").addEventListener("click", async () => {
+  if (!surIphone) { window.print(); return; }            // ordinateur : la boîte d'impression du navigateur
+  if (copiePrete && copiePrete.blob) await donnerFichier(copiePrete.blob, copiePrete.nom, "Copie d'étiquette");
+  else toast("Impossible de préparer le PDF. Réessaie.");
+});
+$("#etq-pdf").addEventListener("click", async () => {
+  if (copiePrete && copiePrete.blob) await donnerFichier(copiePrete.blob, copiePrete.nom, "Copie d'étiquette");
+  else toast("Impossible de préparer le PDF. Réessaie.");
+});
 
 /* ═════════════ Synchronisation Supabase ═════════════ */
 const viaConfig = !!(CFG.SUPABASE_URL && CFG.SUPABASE_ANON_KEY);
 const CONN = lire("colis.connexion.v1", {});
 const SB_URL = viaConfig ? CFG.SUPABASE_URL : (CONN.url || ""), SB_KEY = viaConfig ? CFG.SUPABASE_ANON_KEY : (CONN.cle || "");
 const configure = !!(SB_URL && SB_KEY);
+let stockageSur = null; // le navigateur a-t-il accepté de protéger nos données ?
+if (navigator.storage && navigator.storage.persist) navigator.storage.persist().then(ok => { stockageSur = ok; majEtat(); }).catch(() => {});
 let sb = null, session = null, occupe = false, relancer = false, derniereErreur = "";
 
 async function initSynchro() {
@@ -1163,7 +1230,7 @@ async function tirer() {
     if (data.length < PAS) break;
     de += PAS;
   }
-  sansSortie();
+  migrer();
   if (max) ecrire(K.tire, max);
   sauverLocal();
 }
@@ -1192,6 +1259,9 @@ function majEtat() {
   else if (occupe || attente.size) { cls = "attente"; msg = "Synchronisation en cours…"; }
   else { const d = lire(K.synchro, null); msg = "Tout est synchronisé" + (d ? ", dernière fois " + quand(d) + "." : "."); }
   $("#bloc-liaison").hidden = configure; $("#btn-delier").hidden = !(configure && !viaConfig);
+  if (typeof vueActive !== "undefined" && vueActive === "accueil") rendreAccueil();
+  const si = $("#sauv-info");
+  if (si) { const d = lire(K.sauvegarde, null); si.textContent = `Dernière sauvegarde : ${d ? quand(d) : "jamais"}. ` + (stockageSur === true ? "Stockage protégé par le navigateur ✔" : "Stockage non garanti par le navigateur : fais une sauvegarde de temps en temps, ou relie Supabase."); }
   p.className = "pastille-synchro " + cls;
   p.title = msg;
   if (txt) txt.textContent = msg;
@@ -1453,12 +1523,32 @@ $("#btn-export").addEventListener("click", () => {
   const dt = iso => iso ? new Date(iso).toLocaleString("fr-FR") : "";
   const lignes = actifs().sort((a, b) => t(a.cree_le) - t(b.cree_le)).map(c => cols.map(([k]) =>
     cell(k === "volume" ? nf(volume(c), 3) : k === "longueur" ? nf(c.longueur, 2) : k === "options" ? (c.options || []).join(" ")
-      : k === "statut" ? STATUTS[c.statut] : k.endsWith("_le") ? dt(c[k]) : c[k])).join(";"));
+      : k === "commande" ? (c.commande === STOCK ? "Stock" : c.commande) : k === "statut" ? STATUTS[c.statut] : k.endsWith("_le") ? dt(c[k]) : c[k])).join(";"));
   const csv = "\uFEFF" + [cols.map(([, l]) => cell(l)).join(";"), ...lignes].join("\r\n");
-  const a = document.createElement("a");
-  a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
-  a.download = `colis-sdc-${jour(maintenant())}.csv`;
-  document.body.appendChild(a); a.click(); a.remove();
+  donnerFichier(new Blob([csv], { type: "text/csv;charset=utf-8" }), `colis-sdc-${jour(maintenant())}.csv`, "Colis SDC (Excel)");
+});
+$("#btn-sauvegarde").addEventListener("click", async () => {
+  const { vert, or, fond, image } = reglages;
+  const blob = new Blob([JSON.stringify({ appli: "colis-sdc", date: maintenant(), colis: liste, reglages: { vert, or, fond, image } })], { type: "application/json" });
+  const r = await donnerFichier(blob, `colis-sdc-sauvegarde-${jour(maintenant())}.json`, "Sauvegarde Colis SDC");
+  if (r !== "annule") { ecrire(K.sauvegarde, maintenant()); majEtat(); toast("Sauvegarde enregistrée"); }
+});
+$("#btn-restaurer").addEventListener("click", () => $("#restaurer-input").click());
+$("#restaurer-input").addEventListener("change", async e => {
+  const f = e.target.files && e.target.files[0]; e.target.value = ""; if (!f) return;
+  try {
+    const d = JSON.parse(await f.text()), arr = Array.isArray(d) ? d : d.colis;
+    if (!Array.isArray(arr) || !arr.length || !arr.every(c => c && c.id)) throw new Error("vide");
+    let n = 0;
+    for (const c of arr) { // on garde, pour chaque colis, la version la plus récente
+      const loc = parId(c.id);
+      if (loc && t(c.maj_le) <= t(loc.maj_le)) continue;
+      if (loc) liste[liste.indexOf(loc)] = c; else liste.push(c);
+      attente.add(c.id); n++;
+    }
+    migrer(); sauverLocal(); rafraichir(); synchroniser();
+    toast(n ? `${n} colis restauré${n > 1 ? "s" : ""}` : "Rien à restaurer : tout est déjà à jour");
+  } catch { toast("Fichier de sauvegarde illisible."); }
 });
 
 /* ═════════════ Démarrage ═════════════ */
@@ -1470,6 +1560,7 @@ function rafraichir() {
   if (ficheId && !$("#fiche").hidden) rendreFiche();
   majEtat();
 }
+sauverLocal(); // enregistre les anciennes données déjà converties
 appliquerTheme(); majUIapparence();
 document.body.classList.toggle("sans-photo", CFG.PHOTO === false);
 formVierge();

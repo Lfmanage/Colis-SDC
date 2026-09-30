@@ -193,7 +193,6 @@ input, textarea { font: inherit; color: inherit; }
 .btn-principal:hover { background: var(--vert-fonce); }
 .btn-secondaire { background: var(--givre); color: var(--vert); border: 2px dashed rgba(47, 81, 67, 0.55); }
 .btn-discret { background: transparent; color: var(--rouge); }
-.btn-sortir { background: var(--ok); color: #fff; }
 .btn-pc { background: var(--orange-fond); color: var(--brun); margin-bottom: 14px; border: 1.5px solid #E8CFA9; }
 .lien { background: none; border: 0; color: var(--vert); font-weight: 700; text-decoration: underline; text-underline-offset: 3px; padding: 4px; }
 
@@ -207,15 +206,13 @@ input, textarea { font: inherit; color: inherit; }
 .recherche input:focus { border-color: var(--sauge); }
 .filtres { display: flex; gap: 8px; overflow-x: auto; padding: 12px 2px 14px; scrollbar-width: none; }
 .filtres::-webkit-scrollbar { display: none; }
-.filtres button, .filtre-date {
+.filtres button {
   flex: none; border: 1.5px solid rgba(255,255,255,.7); background: var(--givre); border-radius: 16px;
   padding: 9px 14px; font-weight: 600; font-size: 15px; white-space: nowrap; position: relative;
 }
 .filtres button b { font-weight: 700; color: var(--orange); margin-left: 2px; }
-.filtres button.actif, .filtre-date.actif { background: var(--vert); color: #F3EFE3; border-color: var(--vert); }
+.filtres button.actif { background: var(--vert); color: #F3EFE3; border-color: var(--vert); }
 .filtres button.actif b { color: var(--or); }
-.filtre-date { display: inline-flex; align-items: center; cursor: pointer; }
-.filtre-date input { position: absolute; inset: 0; opacity: 0; width: 100%; cursor: pointer; }
 
 .groupe {
   display: flex; justify-content: space-between; align-items: baseline; gap: 10px; flex-wrap: wrap;
@@ -232,7 +229,6 @@ input, textarea { font: inherit; color: inherit; }
 }
 .colis.st-a_etiqueter { border-left-color: var(--bleu); }
 .colis.st-a_sortir { border-left-color: var(--orange); }
-.colis.st-sorti { border-left-color: var(--ok); }
 .colis .num { font-family: var(--titre); font-size: 24px; font-weight: 500; color: var(--vert); }
 .colis .num.vide { color: var(--bleu); font-size: 18px; font-family: var(--texte); font-weight: 700; }
 .colis .desc { grid-column: 1; font-size: 16px; }
@@ -325,7 +321,6 @@ input, textarea { font: inherit; color: inherit; }
 .terminal .vide { color: rgba(255,255,255,.3); }
 .terminal .plein { grid-column: 1 / -1; }
 .file-pc { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; color: var(--encre-douce); font-weight: 600; }
-.pc-cde { margin: -4px 0 12px; font-size: 16px; }
 
 /* ───── Toast ───── */
 .toast {
@@ -345,40 +340,17 @@ input, textarea { font: inherit; color: inherit; }
 
 .version { text-align: center; color: var(--encre-douce); font-size: 13px; }
 
-/* ───── Impression : copie d'étiquette ───── */
+/* ───── Copie d'étiquette : aperçu et impression ───── */
+.etq-apercu { background: #fff; border-radius: 14px; padding: 6px; margin-bottom: 14px; box-shadow: var(--ombre); }
+.etq-apercu svg { display: block; width: 100%; height: auto; }
 #impression { display: none; }
 @media print {
   @page { size: A4 portrait; margin: 10mm; }
   body { background: #fff; }
   body > *:not(#impression) { display: none !important; }
   #impression { display: block; }
+  #impression svg { display: block; width: 190mm; height: auto; }
 }
-.etq {
-  width: var(--etq-l, 190mm); height: var(--etq-h, 62mm); max-width: 100%;
-  border: 0.3mm solid #000; color: #000; background: #fff;
-  font-family: "Arial Narrow", Arial, Helvetica, sans-serif;
-  display: grid; grid-template-columns: 24% 44% 32%; padding: 3mm 4mm; overflow: hidden;
-  margin-bottom: 8mm; page-break-inside: avoid; break-inside: avoid;
-}
-.etq .g { display: flex; flex-direction: column; justify-content: space-between; }
-.etq .nom { font-weight: 700; font-size: 11pt; }
-.etq .sdc { font-weight: 900; font-size: 40pt; line-height: 1; letter-spacing: 1mm; }
-.etq .tel { font-weight: 700; font-size: 10pt; }
-.etq .m { display: flex; flex-direction: column; justify-content: space-between; padding: 0 4mm 0 2mm; }
-.etq .sec { font-weight: 900; font-size: 28pt; line-height: 1; }
-.etq .l2 { font-weight: 700; font-size: 14pt; }
-.etq .l2 .lg { font-size: 26pt; font-weight: 900; margin-left: 6mm; }
-.etq .l3 { font-weight: 800; font-size: 18pt; display: flex; justify-content: space-between; align-items: baseline; }
-.etq .l3 small { font-size: 10pt; font-weight: 700; }
-.etq .opt { font-size: 9pt; font-weight: 700; }
-.etq .no { font-size: 26pt; font-weight: 900; line-height: 1; }
-.etq .bas { display: flex; justify-content: space-between; font-size: 9pt; font-weight: 700; }
-.etq .d { font-family: "Times New Roman", serif; font-size: 7.5pt; line-height: 1.25; display: flex; flex-direction: column; justify-content: space-between; }
-.etq .d .centre { text-align: center; }
-.etq .d .norme { text-align: center; font-weight: 700; font-family: Arial, sans-serif; font-size: 9pt; }
-.etq .d table { border-collapse: collapse; width: 100%; }
-.etq .d td { padding: 0 1mm 0 0; vertical-align: top; }
-.etq .copie { text-align: center; font-family: Arial, sans-serif; font-size: 7pt; border: 0.2mm solid #000; padding: 0.5mm; }
 
 /* ───── Pièces : grand champ ───── */
 .stepper-grand { grid-template-columns: 68px 1fr 68px; }
@@ -415,9 +387,6 @@ input, textarea { font: inherit; color: inherit; }
 .stats-plage .champ { margin-bottom: 8px; }
 .stats-plage input { padding: 10px 12px; font-size: 17px; }
 .stat.plein { grid-column: 1 / -1; }
-.delta { display: block; font-size: 13px; font-weight: 700; color: var(--encre-douce); }
-.delta.haut { color: var(--ok); }
-.delta.bas { color: var(--rouge); }
 .rang .jauge { grid-column: 1 / -1; height: 6px; border-radius: 3px; background: var(--sauge-clair); position: relative; overflow: hidden; }
 .rang .jauge i { position: absolute; inset: 0 auto 0 0; background: var(--vert); border-radius: 3px; }
 .rang.simple { grid-template-columns: 1fr auto; align-items: baseline; }

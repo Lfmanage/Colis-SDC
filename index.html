@@ -47,6 +47,7 @@
       <img src="icons/icon-192.png" alt="" class="accueil-logo">
       <div><h2 class="titre">Les Scieries du Centre</h2><p class="accueil-sous">Colis, étiquettes et pointage</p></div>
     </div>
+    <button type="button" class="btn btn-pc" id="acc-alerte" hidden></button>
     <div class="stats-cartes">
       <div class="stat"><span>En attente de pointage</span><b id="acc-attente">0</b></div>
       <div class="stat"><span>Pointés aujourd'hui</span><b id="acc-auj">0</b></div>
@@ -70,7 +71,6 @@
       <div class="carte carte-or" id="carte-commande" hidden>
         <div class="carte-tete">
           <h2 class="sous-titre">Commande</h2>
-          <button type="button" class="lien" id="btn-nouvelle-cde">Nouvelle commande</button>
         </div>
         <div class="ligne-2">
           <label class="champ"><span>N° commande</span>
@@ -127,7 +127,6 @@
       <p class="erreur" id="form-erreur" hidden></p>
       <div class="actions">
         <button type="submit" class="btn btn-principal" id="btn-generer">Ajouter au calepin</button>
-        <button type="button" class="btn btn-secondaire" id="btn-suivant" hidden>Enregistrer</button>
       </div>
     </form>
     <div id="calepin" hidden>
@@ -184,7 +183,7 @@
       <label class="interrupteur"><input type="checkbox" id="c-image"><span>Image de forêt en fond</span></label>
       </div>
     </details>
-    <details class="pli">
+    <details class="pli" id="pli-supabase">
       <summary><span>Base de données Supabase</span></summary>
       <div class="pli-corps">
       <p id="reglage-synchro"></p>
@@ -201,13 +200,18 @@
       </div>
     </details>
     <details class="pli">
-      <summary><span>Exporter</span></summary>
+      <summary><span>Sauvegarde et export</span></summary>
       <div class="pli-corps">
-      <p>Tous les colis dans un fichier lisible par Excel.</p>
-      <button type="button" class="btn btn-secondaire" id="btn-export">Télécharger en CSV</button>
+        <p id="sauv-info"></p>
+        <div class="actions">
+          <button type="button" class="btn btn-secondaire" id="btn-sauvegarde">Télécharger une sauvegarde</button>
+          <button type="button" class="btn btn-secondaire" id="btn-restaurer">Restaurer depuis un fichier</button>
+          <button type="button" class="btn btn-secondaire" id="btn-export">Exporter en CSV (Excel)</button>
+        </div>
+        <input type="file" id="restaurer-input" accept=".json,application/json" hidden>
       </div>
     </details>
-    <p class="version">Colis SDC · v2.7</p>
+    <p class="version">Colis SDC · v3.0</p>
   </section>
 </main>
 
@@ -251,6 +255,22 @@
 
 <input type="file" id="photo-input" accept="image/*" capture="environment" hidden>
 <div class="lecture-etat" id="lecture-etat" hidden><i class="tourne"></i><span id="lecture-txt"></span></div>
+
+<div class="feuille" id="etq" hidden style="z-index:55">
+  <div class="feuille-fond" data-fermer></div>
+  <div class="feuille-panneau" role="dialog" aria-modal="true" aria-labelledby="etq-titre">
+    <div class="feuille-tete">
+      <h2 class="titre" id="etq-titre">Copie de l'étiquette</h2>
+      <button type="button" class="fermer" data-fermer aria-label="Fermer">×</button>
+    </div>
+    <div id="etq-apercu" class="etq-apercu"></div>
+    <div class="actions">
+      <button type="button" class="btn btn-principal" id="etq-imprimer">🖨 Imprimer</button>
+      <button type="button" class="btn btn-secondaire" id="etq-pdf">📄 Enregistrer en PDF</button>
+    </div>
+    <p class="note-stats" id="etq-aide"></p>
+  </div>
+</div>
 
 <div class="toast" id="toast" hidden><span id="toast-txt"></span><button type="button" id="toast-action" hidden></button></div>
 

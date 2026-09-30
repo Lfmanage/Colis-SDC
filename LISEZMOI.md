@@ -1,70 +1,36 @@
-# Colis SDC – mise en ligne
+# Colis SDC — guide final
 
-Appli séparée de l'appli de ventes : rien n'est modifié dans `lffood/scierie`.
+## Les fichiers du dépôt GitHub (rien d'autre n'est nécessaire)
+`index.html` · `app.js` · `lecture.js` · `style.css` · `config.js` · `sw.js` · `manifest.webmanifest` · `bg.svg` · dossier `icons` (4 images)
+Les fichiers `supabase.sql` et `LISEZMOI.md` peuvent y rester ou non : l'appli ne s'en sert pas.
+Tout autre fichier (anciens zips, captures, anciennes versions) peut être supprimé du dépôt.
 
-## 1. Mettre en ligne (GitHub Pages)
-1. Sur GitHub (compte lffood), crée un nouveau dépôt **colis** (public).
-2. « Add file » → « Upload files » → dépose **tout le contenu** de ce dossier (y compris le dossier `icons`) → « Commit changes ».
-3. Settings → Pages → Branch : `main`, dossier `/ (root)` → Save.
-4. Après 1 à 2 minutes : https://lffood.github.io/colis/
+## Mise en ligne et installation
+1. GitHub → dépôt (Public) → Add file → Upload files → glisse le **contenu** du dossier (pas le dossier lui-même) → Commit.
+2. Settings → Pages → branche `main`, dossier `/ (root)`. Le lien s'affiche en haut de la page.
+3. iPhone : ouvre le lien dans Safari → Partager → « Sur l'écran d'accueil ». Utilise ensuite toujours cette icône.
+4. Mise à jour : remplace les fichiers, ferme et rouvre l'appli deux fois. Réglages → tout en bas : le numéro de version.
 
-L'appli marche déjà ainsi, mais les colis restent sur l'appareil où ils sont saisis.
+## Sauvegarder les colis en ligne (Supabase)
+1. supabase.com → nouveau projet → SQL Editor → colle `supabase.sql` → Run.
+2. Authentication → Users → Add user (e-mail + mot de passe, « Auto confirm »). Providers → désactive « Allow new users to sign up ».
+3. Project Settings → API : copie l'URL et la clé « anon public ».
+4. Dans l'appli : Réglages → Base de données Supabase → colle les deux → « Relier » → connecte-toi.
+Tant que ce n'est pas fait, l'accueil affiche un bandeau orange : les colis ne sont que sur l'appareil.
+Sans Supabase : Réglages → Sauvegarde et export → « Télécharger une sauvegarde » de temps en temps (restaurable au même endroit).
 
-## 2. Garder tout en mémoire dans Supabase
-1. Sur supabase.com, crée un projet (ou réutilise celui que tu veux) puis SQL Editor → New query → colle `supabase.sql` → Run.
-   (Si tu avais déjà lancé une version précédente, relance-le : il ne casse rien et ajoute la table des couleurs.)
-2. Authentication → Users → « Add user » → ton e-mail + mot de passe (coche « Auto confirm »).
-3. Authentication → Sign In / Providers → désactive « Allow new users to sign up ».
-4. Project Settings → API : copie « Project URL » et la clé « anon public ».
-5. Dans l'appli : Réglages → Base de données Supabase → colle l'URL et la clé → « Relier à Supabase » → connecte-toi avec l'e-mail du point 2.
-   À faire une fois sur l'iPhone et une fois sur le PC. (Autre option : les coller dans `config.js` sur GitHub, alors tous les appareils sont reliés d'office.)
+## Utilisation
+- **Calepin** : section, pièces, longueur. Rien d'autre.
+- **Pointage** : commande (ou Stock), lieu, essence, options, n° d'étiquette. La photo de l'étiquette remplit tout et corrige les fautes de la note.
+- **Colis** : glisse vers la droite pour pointer, vers la gauche pour supprimer (bouton Annuler ensuite).
+- **Copie de l'étiquette** (fiche d'un colis) : aperçu, puis Imprimer (PC) ou Imprimer / partager (iPhone : menu AirPrint / Fichiers).
+- **Stats** : blocs qui se déplient. **Réglages** : couleurs, Supabase, sauvegarde.
 
-Ensuite les colis, les dates de pointage et tes couleurs sont sauvegardés en ligne et retrouvés sur tous tes appareils.
+## La photo de l'étiquette
+- Le code-barres donne le n° exact et sert de repère ; chaque info est lue dans sa zone puis contrôlée par le volume imprimé.
+- Options : lues juste au-dessus du n° ; rien d'imprimé = aucune option.
+- La section n'est jamais changée toute seule : l'appli te la propose. Pièces et longueur sont corrigées (bouton Annuler).
+- Étiquette entière, de face, code-barres net. « Voir ce qui a été lu » montre ce que l'appli a compris.
 
-## 3. Installer comme une appli
-- **iPhone** : ouvre le lien dans Safari → bouton Partager → « Sur l'écran d'accueil ».
-- **PC** (Chrome ou Edge) : icône d'installation à droite de la barre d'adresse.
-
-## Photo de l'étiquette
-Au PC, après l'impression : bouton « 📷 Photo de l'étiquette » (onglet Colis, ou dans l'écran de pointage).
-L'appli lit l'étiquette, retrouve le colis en attente qui correspond, remplit le n°, le lieu et les options,
-et vérifie section, pièces, longueur et volume. Tu ajoutes la commande (ou Stock) puis tu appuies sur « Pointer ».
-- Si ta note contient une faute sur les pièces ou la longueur (ex. 45 au lieu de 150), l'étiquette la corrige toute seule, et un bouton « Annuler » remet ta saisie. En cas de doute (plusieurs colis proches, section différente), l'appli propose seulement « Prendre l'étiquette ».
-- Il faut internet la première fois (le lecteur se télécharge une fois, puis reste dans l'appli).
-- Photo à plat, bien éclairée, étiquette bien cadrée. Si un « ? » apparaît, compare avec l'étiquette avant de pointer.
-- Pour masquer les boutons photo : `PHOTO: false` dans `config.js`.
-
-## Comment la photo lit l'étiquette
-- Le **code-barres** donne le n° complet (ex. 203482001 = 203-482-1), même si la photo est un peu penchée.
-- Le texte est lu sur toute la photo en noir et blanc « local » (marche aussi quand la photo est sombre).
-- Section, pièces et longueur ne sont utilisées que si elles retombent sur le **volume imprimé** ; si une valeur manque, elle est déduite du volume.
-- Pour de meilleurs résultats : étiquette entière, de face, code-barres net.
-
-## Glisser une carte (onglets Calepin et Colis)
-- **Vers la droite** : ouvre le pointage de ce colis (colis en attente seulement).
-- **Vers la gauche** : supprime le colis ; un bouton « Annuler » reste affiché quelques secondes.
-- Un petit geste ou un défilement vertical ne fait rien.
-
-## Lecture de l'étiquette (v2.6)
-1. Le **code-barres** donne le n° et sert de repère : l'appli en déduit où se trouve chaque info sur l'étiquette et redresse la photo.
-2. Chaque info est lue **dans sa propre zone** (section, pièces, longueur, lieu, volume, options, code 48/600, date), avec seulement les caractères possibles.
-3. Tout est contrôlé par le **volume imprimé** ; une valeur ratée est déduite des autres.
-4. Sans code-barres lisible, l'appli relit la photo entière comme avant.
-
-## Options lues par la photo
-Les options (TR, TA, TI, PR, CR, S, MI-BOIS) sont lues **uniquement à l'endroit où l'étiquette les imprime : juste au-dessus du n°**.
-Si rien n'est imprimé à cet endroit, aucune option n'est cochée. Si la photo ne permet pas de repérer cette zone, l'appli ne touche à rien et te le dit.
-La section n'est jamais changée toute seule : l'appli te la propose avec un bouton.
-Le lien « Voir ce qui a été lu » (dans l'encadré de la photo) montre ce que l'appli a compris : utile pour me signaler un souci.
-
-## Mise à jour
-Après une modification sur GitHub, ferme puis rouvre l'appli (deux fois si besoin).
-Si l'ancienne version reste affichée, augmente `VERSION` dans `sw.js` (ex. `colis-v1.0.1`).
-
-## Réglages utiles (config.js)
-- `DEFAUTS` : essence, choix, nature et options pré-remplis.
-- `ESSENCES` : essences proposées en un tap au pointage (lettre du terminal). `ESSENCE_ETIQUETTE` : le code imprimé sur l'étiquette pour chaque lettre (ex. S → SE).
-- `LIEUX` : lieux de stockage proposés en un tap quand tu choisis « Stock » (les lieux déjà utilisés apparaissent aussi tout seuls).
-- `OPTIONS` : les options proposées en un tap (TR, CR…).
-- `ESSENCE_ETIQUETTE` : code imprimé sur la copie (S → SE).
-- `ETIQUETTE_MM` : taille de la copie imprimée.
+## Réglages (config.js)
+`ESSENCES` / `LIEUX` : boutons proposés au pointage · `OPTIONS` · `ESSENCE_ETIQUETTE` (code imprimé pour chaque lettre, ex. S → SE) · `PHOTO: false` masque la photo · `ETIQUETTE_MM` : largeur de la copie sur PC.

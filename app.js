@@ -4,7 +4,7 @@
 const CFG = window.COLIS_CONFIG || {};
 const DEF = Object.assign({ essence: "", choix: "20", nature: "G", options: [] }, CFG.DEFAUTS || {});
 const OPTIONS = CFG.OPTIONS || { TR: "Fongi. coloré", CR: "Cœur refendu" };
-const K = { reglages: "colis.reglages.v1", data: "colis.donnees.v1", attente: "colis.attente.v1", tire: "colis.tire.v1", sauvegarde: "colis.sauvegarde.v1", synchro: "colis.synchroOk.v1" };
+const K = { reglages: "colis.reglages.v1", data: "colis.donnees.v1", attente: "colis.attente.v1", tire: "colis.tire.v1", suppr: "colis.suppressions.v1", projet: "colis.projet.v1", sauvegarde: "colis.sauvegarde.v1", synchro: "colis.synchroOk.v1" };
 const STOCK = "STOCK"; // un colis « du stock » n'a pas de commande : sa commande vaut STOCK
 const cdeTxt = c => c.commande === STOCK ? "Stock" : "Cde " + (c.commande || "–");
 const STATUTS = { a_etiqueter: "En attente de pointage", a_sortir: "Pointé ✅" }; // « a_sortir » = pointé (nom interne)
@@ -21,11 +21,17 @@ function lire(k, d) { try { const v = localStorage.getItem(k); return v ? JSON.p
 function ecrire(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch { toast("Mémoire de l'appareil pleine : exporte puis synchronise."); } }
 
 let liste = lire(K.data, []);
-// Anciennes données : un colis « sorti » compte comme pointé ; les vieux réglages inutiles sont effacés.
-const migrer = () => { liste.forEach(c => { if (c.statut === "sorti") c.statut = "a_sortir"; delete c.sorti_le; }); try { localStorage.removeItem("colis.memo.v1"); } catch {} };
-migrer();
 let attente = new Set(lire(K.attente, []));
-function sauverLocal() { ecrire(K.data, liste); ecrire(K.attente, [...attente]); }
+let suppressions = new Set(lire(K.suppr, [])); // colis supprimés ici : à effacer aussi en ligne
+function sauverLocal() { ecrire(K.data, liste); ecrire(K.attente, [...attente]); ecrire(K.suppr, [...suppressions]); }
+// Anciennes données : un colis « sorti » compte comme pointé ; un colis « supprimé » est maintenant effacé pour de bon.
+const migrer = () => {
+  liste.forEach(c => { if (c.statut === "sorti") c.statut = "a_sortir"; delete c.sorti_le; });
+  const morts = liste.filter(c => c.supprime);
+  if (morts.length) { morts.forEach(c => { suppressions.add(c.id); attente.delete(c.id); }); liste = liste.filter(c => !c.supprime); }
+  try { localStorage.removeItem("colis.memo.v1"); } catch {}
+};
+migrer();
 const actifs = () => liste.filter(c => !c.supprime);
 const parId = id => liste.find(c => c.id === id);
 const maintenant = () => new Date().toISOString();
@@ -47,6 +53,14 @@ function enregistrer(c) {
   synchroniser();
 }
 
+// Supprime définitivement : plus rien ni ici ni (après synchro) en ligne. Renvoie le colis pour pouvoir annuler quelques secondes.
+function supprimerDefinitivement(id) {
+  const c = parId(id); if (!c) return null;
+  liste = liste.filter(x => x.id !== id); attente.delete(id); suppressions.add(id);
+  sauverLocal(); rafraichir(); synchroniser();
+  return c;
+}
+function restaurerColis(c) { suppressions.delete(c.id); enregistrer(c); }
 function doublon(numero, sauf) {
   if (!numero) return null;
   const n = formatNumero(numero);
@@ -310,7 +324,7 @@ $("#form-colis").addEventListener("submit", e => {
   const c = sauverForm(); if (!c) return;
   apresSauvegarde();
   if (etaitEdition) { allerA("colis"); ouvrirFiche(c.id); return; }
-  toast(`Dans le calepin : ${section(c)}, ${np(c.pieces)} p`, "Annuler", () => enregistrer({ ...parId(c.id), supprime: true }));
+  toast(`Dans le calepin : ${section(c)}, ${np(c.pieces)} p`, "Annuler", () => supprimerDefinitivement(c.id));
 });
 
 function commencerEdition(id) {
@@ -423,9 +437,8 @@ $("#filtres").addEventListener("click", e => {
 $("#btn-file-pc").addEventListener("click", () => ouvrirPC(filePCTous()));
 let ignorerClic = 0;
 function supprimerColis(id) {
-  const c = parId(id); if (!c) return;
-  enregistrer({ ...c, supprime: true });
-  toast(`Colis ${c.numero || section(c)} supprimé`, "Annuler", () => enregistrer({ ...parId(id), supprime: false }));
+  const c = supprimerDefinitivement(id); if (!c) return;
+  toast(`Colis ${c.numero || section(c)} supprimé`, "Annuler", () => restaurerColis(c));
 }
 // Glisser une carte : à droite = pointer (colis en attente), à gauche = supprimer
 function brancherGlisse(zone) {
@@ -566,15 +579,14 @@ $("#fiche-corps").addEventListener("click", e => {
       toast("Copie prête : vérifie puis enregistre"); break;
     }
     case "supprimer":
-      if (!confirm(`Supprimer le colis ${c.numero || section(c)} ?`)) return;
-      enregistrer({ ...c, supprime: true }); cacher("#fiche");
-      toast("Colis supprimé", "Annuler", () => enregistrer({ ...parId(id), supprime: false }));
+      if (!confirm(`Supprimer définitivement le colis ${c.numero || section(c)} ? Il sera aussi effacé en ligne.`)) return;
+      { const eff = supprimerDefinitivement(id); cacher("#fiche"); toast("Colis supprimé", "Annuler", () => restaurerColis(eff)); }
       break;
   }
 });
 
 /* ═════════════ Pointage au PC : commande, lieu, options, n° ═════════════ */
-let filePC = [], posPC = 0, dernierPC = null, pcOptions = new Set(), pcType = "cde";
+let filePC = [], posPC = 0, pcOptions = new Set(), pcType = "cde";
 const lectures = {}; // ce que la photo de l'étiquette a lu, par colis
 const filePCTous = () => actifs().filter(c => c.statut === "a_etiqueter").sort((a, b) => t(a.cree_le) - t(b.cree_le)).map(c => c.id);
 const PC = id => $("#pc-" + id);
@@ -602,12 +614,12 @@ function ouvrirPC(ids) { filePC = ids; posPC = 0; rendrePC(); montrer("#pc"); }
 function rendrePC() {
   prechauffer();
   const c = parId(filePC[posPC]); if (!c) { cacher("#pc"); return; }
-  const d = dernierPC || {}, lec = lectures[c.id];
-  pcOptions = new Set(lec ? (c.options || []) : c.options && c.options.length ? c.options : (c.numero ? [] : (d.options || [])));
-  const brut = c.commande || d.commande || "", lieu = c.lieu || (lec && lec.lieu) || d.lieu || "", ref = c.ref_client || d.ref_client || "";
+  const lec = lectures[c.id];
+  pcOptions = new Set(c.options || []);
+  const brut = c.commande || "", lieu = c.lieu || (lec && lec.lieu) || "", ref = c.ref_client || "";
   pcType = brut === STOCK ? "stock" : "cde";
   const commande = brut === STOCK ? "" : brut;
-  const essenceVal = (lec && lec.essence) || c.essence || "";
+  const essenceVal = c.essence || (lec && lec.essence) || "";
   const essencesHtml = essencesConnues().map(x => `<button type="button" class="puce" data-ess="${esc(x)}" aria-pressed="${x === essenceVal.toUpperCase()}">${esc(x)}</button>`).join("");
   const lieuxHtml = lieuxConnus().map(l => `<button type="button" class="puce" data-lieu="${esc(l)}" aria-pressed="false">${esc(l)}</button>`).join("");
   const plusieurs = filePC.length > 1;
@@ -638,7 +650,7 @@ function rendrePC() {
       <details class="details">
         <summary><span>Plus de détails</span></summary>
         <div class="ligne-2">
-          <label class="champ"><span>Choix</span><input id="pc-choix" inputmode="numeric" value="${esc((lec && lec.choix) || c.choix || DEF.choix)}"></label>
+          <label class="champ"><span>Choix</span><input id="pc-choix" inputmode="numeric" value="${esc(c.choix || (lec && lec.choix) || DEF.choix)}"></label>
           <label class="champ"><span>Nature</span><input id="pc-nature" class="majuscules" autocapitalize="characters" value="${esc(c.nature || DEF.nature)}"></label>
         </div>
         <label class="champ"><span>Référence client <i>facultatif</i></span><input id="pc-ref" value="${esc(ref)}"></label>
@@ -707,7 +719,6 @@ function majTerminal() {
 function sauverChampsPC(extra = {}) {
   const c = { ...parId(filePC[posPC]), ...champsPC(), ...extra };
   enregistrer(c);
-  if (c.commande || c.lieu) dernierPC = { commande: c.commande, lieu: c.lieu, options: c.options, ref_client: c.ref_client };
   return c;
 }
 let avertiNumero = "";
@@ -976,6 +987,31 @@ async function lireTexteEtiquette(prep) { // lit les zones de l'étiquette (rep�
         }
       }
       texte = Lecture.texteDepuisZones(zones) + texte;
+      const s1 = Lecture.lireSpec(texte);
+      if (!(s1 && s1.epaisseur != null)) { // pas confirmé par le volume : on relit chaque zone en la décalant un peu (photo de biais, chiffres coupés)
+        const cand = { section: [], pieces: [], longueur: [], volume: [], code: [], lieu: [] };
+        for (const k of Object.keys(cand)) if (zones[k]) cand[k].push(zones[k]);
+        const ZONES_REPETEES = ["section", "pieces", "longueur", "volume", "code", "lieu"];
+        let fus = null, n = 0;
+        etatLecture("Lecture plus précise…");
+        for (const dv of [-0.045, 0.045, -0.09, 0.09, -0.135, 0.135]) {
+          for (const nom of ZONES_REPETEES) {
+            const zone = Lecture.ZONES.find(z => z.nom === nom), cv = zoneCalee(prep.img, prep.pos, { ...zone, v0: zone.v0 + dv, v1: zone.v1 + dv });
+            if (cv.vide) continue;
+            await worker.setParameters({ tessedit_pageseg_mode: "7", tessedit_char_whitelist: zone.liste });
+            const t = (await worker.recognize(cv)).data.text.replace(/\s+/g, " ").trim();
+            if (zone.motif.test(t) || (nom === "volume" && /\d[,.]\d{3}/.test(t)) || (nom === "pieces" && /^\d{1,4}/.test(t))) cand[nom].push(t);
+          }
+          etatLecture(`Lecture plus précise… ${Math.round(++n / 6 * 100)} %`);
+          fus = Lecture.fusionner(cand);
+          if (fus) break; // une combinaison confirmée par le volume : inutile d'insister
+        }
+        const lieuChoisi = Lecture.majoritaire(cand.lieu.filter(t => Lecture.ZONES.find(z => z.nom === "lieu").motif.test(t)));
+        // les valeurs retenues passent en tête du texte : c'est ce que lisent ensuite la vérification et le formulaire
+        texte = (fus ? `${fus.epaisseur} x ${fus.largeur}\n${fus.pieces} P\n${nf(fus.longueur, 2)} m\n${nf(fus.volume, 3)} m3\n${fus.pieces}/${Math.round(fus.longueur * 100)}\n` : "") + (lieuChoisi ? lieuChoisi + "\n" : "") + texte;
+        if (fus) { zones.section = `${fus.epaisseur} x ${fus.largeur}`; zones.pieces = `${fus.pieces} P`; zones.longueur = nf(fus.longueur, 2); zones.volume = `${nf(fus.volume, 3)} m3`; }
+        if (lieuChoisi) zones.lieu = lieuChoisi;
+      }
       optionsLues = zones.options !== undefined ? Lecture.optionsDepuisZone(zones.options) : null;
       await worker.setParameters({ tessedit_char_whitelist: "" });
     }
@@ -1015,7 +1051,6 @@ async function lireEtiquette(fichier, cible) {
 function trouverParNumero(numero) {
   const n = formatNumero(numero), c = liste.find(x => x.numero && formatNumero(x.numero) === n);
   if (!c) return false;
-  if (c.supprime) { toast(`Le colis ${n} avait été supprimé`, "Rétablir", () => { enregistrer({ ...parId(c.id), supprime: false }); ouvrirFiche(c.id); }); return true; }
   ouvrirFiche(c.id); toast(`Colis ${n} retrouvé`); return true;
 }
 async function retrouverEtiquette(fichier) {
@@ -1071,10 +1106,18 @@ function proposerCreation(numero, numeroComplet, r, champs) {
       <label class="champ"><input id="intro-larg" inputmode="numeric" placeholder="110" value="${esc(v.larg)}"><small>largeur</small></label>
     </div>
     <div class="ligne-2">${champ("intro-pieces", "Pièces", v.pieces, 'inputmode="numeric"')}${champ("intro-long", "Longueur (m)", v.lo === "" ? "" : nf(v.lo, 2), 'inputmode="decimal"')}</div>
+    <div class="segment" id="intro-type"><button type="button" data-itype="cde" aria-pressed="true">Commande</button><button type="button" data-itype="stock" aria-pressed="false">Stock</button></div>
+    <div id="intro-bloc-cde">${champ("intro-commande", "N° de commande <i>facultatif</i>", "", 'inputmode="numeric" placeholder="34114"')}</div>
     <div class="ligne-2">${champ("intro-lieu", "Lieu de stock", champs.lieu || "", 'class="majuscules" inputmode="none" autocapitalize="characters" placeholder="G7"')}${champ("intro-choix", "Choix", champs.choix || DEF.choix, 'inputmode="numeric"')}</div>
     <p class="alerte" id="intro-erreur" hidden></p>
     <div class="actions"><button type="button" class="btn btn-principal" id="intro-creer">Créer l'étiquette</button><button type="button" class="btn btn-secondaire" data-fermer>Fermer</button></div>`;
   montrer("#introuvable");
+  let typeIntro = "cde";
+  $$("#intro-type [data-itype]").forEach(b => b.onclick = () => {
+    typeIntro = b.dataset.itype;
+    $$("#intro-type [data-itype]").forEach(x => x.setAttribute("aria-pressed", x.dataset.itype === typeIntro));
+    $("#intro-bloc-cde").hidden = typeIntro === "stock";
+  });
   $("#intro-creer").onclick = () => {
     const erreur = m => { const e = $("#intro-erreur"); e.textContent = m; e.hidden = false; };
     const n = formatNumero($("#intro-numero").value);
@@ -1084,7 +1127,7 @@ function proposerCreation(numero, numeroComplet, r, champs) {
     if (!ep || !larg || !pieces || !lo) return erreur("Renseigne la section, les pièces et la longueur.");
     let dateIso = maintenant();
     if (champs.date) { const d = new Date(champs.date.an, champs.date.mois - 1, champs.date.jour, champs.date.h, champs.date.min); if (!isNaN(d) && d.getTime() <= Date.now() + 2 * 3600e3) dateIso = d.toISOString(); }
-    const c = { id: nouvelId(), numero: n, commande: "", lieu: $("#intro-lieu").value.trim().toUpperCase(), epaisseur: ep, largeur: larg, longueur: lo, pieces,
+    const c = { id: nouvelId(), numero: n, commande: typeIntro === "stock" ? STOCK : $("#intro-commande").value.trim(), lieu: $("#intro-lieu").value.trim().toUpperCase(), epaisseur: ep, largeur: larg, longueur: lo, pieces,
       choix: $("#intro-choix").value.trim() || DEF.choix, essence: champs.essence || "", nature: DEF.nature, options, ref_client: "", observation: "Créé d'après une photo d'étiquette",
       statut: "a_sortir", cree_le: dateIso, etiquete_le: dateIso, supprime: false };
     enregistrer(c); cacher("#introuvable"); ouvrirFiche(c.id); toast("Étiquette créée");
@@ -1129,6 +1172,10 @@ function traiterLecture(texte, cible, code, optionsLues, zones) {
   if (!$("#pc").hidden) garderPC();
   const id = colis.id;
   lectures[id] = { numero, parCode: !!numCode, lieu: champs.lieu, choix: champs.choix, essence: champs.essence, essenceCode: champs.essenceCode, options: optionsLues, code, zones, dateIso, texte, specLu: spec, spec: null, corrige: false, avant: null, verifs: null };
+
+  // Ce qui est imprimé (lieu, essence, choix) est inscrit dans le colis : c'est ce qui compte, et tes retouches ensuite sont conservées
+  { const lu = { ...(champs.lieu ? { lieu: champs.lieu } : {}), ...(champs.essence ? { essence: champs.essence } : {}), ...(champs.choix ? { choix: champs.choix } : {}) };
+    if (Object.keys(lu).length) enregistrer({ ...parId(id), ...lu }); }
 
   // 2. L'étiquette corrige la note toute seule (section, pièces, longueur) — annulable
   const c0 = parId(id), avant = Object.fromEntries(CHAMPS_NOTE.map(k => [k, c0[k]]));
@@ -1287,6 +1334,7 @@ const SB_URL = viaConfig ? CFG.SUPABASE_URL : (CONN.url || ""), SB_KEY = viaConf
 const configure = !!(SB_URL && SB_KEY);
 let stockageSur = null; // le navigateur a-t-il accepté de protéger nos données ?
 if (navigator.storage && navigator.storage.persist) navigator.storage.persist().then(ok => { stockageSur = ok; majEtat(); }).catch(() => {});
+let suppressionLimitee = false; // la base n'a pas la règle « effacer » : les colis supprimés y sont seulement masqués
 let sb = null, session = null, occupe = false, relancer = false, derniereErreur = "";
 
 async function initSynchro() {
@@ -1318,7 +1366,19 @@ $("#btn-deconnexion").addEventListener("click", async () => {
 
 const ligneDistante = c => Object.fromEntries(COLONNES.map(k => [k, k === "options" ? (c.options || []) : k === "supprime" ? !!c.supprime : (c[k] === "" ? null : c[k] ?? null)]));
 
+async function effacerEnLigne() {
+  for (const id of [...suppressions]) {
+    const r = await sb.from("colis").delete().eq("id", id).select("id");
+    if (r.error) throw new Error(r.error.message);
+    if (!r.data || !r.data.length) { // rien effacé : ligne déjà absente, ou règle « effacer » pas encore ajoutée dans Supabase
+      const u = await sb.from("colis").update({ supprime: true, maj_le: maintenant() }).eq("id", id).select("id");
+      if (!u.error && u.data && u.data.length) suppressionLimitee = true;
+    }
+    suppressions.delete(id); sauverLocal();
+  }
+}
 async function pousser() {
+  await effacerEnLigne();
   if (!attente.size) return;
   const lignes = [...attente].map(parId).filter(Boolean).map(ligneDistante);
   let { error } = await sb.from("colis").upsert(lignes, { onConflict: "id" });
@@ -1345,6 +1405,7 @@ async function tirer() {
     for (const r of data) {
       const loc = parId(r.id);
       if (!max || t(r.maj_le) > t(max)) max = r.maj_le;
+      if (r.supprime) { if (loc && !attente.has(r.id)) liste = liste.filter(x => x.id !== r.id); continue; } // supprimé (ici ou sur un autre appareil)
       if (loc && attente.has(r.id) && t(loc.maj_le) > t(r.maj_le)) continue;
       r.options = r.options || [];
       if (!loc) liste.push(r); else if (t(r.maj_le) >= t(loc.maj_le)) liste[liste.indexOf(loc)] = r;
@@ -1356,13 +1417,31 @@ async function tirer() {
   if (max) ecrire(K.tire, max);
   sauverLocal();
 }
+// Un colis effacé en ligne depuis un autre appareil disparaît d'ici aussi (sauf s'il attend encore d'être envoyé).
+async function purgerAbsentsEnLigne() {
+  const ids = new Set(); let de = 0; const PAS = 1000;
+  for (;;) {
+    const { data, error } = await sb.from("colis").select("id").order("id", { ascending: true }).range(de, de + PAS - 1);
+    if (error) throw error;
+    data.forEach(x => ids.add(x.id));
+    if (data.length < PAS) break;
+    de += PAS;
+  }
+  if (!ids.size) return; // rien vu en ligne : par prudence, on ne retire rien ici
+  const avant = liste.length;
+  liste = liste.filter(c => ids.has(c.id) || attente.has(c.id));
+  if (liste.length !== avant) sauverLocal();
+}
 async function synchroniser() {
   if (!sb || !session || !navigator.onLine) { majEtat(); return; }
   if (occupe) { relancer = true; return; }
   occupe = true; majEtat();
   try {
-    await pousser(); await tirer(); await syncReglages();
-    derniereErreur = ""; ecrire(K.synchro, maintenant());
+    if (lire(K.projet, null) !== SB_URL) { // première synchro avec cette base : tout ce qui est ici y est envoyé, rien n'est retiré
+      liste.forEach(c => attente.add(c.id)); ecrire(K.tire, null); ecrire(K.projet, SB_URL); sauverLocal();
+    }
+    await pousser(); await tirer(); await purgerAbsentsEnLigne(); await syncReglages();
+    derniereErreur = suppressionLimitee ? "les colis supprimés ne sont que masqués en ligne : relance le script SQL de Supabase (règle « effacer »)." : ""; ecrire(K.synchro, maintenant());
   } catch (e) {
     derniereErreur = e.message || "Synchronisation impossible";
   } finally {

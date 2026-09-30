@@ -12,7 +12,7 @@ Tout autre fichier (anciens zips, captures, anciennes versions) peut être suppr
 4. Mise à jour : remplace les fichiers, ferme et rouvre l'appli deux fois. Réglages → tout en bas : le numéro de version.
 
 ## Sauvegarder les colis en ligne (Supabase)
-1. supabase.com → nouveau projet → SQL Editor → colle `supabase.sql` → Run.
+1. supabase.com → nouveau projet → SQL Editor → colle `supabase.sql` → Run. (Déjà fait avant ? Relance-le une fois : il ajoute la règle qui permet d'**effacer vraiment** un colis en ligne. Rien n'est perdu.)
 2. Authentication → Users → Add user (e-mail + mot de passe, « Auto confirm »). Providers → désactive « Allow new users to sign up ».
 3. Project Settings → API : copie l'URL et la clé « anon public ».
 4. Dans l'appli : Réglages → Base de données Supabase → colle les deux → « Relier » → connecte-toi.
@@ -21,19 +21,20 @@ Sans Supabase : Réglages → Sauvegarde et export → « Télécharger une sauv
 
 ## Utilisation
 - **Calepin** : section, pièces, longueur. Rien d'autre.
-- **Pointage** : commande (ou Stock), lieu, essence, options, n° d'étiquette. La photo de l'étiquette remplit tout et corrige les fautes de la note ; le bouton photo est en haut **et** en bas de l'écran.
+- **Pointage** : commande (ou Stock), lieu, essence, options, n° d'étiquette. Rien n'est recopié du colis précédent : chaque colis démarre vide, sauf ce qui est lu sur son étiquette. La photo de l'étiquette remplit tout et corrige les fautes de la note ; le bouton photo est en haut **et** en bas de l'écran.
 - **Lieu de stock** : sur téléphone, un pavé s'ouvre avec seulement les chiffres et les lettres C, D, G, H (lien « Clavier complet » si une autre lettre apparaît un jour). Sur ordinateur, les autres caractères sont simplement ignorés.
-- **Colis** : glisse vers la droite pour pointer, vers la gauche pour supprimer (bouton Annuler ensuite).
+- **Colis** : glisse vers la droite pour pointer, vers la gauche pour **supprimer définitivement** (un bouton Annuler reste quelques secondes ; ensuite, plus aucune trace, ni ici ni en ligne, ni sur tes autres appareils).
 - **Photo** (accueil) et **Retrouver une étiquette** (Colis → Pointés ✅) : même comportement. Tu photographies n'importe quelle étiquette :
   1. le n° existe → la fiche du colis s'ouvre (date et heure de pointage comprises) ; un colis supprimé peut être rétabli ;
   2. le n° n'existe pas mais l'étiquette correspond à un colis noté au calepin et pas encore pointé → l'écran de pointage s'ouvre avec le n° et les corrections (tu appuies toi-même sur Pointer) ;
-  3. sinon → l'appli le dit et propose **Créer l'étiquette** : un formulaire prérempli avec ce qui a été lu (n°, section, pièces, longueur, lieu, choix) que tu vérifies, complètes ou corriges avant de créer le colis (pointé). Si la lecture a échoué, tu tapes simplement les valeurs.
+  3. sinon → l'appli le dit et propose **Créer l'étiquette** : un formulaire prérempli avec ce qui a été lu (n°, section, pièces, longueur, lieu, choix) et le choix **Commande** (n° facultatif) ou **Stock**, que tu vérifies, complètes ou corriges avant de créer le colis (pointé). Si la lecture a échoué, tu tapes simplement les valeurs.
 - **Copie de l'étiquette** (fiche d'un colis) : aperçu, puis Imprimer (PC) ou Imprimer / partager (iPhone : menu AirPrint / Fichiers).
 - **Stats** : blocs qui se déplient. **Réglages** : couleurs, Supabase, sauvegarde.
 
 ## La photo de l'étiquette
 - Le code-barres donne le n° exact et sert de repère ; chaque info est lue dans sa zone puis contrôlée par le volume imprimé.
 - Options : lues juste au-dessus du n° ; rien d'imprimé = aucune option.
+- **Lecture précise** : si la première lecture n'est pas confirmée par le volume imprimé (photo de biais, chiffres coupés), l'appli relit chaque zone en la décalant un peu et garde la combinaison section × pièces × longueur qui retombe sur le volume. Une étiquette bien lue du premier coup n'est pas relue (rapide).
 - La section n'est jamais changée toute seule : l'appli te la propose. Pièces et longueur sont corrigées (bouton Annuler).
 - Étiquette entière, de face, code-barres net. « Voir ce qui a été lu » montre ce que l'appli a compris.
 

@@ -1,5 +1,5 @@
 -- Colis SDC : à coller dans Supabase → SQL Editor → Run (une seule fois).
--- Si tu as déjà lancé une ancienne version de ce script, tu n'as rien à refaire : l'appli reste compatible.
+-- Déjà lancé une ancienne version ? Relance celle-ci une fois : elle ajoute la règle qui permet d'effacer vraiment un colis (rien n'est perdu).
 
 create table if not exists public.colis (
   id           uuid primary key,
@@ -40,11 +40,12 @@ create table if not exists public.reglages (
 -- Sécurité : chacun ne voit et ne modifie que ses propres données
 alter table public.colis    enable row level security;
 alter table public.reglages enable row level security;
-drop policy if exists colis_lire on public.colis;      drop policy if exists colis_creer on public.colis;      drop policy if exists colis_modifier on public.colis;
+drop policy if exists colis_lire on public.colis;      drop policy if exists colis_creer on public.colis;      drop policy if exists colis_modifier on public.colis;      drop policy if exists colis_supprimer on public.colis;
 drop policy if exists reglages_lire on public.reglages; drop policy if exists reglages_creer on public.reglages; drop policy if exists reglages_modifier on public.reglages;
 create policy colis_lire        on public.colis    for select using (auth.uid() = user_id);
 create policy colis_creer       on public.colis    for insert with check (auth.uid() = user_id);
 create policy colis_modifier    on public.colis    for update using (auth.uid() = user_id) with check (auth.uid() = user_id);
+create policy colis_supprimer   on public.colis    for delete using (auth.uid() = user_id);   -- permet d'effacer vraiment un colis supprimé dans l'appli
 create policy reglages_lire     on public.reglages for select using (auth.uid() = user_id);
 create policy reglages_creer    on public.reglages for insert with check (auth.uid() = user_id);
 create policy reglages_modifier on public.reglages for update using (auth.uid() = user_id) with check (auth.uid() = user_id);

@@ -302,6 +302,34 @@
     return OPTIONS_OK.filter(x => codes.includes(x));
   }
 
-  const API = { encoder39, texteCodeBarres, ZONES, texteDepuisZones, optionsDepuisZone, motsDepuis, optionsPresDuNumero, verifier, trouver, lireChamps, lireSpec, correspondance,  codeBarresPos, numeroDepuisCode };
+  // ───── Lectures répétées : on garde la combinaison que le volume imprimé confirme ─────
+  // c = { section: [textes lus], pieces: [...], longueur: [...], volume: [...], code: [...] } (une entrée par lecture)
+  // Plusieurs décalages de la zone donnent des lectures parfois fausses (« 25 » lu « 98 ») : seule la bonne
+  // combinaison section × pièces × longueur retombe sur le volume, et c'est elle qui est retenue.
+  function fusionner(c) {
+    const tas = (liste, f) => { const m = new Map(); for (const t of liste || []) { const k = f(String(t)); if (k != null) m.set(k, (m.get(k) || 0) + 1); } return m; };
+    const secs = tas(c.section, t => { const m = /(\d{2,3})\s*[xX*]\s*(\d{2,3})/.exec(t); return m ? m[1] + "x" + m[2] : null; });
+    const vols = tas(c.volume, t => { const m = /(\d{1,3})[,.](\d{3})(?!\d)/.exec(t); return m ? +(m[1] + "." + m[2]) : null; });
+    const pcs = tas(c.pieces, t => { const m = /^\s*(\d{1,4})\s*P?\s*$/i.exec(t); return m ? +m[1] : null; });
+    const los = tas(c.longueur, t => { const m = /(\d{1,2})[,.](\d{2})(?!\d)/.exec(t); return m ? +(m[1] + "." + m[2]) : null; });
+    const codes = tas(c.code, t => { const m = /(\d{1,4})\s*\/\s*(\d{3,4})/.exec(t); return m ? m[1] + "/" + m[2] : null; });
+    codes.forEach((n, k) => { const [p, l] = k.split("/"); pcs.set(+p, (pcs.get(+p) || 0) + n); los.set(+l / 100, (los.get(+l / 100) || 0) + n); });
+    let meilleur = null;
+    for (const [s, ns] of secs) for (const [p, np] of pcs) for (const [lo, nl] of los) for (const [v, nv] of vols) {
+      const [e, la] = s.split("x").map(Number);
+      if (lo < 0.5 || lo > 13 || Math.abs(e / 1000 * la / 1000 * p * lo - v) >= 0.0015) continue;
+      const appui = ns + np + nl + nv + (codes.get(p + "/" + Math.round(lo * 100)) || 0) * 2;
+      if (!meilleur || appui > meilleur.appui) meilleur = { epaisseur: e, largeur: la, pieces: p, longueur: lo, volume: v, appui };
+    }
+    return meilleur;
+  }
+  // Valeur la plus souvent lue parmi des lectures qui ont la bonne forme (ex. le lieu « 20 SE D16 »)
+  function majoritaire(liste) {
+    const m = new Map(); for (const t of liste || []) m.set(t, (m.get(t) || 0) + 1);
+    let best = null, n = 0; for (const [t, k] of m) if (k > n) { best = t; n = k; }
+    return best;
+  }
+
+  const API = { fusionner, majoritaire, encoder39, texteCodeBarres, ZONES, texteDepuisZones, optionsDepuisZone, motsDepuis, optionsPresDuNumero, verifier, trouver, lireChamps, lireSpec, correspondance,  codeBarresPos, numeroDepuisCode };
   if (typeof module !== "undefined" && module.exports) module.exports = API; else racine.Lecture = API;
 })(typeof window !== "undefined" ? window : this);

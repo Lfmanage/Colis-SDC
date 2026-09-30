@@ -172,13 +172,13 @@ let ficheId = null;
 function montrer(sel) { $(sel).hidden = false; document.body.style.overflow = "hidden"; }
 function cacher(sel) {
   $(sel).hidden = true;
-  if ($("#fiche").hidden && $("#pc").hidden && $("#etq").hidden) document.body.style.overflow = "";
+  if ($("#fiche").hidden && $("#pc").hidden && $("#etq").hidden && $("#introuvable").hidden) document.body.style.overflow = "";
   if (sel === "#fiche") ficheId = null;
 }
 $$(".feuille").forEach(f => f.addEventListener("click", e => { if (e.target.closest("[data-fermer]")) cacher("#" + f.id); }));
 document.addEventListener("keydown", e => {
   if (e.key !== "Escape") return;
-  if (!$("#etq").hidden) cacher("#etq"); else if (!$("#pc").hidden) cacher("#pc"); else if (!$("#fiche").hidden) cacher("#fiche");
+  if (!$("#introuvable").hidden) cacher("#introuvable"); else if (!$("#etq").hidden) cacher("#etq"); else if (!$("#pc").hidden) cacher("#pc"); else if (!$("#fiche").hidden) cacher("#fiche");
 });
 
 /* ═════════════ Formulaire « Nouveau colis » ═════════════ */
@@ -373,7 +373,8 @@ function rendreListe() {
   const aEtiq = tous.filter(c => c.statut === "a_etiqueter");
   const bpc = $("#btn-file-pc");
   bpc.hidden = !aEtiq.length;
-  $("#btn-photo").hidden = !aEtiq.length;
+  $("#btn-photo").hidden = !aEtiq.length || filtre !== "a_etiqueter"; // dans « Pointés » : le bouton devient « Retrouver une étiquette »
+  $("#btn-retrouver").hidden = filtre !== "a_sortir";
   bpc.textContent = `Pointer au PC : ${aEtiq.length} en attente`;
 
   const q = normaliser($("#recherche").value);
@@ -594,7 +595,7 @@ function rendreAccueil() {
 $("#acc-alerte").addEventListener("click", () => { allerA("reglages"); $("#pli-supabase").open = true; });
 $("#acc-noter").addEventListener("click", () => allerA("nouveau"));
 $("#acc-pointer").addEventListener("click", () => ouvrirPC(filePCTous()));
-$("#acc-photo").addEventListener("click", () => { photoCible = null; $("#photo-input").click(); });
+$("#acc-photo").addEventListener("click", () => ouvrirPhoto("pointage"));
 $("#acc-colis").addEventListener("click", () => allerA("colis"));
 function ouvrirPC(ids) { filePC = ids; posPC = 0; rendrePC(); montrer("#pc"); }
 
@@ -748,7 +749,7 @@ $("#pc-corps").addEventListener("click", e => {
   const p = b.dataset.p;
   if (p === "valider") validerNumeroPC();
   if (p === "imprimer") { const c = sauverChampsPC(); imprimer(c.id); }
-  if (p === "photo") { photoCible = filePC[posPC]; $("#photo-input").click(); }
+  if (p === "photo") ouvrirPhoto("pointage", filePC[posPC]);
   if (p === "modifier") { garderPC(); const id = filePC[posPC]; cacher("#pc"); commencerEdition(id); }
   if (p === "prendre") { garderPC(); const id = filePC[posPC], l = lectures[id]; if (l && l.spec) appliquerSpec(id, l.spec); rendrePC(); }
   if (p === "desinverser") { // annuler la correction faite d'après l'étiquette
@@ -936,15 +937,9 @@ function prechauffer() { // dès qu'on ouvre le pointage : le lecteur se téléc
   if (CFG.PHOTO === false || !navigator.onLine || (navigator.connection && navigator.connection.saveData)) return;
   obtenirWorker().catch(() => {});
 }
-let photoCible = null; // colis affiché au pointage quand la photo est prise depuis cet écran
-async function lireEtiquette(fichier, cible) {
-  if (!filePCTous().length) { toast("Aucun colis en attente de pointage."); return; }
-  let worker;
-  try {
-    etatLecture("Lecture du code-barres…");
-    const prep = await preparerImage(fichier);
+async function lireTexteEtiquette(prep) { // lit les zones de l'étiquette (repérées grâce au code-barres), sinon la photo entière
     etatLecture("Chargement du lecteur (la première fois, ça peut être long)…");
-    worker = await obtenirWorker();
+    const worker = await obtenirWorker();
     let texte = "", optionsLues = null, zones = null;
     if (prep.pos) {
       zones = {};
@@ -997,13 +992,73 @@ async function lireEtiquette(fichier, cible) {
       if (!Lecture.lireSpec(texte)) { const cv = prep.recadre(); if (cv) { await lire(cv, "6"); await lire(cv, "11"); } }
       if (optionsLues === null) optionsLues = Lecture.optionsPresDuNumero(motsPasses);
     }
+  return { texte, optionsLues, zones };
+}
+let photoCible = null; // colis affiché au pointage quand la photo est prise depuis cet écran
+let photoMode = "pointage"; // « pointage » : mettre un n° sur un colis en attente ; « retrouver » : chercher un colis déjà pointé
+function ouvrirPhoto(mode, cible) { photoMode = mode; photoCible = cible || null; $("#photo-input").click(); }
+async function lireEtiquette(fichier, cible) {
+  if (!filePCTous().length) { toast("Aucun colis en attente de pointage."); return; }
+  try {
+    etatLecture("Lecture du code-barres…");
+    const prep = await preparerImage(fichier);
+    const r = await lireTexteEtiquette(prep);
     etatLecture(null);
-    traiterLecture(texte, cible, prep.code, optionsLues, zones);
+    traiterLecture(r.texte, cible, prep.code, r.optionsLues, r.zones);
   } catch (err) {
     etatLecture(null);
     toast(err && err.message ? err.message : "Lecture impossible : réessaie avec une photo plus nette.");
     if (workerOCR) { workerOCR.then(w => w.terminate()).catch(() => {}); workerOCR = null; } // lecteur peut-être abîmé : on repartira d'un neuf
   }
+}
+// Ouvre la fiche du colis qui porte ce n°. Renvoie false s'il n'existe pas dans les données.
+function trouverParNumero(numero) {
+  const n = formatNumero(numero), c = liste.find(x => x.numero && formatNumero(x.numero) === n);
+  if (!c) return false;
+  if (c.supprime) { toast(`Le colis ${n} avait été supprimé`, "Rétablir", () => { enregistrer({ ...parId(c.id), supprime: false }); ouvrirFiche(c.id); }); return true; }
+  ouvrirFiche(c.id); toast(`Colis ${n} retrouvé`); return true;
+}
+async function retrouverEtiquette(fichier) {
+  try {
+    etatLecture("Lecture du code-barres…");
+    const prep = await preparerImage(fichier);
+    const nCode = Lecture.numeroDepuisCode(prep.code);
+    let numero = nCode ? formatNumero(nCode) : "";
+    if (numero && trouverParNumero(numero)) { etatLecture(null); return; } // le code-barres suffit : pas besoin de lire le texte
+    const r = await lireTexteEtiquette(prep); // sinon on lit l'étiquette : n° imprimé, valeurs
+    etatLecture(null);
+    const champs = Lecture.lireChamps(r.texte, ESSENCE_INVERSE);
+    if (!numero && champs.numero) numero = formatNumero(champs.numero);
+    const chiffres = numero.replace(/\D/g, "");
+    if (chiffres.length >= 7 && trouverParNumero(numero)) return;
+    if (chiffres.length === 6) { // début du n° seulement : suffixe non lu
+      const cand = actifs().filter(x => x.numero && x.numero.replace(/\D/g, "").startsWith(chiffres));
+      if (cand.length === 1) { ouvrirFiche(cand[0].id); toast(`Colis ${cand[0].numero} retrouvé`); return; }
+      if (cand.length > 1) { $("#recherche").value = chiffres; filtre = "a_sortir"; rendreListe(); toast(`${cand.length} colis commencent par ${formatNumero(chiffres)} : choisis`); return; }
+    }
+    proposerCreation(numero, chiffres.length >= 7, r, champs);
+  } catch (err) {
+    etatLecture(null);
+    toast(err && err.message ? err.message : "Lecture impossible : réessaie avec une photo plus nette.");
+  }
+}
+function proposerCreation(numero, numeroComplet, r, champs) {
+  const spec = Lecture.lireSpec(r.texte), complet = !!(spec && spec.epaisseur != null && spec.pieces && spec.longueur);
+  const options = r.optionsLues || [];
+  let corps = numeroComplet ? `<p>Le n° <b>${esc(numero)}</b> n'existe pas dans tes données.</p>` : `<p>Aucun n° complet n'a pu être lu sur la photo. Reprends une photo de plus près, code-barres bien net.</p>`;
+  if (complet) corps += `<div class="lecture"><b>L'étiquette indique</b><p>${spec.epaisseur} × ${spec.largeur}, ${np(spec.pieces)} pièces de ${nf(spec.longueur, 2)} m${champs.lieu ? ", lieu " + esc(champs.lieu) : ""}${champs.essence ? ", essence " + esc(champs.essence) : ""}${options.length ? ", options " + esc(options.join(" ")) : ""}.</p></div>`;
+  corps += `<div class="actions">${complet && numeroComplet ? `<button type="button" class="btn btn-principal" id="intro-creer">Créer ce colis (pointé)</button>` : ""}<button type="button" class="btn btn-secondaire" data-fermer>Fermer</button></div>`;
+  $("#intro-corps").innerHTML = corps;
+  montrer("#introuvable");
+  const bouton = $("#intro-creer"); if (!bouton) return;
+  bouton.onclick = () => {
+    let dateIso = maintenant();
+    if (champs.date) { const d = new Date(champs.date.an, champs.date.mois - 1, champs.date.jour, champs.date.h, champs.date.min); if (!isNaN(d) && d.getTime() <= Date.now() + 2 * 3600e3) dateIso = d.toISOString(); }
+    const c = { id: nouvelId(), numero, commande: "", lieu: champs.lieu || "", epaisseur: spec.epaisseur, largeur: spec.largeur, longueur: spec.longueur, pieces: spec.pieces,
+      choix: champs.choix || DEF.choix, essence: champs.essence || "", nature: DEF.nature, options, ref_client: "", observation: "Créé d'après une photo d'étiquette",
+      statut: "a_sortir", cree_le: dateIso, etiquete_le: dateIso, supprime: false };
+    enregistrer(c); cacher("#introuvable"); ouvrirFiche(c.id); toast("Colis créé d'après l'étiquette");
+  };
 }
 function calculerVerifs(lec, c) {
   const s = lec.specLu;
@@ -1085,8 +1140,9 @@ function bandeauLecture(lec, c) {
     ${tout ? "" : `<p class="note-stats">Un « ? » veut dire non lu ou différent de ta note : compare avec l'étiquette avant de pointer.</p>`}
     <details class="details"><summary><span>Voir ce qui a été lu</span></summary><pre class="lu">${esc(resumeLecture(lec))}</pre></details></div>`;
 }
-$("#photo-input").addEventListener("change", e => { const f = e.target.files && e.target.files[0]; e.target.value = ""; const cible = photoCible; photoCible = null; if (f) lireEtiquette(f, cible); });
-$("#btn-photo").addEventListener("click", () => { photoCible = null; $("#photo-input").click(); });
+$("#photo-input").addEventListener("change", e => { const f = e.target.files && e.target.files[0]; e.target.value = ""; const cible = photoCible, mode = photoMode; photoCible = null; photoMode = "pointage"; if (f) (mode === "retrouver" ? retrouverEtiquette(f) : lireEtiquette(f, cible)); });
+$("#btn-photo").addEventListener("click", () => ouvrirPhoto("pointage"));
+$("#btn-retrouver").addEventListener("click", () => ouvrirPhoto("retrouver"));
 
 /* ═════════════ Copie d'étiquette imprimable ═════════════ */
 // La copie est dessinée en SVG (unités = mm, 200 × 68) : la même image sert à l'aperçu, à l'impression et au PDF.

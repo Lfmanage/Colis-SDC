@@ -146,6 +146,7 @@
     </div>
     <button type="button" class="btn btn-pc" id="btn-file-pc" hidden></button>
     <button type="button" class="btn btn-secondaire btn-photo" id="btn-photo" hidden>📷 Photo de l'étiquette</button>
+    <button type="button" class="btn btn-secondaire btn-photo" id="btn-retrouver" hidden>📷 Retrouver une étiquette</button>
     <div id="liste"></div>
   </section>
 
@@ -211,7 +212,7 @@
         <input type="file" id="restaurer-input" accept=".json,application/json" hidden>
       </div>
     </details>
-    <p class="version">Colis SDC · v3.1</p>
+    <p class="version">Colis SDC · v3.2</p>
   </section>
 </main>
 
@@ -255,6 +256,17 @@
 
 <input type="file" id="photo-input" accept="image/*" capture="environment" hidden>
 <div class="lecture-etat" id="lecture-etat" hidden><i class="tourne"></i><span id="lecture-txt"></span></div>
+
+<div class="feuille" id="introuvable" hidden style="z-index:55">
+  <div class="feuille-fond" data-fermer></div>
+  <div class="feuille-panneau" role="dialog" aria-modal="true" aria-labelledby="intro-titre">
+    <div class="feuille-tete">
+      <h2 class="titre" id="intro-titre">Étiquette introuvable</h2>
+      <button type="button" class="fermer" data-fermer aria-label="Fermer">×</button>
+    </div>
+    <div id="intro-corps"></div>
+  </div>
+</div>
 
 <div class="feuille" id="etq" hidden style="z-index:55">
   <div class="feuille-fond" data-fermer></div>

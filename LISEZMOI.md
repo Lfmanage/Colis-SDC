@@ -24,6 +24,7 @@ Sans Supabase : Réglages → Sauvegarde et export → « Télécharger une sauv
 - **Pointage** : commande (ou Stock), lieu, essence, options, n° d'étiquette. La photo de l'étiquette remplit tout et corrige les fautes de la note ; le bouton photo est en haut **et** en bas de l'écran.
 - **Lieu de stock** : sur téléphone, un pavé s'ouvre avec seulement les chiffres et les lettres C, D, G, H (lien « Clavier complet » si une autre lettre apparaît un jour). Sur ordinateur, les autres caractères sont simplement ignorés.
 - **Colis** : glisse vers la droite pour pointer, vers la gauche pour supprimer (bouton Annuler ensuite).
+- **Retrouver une étiquette** (Colis → Pointés ✅ → « 📷 Retrouver une étiquette ») : photographie n'importe quelle étiquette, la fiche du colis s'ouvre (date et heure de pointage comprises). Si le n° n'existe pas dans tes données, l'appli le dit et propose de **créer** le colis d'après l'étiquette ; un colis supprimé peut être rétabli.
 - **Copie de l'étiquette** (fiche d'un colis) : aperçu, puis Imprimer (PC) ou Imprimer / partager (iPhone : menu AirPrint / Fichiers).
 - **Stats** : blocs qui se déplient. **Réglages** : couleurs, Supabase, sauvegarde.
 

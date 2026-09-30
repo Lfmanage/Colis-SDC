@@ -356,7 +356,7 @@ function rendreListe() {
     (mots.length || filtre === "tous" || c.statut === filtre) &&
     (!filtreDate || [c.cree_le, c.etiquete_le].some(x => x && jour(x) === filtreDate)) &&
     (!mots.length || (k => mots.every(m => k.includes(m)))(cle(c))));
-  res.sort((a, b) => t(b.cree_le) - t(a.cree_le));
+  res.sort((a, b) => t(b.etiquete_le || b.cree_le) - t(a.etiquete_le || a.cree_le)); // derniers pointés (ou notés) en haut
 
   const el = $("#liste");
   if (!res.length) {
@@ -381,7 +381,7 @@ function rendreListe() {
     html += cde.map(ligne).join("");
     res = res.filter(c => !cde.includes(c));
     if (res.length) html += `<div class="groupe"><h3>Autres résultats</h3></div>`;
-  } else if (filtre === "a_sortir" && !mots.length) {
+  } else if (false) { // (ancien regroupement par lieu retiré : la liste reste dans l'ordre du pointage)
     const lieux = {};
     res.forEach(c => (lieux[c.lieu || "Sans lieu"] ||= []).push(c));
     Object.keys(lieux).sort((a, b) => a.localeCompare(b, "fr", { numeric: true })).forEach(l => {
@@ -817,16 +817,43 @@ function versNoirBlanc(img, sx, sy, sw, sh, largeur, facteurs) {
 async function preparerImage(fichier) {
   const img = await ouvrirImage(fichier);
   const W = img.width || img.naturalWidth, H = img.height || img.naturalHeight;
-  // 1. code-barres : image entière en haute résolution (lignes de lecture aussi penchées)
+  // 1. code-barres : image entière en haute résolution (lignes de lecture aussi penchées) + sa position
   const kb = Math.min(1, 3000 / Math.max(W, H)), lb = Math.round(W * kb), hb = Math.round(H * kb);
   const [, cb] = dessiner(img, lb, hb);
-  const code = Lecture.codeBarres(gris(cb, lb, hb), lb, hb, 5000);
-  // 2. image entière en noir et blanc local, avec deux réglages qui se complètent
-  const [n82, n90] = versNoirBlanc(img, 0, 0, W, H, 1800, [0.82, 0.9]);
-  // 3. étiquette recadrée (ne sert qu'en secours : le repérage se trompe parfois quand il y a un écran ou du reflet)
+  const p = Lecture.codeBarresPos(gris(cb, lb, hb), lb, hb, 5000);
+  const pos = p ? { ...p, x0: p.x0 / kb, x1: p.x1 / kb, y0: p.y0 / kb, y1: p.y1 / kb } : null;
+  // 2. en secours : image entière en noir et blanc local, et étiquette recadrée
+  let complet = null;
+  const entier = () => (complet ||= versNoirBlanc(img, 0, 0, W, H, 1800, [0.82, 0.9]));
   const z = zoneEtiquette(img, W, H);
   const recadre = () => z ? versNoirBlanc(img, z.x, z.y, z.w, z.h, 2400, [0.85])[0] : null;
-  return { code, complet: [n82, n90], recadre };
+  return { img, code: p ? p.code : null, pos, entier, recadre };
+}
+// Découpe une zone de l'étiquette, redressée d'après le code-barres, et la passe en noir et blanc net
+const PX_PAR_CODE = 520; // largeur du code-barres une fois redressé, en pixels
+function zoneCalee(img, pos, zone) {
+  const bw = pos.x1 - pos.x0, th = pos.deg * Math.PI / 180;
+  let e1 = [Math.cos(th), Math.sin(th)], e2 = [-Math.sin(th), Math.cos(th)];
+  let O = [pos.x0, (pos.y0 + pos.y1) / 2];
+  if (pos.retourne) { O = [pos.x1, O[1] + bw * Math.tan(th)]; e1 = [-e1[0], -e1[1]]; e2 = [-e2[0], -e2[1]]; } // étiquette à l'envers
+  const S = PX_PAR_CODE, k = S / bw, l = Math.round((zone.u1 - zone.u0) * S), h = Math.round((zone.v1 - zone.v0) * S);
+  const cv = document.createElement("canvas"); cv.width = l; cv.height = h;
+  const ctx = cv.getContext("2d", { willReadFrequently: true });
+  ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, l, h); ctx.imageSmoothingQuality = "high";
+  ctx.setTransform(k * e1[0], k * e2[0], k * e1[1], k * e2[1],
+    -k * (O[0] * e1[0] + O[1] * e1[1]) - S * zone.u0, -k * (O[0] * e2[0] + O[1] * e2[1]) - S * zone.v0);
+  ctx.drawImage(img, 0, 0);
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  const g = gris(ctx, l, h), tri = Uint8Array.from(g).sort();
+  const bas = tri[Math.floor(g.length * 0.01)], haut = tri[Math.floor(g.length * 0.99)], e = 255 / Math.max(1, haut - bas);
+  if (haut - bas < 45) { const v = versCanvas(new Uint8Array((l + 50) * (h + 50)).fill(255), l + 50, h + 50); v.vide = true; return v; } // zone sans contraste = rien d'imprimé
+  for (let i = 0; i < g.length; i++) g[i] = Math.max(0, Math.min(255, (g[i] - bas) * e));
+  const s = otsu(g), M = 25, out = new Uint8Array((l + 2 * M) * (h + 2 * M)).fill(255);
+  let noirs = 0;
+  for (let y = 0; y < h; y++) for (let x = 0; x < l; x++) { const b = g[y * l + x] > s ? 255 : 0; out[(y + M) * (l + 2 * M) + x + M] = b; if (!b) noirs++; }
+  const res = versCanvas(out, l + 2 * M, h + 2 * M);
+  if (noirs < l * h * 0.002) res.vide = true;
+  return res;
 }
 let photoCible = null; // colis affiché au pointage quand la photo est prise depuis cet écran
 async function lireEtiquette(fichier, cible) {
@@ -837,23 +864,61 @@ async function lireEtiquette(fichier, cible) {
     const prep = await preparerImage(fichier);
     etatLecture("Chargement du lecteur (la première fois, ça peut être long)…");
     const T = await chargerTesseract();
-    let passe = 0, total = 2;
-    worker = await T.createWorker("eng", 1, { logger: m => { if (m.status === "recognizing text") etatLecture(`Lecture de l'étiquette… (${Math.min(passe, total)}/${total})`); } });
-    let texte = "";
-    const motsPasses = [];
-    const lire = async (image, psm) => {
-      passe++; await worker.setParameters({ tessedit_pageseg_mode: psm });
-      const d = (await worker.recognize(image)).data; texte += "\n" + d.text;
-      if (image.width === prep.complet[0].width) motsPasses.push(Lecture.motsDepuis(d)); // mêmes coordonnées que les autres passes sur l'image entière
-    };
-    await lire(prep.complet[0], "11");
-    await lire(prep.complet[1], "6");
-    if (!Lecture.lireSpec(texte)) { // rien de cohérent : on essaie l'étiquette recadrée
-      const cv = prep.recadre();
-      if (cv) { total = 4; await lire(cv, "6"); await lire(cv, "11"); }
+    worker = await T.createWorker("eng", 1);
+    let texte = "", optionsLues = null, zones = null;
+    if (prep.pos) {
+      zones = {};
+      let n = 0;
+      for (const zone of Lecture.ZONES) {
+        etatLecture(`Lecture de l'étiquette… ${Math.round(++n / Lecture.ZONES.length * 100)} %`);
+        let lu = null;
+        // on garde la première lecture qui a la forme attendue ; sinon on décale un peu la zone (photo en biais)
+        essais: for (const dv of [0, 0.07, -0.07]) {
+          const cv = zoneCalee(prep.img, prep.pos, { ...zone, v0: zone.v0 + dv, v1: zone.v1 + dv });
+          for (const psm of dv ? ["7"] : ["7", "8", "6"]) {
+            let t = "";
+            if (!cv.vide) {
+              await worker.setParameters({ tessedit_pageseg_mode: psm, tessedit_char_whitelist: zone.liste });
+              t = (await worker.recognize(cv)).data.text.replace(/\s+/g, " ").trim();
+            }
+            if (zone.motif.test(t)) { lu = t; break essais; }
+            if (lu === null && t) lu = { brut: t };
+          }
+          if (zone.nom === "options") break; // pas de décalage pour les options (on risquerait de lire le n° ou le lieu)
+        }
+        zones[zone.nom] = lu && lu.brut !== undefined ? null : lu;
+        if (lu && lu.brut !== undefined) texte += "\n" + lu.brut; // lecture imparfaite : gardée pour les déductions
+      }
+      // Lieu : la partie chiffres est relue avec des chiffres seulement (« G7 » lu « GI », « D11 » lu « DT1 »)
+      const lieuLu = (zones.lieu || "").split(" ").pop();
+      if (lieuLu && /^[A-Z]/.test(lieuLu) && lieuLu.length >= 2) {
+        const cv = zoneCalee(prep.img, prep.pos, { u0: -0.22, u1: 0.36, v0: -0.63, v1: -0.34 });
+        if (!cv.vide) {
+          await worker.setParameters({ tessedit_pageseg_mode: "8", tessedit_char_whitelist: "0123456789" });
+          const chiffres = (await worker.recognize(cv)).data.text.replace(/\D/g, "");
+          const n = lieuLu.length - 1;
+          if (chiffres.length >= n) zones.lieu = zones.lieu.replace(/\S+$/, lieuLu[0] + chiffres.slice(-n));
+        }
+      }
+      texte = Lecture.texteDepuisZones(zones) + texte;
+      optionsLues = zones.options !== undefined ? Lecture.optionsDepuisZone(zones.options) : null;
+      await worker.setParameters({ tessedit_char_whitelist: "" });
+    }
+    if (!Lecture.lireSpec(texte)) { // pas de code-barres, ou zones pas assez sûres : lecture de la photo entière
+      const motsPasses = [];
+      const lire = async (image, psm) => {
+        await worker.setParameters({ tessedit_pageseg_mode: psm });
+        const d = (await worker.recognize(image)).data; texte += "\n" + d.text;
+        return d;
+      };
+      etatLecture("Lecture de la photo entière…");
+      const [a1, a2] = prep.entier();
+      motsPasses.push(Lecture.motsDepuis(await lire(a1, "11")), Lecture.motsDepuis(await lire(a2, "6")));
+      if (!Lecture.lireSpec(texte)) { const cv = prep.recadre(); if (cv) { await lire(cv, "6"); await lire(cv, "11"); } }
+      if (optionsLues === null) optionsLues = Lecture.optionsPresDuNumero(motsPasses);
     }
     etatLecture(null);
-    traiterLecture(texte, cible, prep.code, Lecture.optionsPresDuNumero(motsPasses));
+    traiterLecture(texte, cible, prep.code, optionsLues, zones);
   } catch (err) {
     etatLecture(null);
     toast(err && err.message ? err.message : "Lecture impossible : réessaie avec une photo plus nette.");
@@ -876,7 +941,7 @@ function appliquerSpec(id, spec) { // l'étiquette fait foi : la note est rempla
   enregistrer({ ...c, ...Object.fromEntries(CHAMPS_NOTE.filter(k => spec[k] != null).map(k => [k, spec[k]])) });
   if (l) { l.avant = avant; l.corrige = true; l.spec = null; l.verifs = calculerVerifs(l, parId(id)); }
 }
-function traiterLecture(texte, cible, code, optionsLues) {
+function traiterLecture(texte, cible, code, optionsLues, zones) {
   const attente = filePCTous().map(parId);
   const champs = Lecture.lireChamps(texte, ESSENCE_INVERSE), spec = Lecture.lireSpec(texte);
   const numCode = Lecture.numeroDepuisCode(code); // le code-barres est bien plus sûr que le texte
@@ -898,7 +963,7 @@ function traiterLecture(texte, cible, code, optionsLues) {
   }
   if (!$("#pc").hidden) garderPC();
   const id = colis.id;
-  lectures[id] = { numero, parCode: !!numCode, lieu: champs.lieu, choix: champs.choix, essence: champs.essence, essenceCode: champs.essenceCode, options: optionsLues, code, dateIso, texte, specLu: spec, spec: null, corrige: false, avant: null, verifs: null };
+  lectures[id] = { numero, parCode: !!numCode, lieu: champs.lieu, choix: champs.choix, essence: champs.essence, essenceCode: champs.essenceCode, options: optionsLues, code, zones, dateIso, texte, specLu: spec, spec: null, corrige: false, avant: null, verifs: null };
 
   // 2. L'étiquette corrige la note toute seule (section, pièces, longueur) — annulable
   const c0 = parId(id), avant = Object.fromEntries(CHAMPS_NOTE.map(k => [k, c0[k]]));
@@ -921,6 +986,7 @@ function traiterLecture(texte, cible, code, optionsLues) {
 function resumeLecture(lec) {
   const s = lec.specLu;
   return [`code-barres : ${lec.code || "non lu"}`, `n° retenu : ${lec.numero || "non lu"}`,
+    `zones : ${lec.zones ? Object.entries(lec.zones).map(([k, v]) => k + " « " + (v ?? "?") + " »").join(", ") : "code-barres non trouvé, photo entière"}`,
     `options : ${lec.options === null ? "zone non repérée" : lec.options.length ? lec.options.join(" ") : "aucune"}`,
     `valeurs lues : ${s ? JSON.stringify(s) : "aucune cohérente"}`, "", (lec.texte || "").replace(/\n{2,}/g, "\n").trim().slice(0, 700)].join("\n");
 }

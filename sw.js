@@ -1,5 +1,5 @@
 // Service worker : l'appli s'ouvre même sans réseau.
-const VERSION = "colis-v2.5.0";
+const VERSION = "colis-v2.6.0";
 const LIBS = "colis-libs"; // bibliothèques externes (lecteur de photo…) : gardées d'une version à l'autre
 const SHELL = ["./", "index.html", "style.css", "app.js", "lecture.js", "config.js", "bg.svg",
   "manifest.webmanifest", "icons/icon-192.png", "icons/apple-touch-icon.png"];

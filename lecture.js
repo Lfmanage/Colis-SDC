@@ -61,8 +61,9 @@
     else if ((m = T.match(/(?:^|\D)(\d{6})(?!\d)/))) numero = m[1]; // 6 chiffres lus, suffixe non lu
 
     let choix = "", essence = "", essenceCode = "", lieu = "";
-    if ((m = T.match(/(?:^|\D)(\d{2})[ \t]*([A-Z]{1,2})[ \t]+([A-Z]\d{1,2})(?![A-Z0-9])/))) {
-      choix = m[1]; essenceCode = m[2]; essence = (essenceInverse && essenceInverse[m[2]]) || ""; lieu = m[3];
+    if ((m = T.match(/(?:^|\D)(\d{2})[ \t]*([A-Z]{1,2})[ \t]+([A-Z][0-9TIL|OB]{1,2})(?![A-Z0-9])/))) {
+      choix = m[1]; essenceCode = m[2]; essence = (essenceInverse && essenceInverse[m[2]]) || "";
+      lieu = m[3][0] + m[3].slice(1).replace(/[TIL|]/g, "1").replace(/O/g, "0").replace(/B/g, "8");
     }
 
     const options = null; // les options se lisent avec la position des mots (optionsPresDuNumero) : le texte seul se trompe trop (bois, écran, logo…)
@@ -93,7 +94,12 @@
     const dejaCode = codes.filter(c => c[1] >= 0.5 && c[1] <= 13);
     for (const [p, lo] of [...dejaCode, ...pieces.flatMap(p => longueurs.map(lo => [p, lo]))]) for (const v of vols) {
       const aire = v * 1e6 / (p * lo);
-      if (p > 0 && aire >= 300 && aire <= 100000 && Math.abs(aire - Math.round(aire)) < aire * 0.004) return { pieces: p, longueur: lo, aire: Math.round(aire), volume: v, partiel: true };
+      if (!(p > 0 && aire >= 300 && aire <= 100000 && Math.abs(aire - Math.round(aire)) < aire * 0.004)) continue;
+      const A = Math.round(aire);
+      const largeurs = nombres(/[X*]\s*(\d{2,3})(?!\d)/g, m => +m[1]), epaisseurs = nombres(/(?:^|\D)(\d{2,3})\s*[X*]/g, m => +m[1]);
+      for (const la of largeurs) { const e = A / la; if (e >= 10 && e <= 400 && Math.abs(e - Math.round(e)) < 0.01) return { epaisseur: Math.round(e), largeur: la, pieces: p, longueur: lo, volume: v }; }
+      for (const e of epaisseurs) { const la = A / e; if (la >= 10 && la <= 400 && Math.abs(la - Math.round(la)) < 0.01) return { epaisseur: e, largeur: Math.round(la), pieces: p, longueur: lo, volume: v }; }
+      return { pieces: p, longueur: lo, aire: A, volume: v, partiel: true };
     }
     // 3. une valeur manque : on la calcule avec la section lue et le volume
     for (const [epaisseur, largeur] of sections) for (const v of vols) {
@@ -244,6 +250,43 @@
     return OPTIONS_OK.filter(x => trouvees.has(x));
   }
 
-  const API = { motsDepuis, optionsPresDuNumero, verifier, trouver, lireChamps, lireSpec, correspondance, codeBarres, codeBarresPos, numeroDepuisCode };
+  // ───── Lecture zone par zone : chaque info est lue à sa place, calée sur le code-barres ─────
+  // u, v en « largeurs de code-barres » : origine = bord gauche du code-barres, à mi-hauteur.
+  const ZONES = [
+    { nom: "section",  u0: -0.40, u1: 1.15, v0: -1.30, v1: -0.95, liste: "0123456789xX ", motif: /^\d{2,3}\s*[xX]\s*\d{2,3}$/ },
+    { nom: "pieces",   u0: -0.60, u1: 0.05, v0: -0.88, v1: -0.66, liste: "0123456789P ", motif: /^\d{1,4}\s*P?$/ },
+    { nom: "longueur", u0: 0.10,  u1: 0.72, v0: -1.00, v1: -0.62, liste: "0123456789,.", motif: /^\d{1,2}[,.]\d{2}$/ },
+    { nom: "lieu",     u0: -0.82, u1: 0.32, v0: -0.63, v1: -0.34, liste: "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ ", motif: /^\d{2}\s*[A-Z]{1,2}\s+[A-Z][0-9TIL]{1,2}$/ },
+    { nom: "volume",   u0: 0.52,  u1: 1.22, v0: -0.56, v1: -0.33, liste: "0123456789,.m ", motif: /^\d{1,3}[,.]\d{3}/ },
+    { nom: "options",  u0: -0.78, u1: 0.02, v0: -0.33, v1: -0.13, liste: "ABCDEFGHIJKLMNOPQRSTUVWXYZ- ", motif: /^[A-Z -]*$/ },
+    { nom: "code",     u0: -1.08, u1: -0.52, v0: 0.08, v1: 0.25, liste: "0123456789/", motif: /^\d{1,4}\/\d{3,4}$/ },
+    { nom: "date",     u0: -0.62, u1: 0.38, v0: 0.22, v1: 0.42, liste: "0123456789. ", motif: /^\d{2}\.\d{2}\.\d{2}\s*\d{4}$/ }
+  ];
+  function texteDepuisZones(z) { // assemble ce qui a été lu dans chaque zone, avec les repères attendus par lireSpec/lireChamps
+    const L = [];
+    if (z.section) L.push(z.section);
+    if (z.pieces) L.push(z.pieces.replace(/\s*P?$/, "") + " P");
+    if (z.longueur) L.push(z.longueur + " m");
+    if (z.lieu) L.push(z.lieu);
+    if (z.volume) L.push(z.volume.replace(/\s*m.*$/i, "") + " m3");
+    if (z.code) L.push(z.code);
+    if (z.date) L.push(z.date.replace(/(\d{2}\.\d{2}\.\d{2})\s*(\d{4})/, "$1 $2"));
+    return L.join("\n");
+  }
+  // Options lues dans leur zone : tableau (vide = aucune option) ou null si la lecture n'a rien de sûr
+  function optionsDepuisZone(t) {
+    if (t == null) return null;
+    const toks = String(t).toUpperCase().replace(/MI\s*-?\s*BOIS/g, "MI-BOIS").split(/[^A-Z-]+/).filter(Boolean);
+    if (!toks.length) return [];
+    const codes = [];
+    for (const tok of toks) {
+      if (OPTIONS_OK.includes(tok)) codes.push(tok);
+      else if (/^(TR|TA|TI|PR|CR)+$/.test(tok)) codes.push(...tok.match(/../g));
+      else return null; // lettres inattendues : on ne devine pas
+    }
+    return OPTIONS_OK.filter(x => codes.includes(x));
+  }
+
+  const API = { ZONES, texteDepuisZones, optionsDepuisZone, motsDepuis, optionsPresDuNumero, verifier, trouver, lireChamps, lireSpec, correspondance, codeBarres, codeBarresPos, numeroDepuisCode };
   if (typeof module !== "undefined" && module.exports) module.exports = API; else racine.Lecture = API;
 })(typeof window !== "undefined" ? window : this);

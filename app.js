@@ -595,7 +595,7 @@ function rendreAccueil() {
 $("#acc-alerte").addEventListener("click", () => { allerA("reglages"); $("#pli-supabase").open = true; });
 $("#acc-noter").addEventListener("click", () => allerA("nouveau"));
 $("#acc-pointer").addEventListener("click", () => ouvrirPC(filePCTous()));
-$("#acc-photo").addEventListener("click", () => ouvrirPhoto("pointage"));
+$("#acc-photo").addEventListener("click", () => ouvrirPhoto("retrouver"));
 $("#acc-colis").addEventListener("click", () => allerA("colis"));
 function ouvrirPC(ids) { filePC = ids; posPC = 0; rendrePC(); montrer("#pc"); }
 
@@ -1035,6 +1035,12 @@ async function retrouverEtiquette(fichier) {
       const cand = actifs().filter(x => x.numero && x.numero.replace(/\D/g, "").startsWith(chiffres));
       if (cand.length === 1) { ouvrirFiche(cand[0].id); toast(`Colis ${cand[0].numero} retrouvé`); return; }
       if (cand.length > 1) { $("#recherche").value = chiffres; filtre = "a_sortir"; rendreListe(); toast(`${cand.length} colis commencent par ${formatNumero(chiffres)} : choisis`); return; }
+    }
+    // Ce n° n'existe pas encore. Si l'étiquette correspond à un colis noté au calepin et pas encore pointé, c'est son étiquette :
+    // on lance le pointage (n° mis dessus, fautes corrigées) au lieu de créer un doublon.
+    const attente = filePCTous().map(parId), spec = Lecture.lireSpec(r.texte);
+    if (chiffres.length >= 7 && attente.length && ((spec && Lecture.correspondance(spec, attente)) || Lecture.trouver(r.texte, attente))) {
+      traiterLecture(r.texte, null, prep.code, r.optionsLues, r.zones); return;
     }
     proposerCreation(numero, chiffres.length >= 7, r, champs);
   } catch (err) {

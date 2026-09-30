@@ -62,7 +62,7 @@
 
     let choix = "", essence = "", essenceCode = "", lieu = "";
     if ((m = T.match(/(?:^|\D)(\d{2})[ \t]*([A-Z]{1,2})[ \t]+([A-Z][0-9TIL|OB]{1,2})(?![A-Z0-9])/))) {
-      choix = m[1]; essenceCode = m[2]; essence = (essenceInverse && essenceInverse[m[2]]) || "";
+      choix = /^[0-4]\d$/.test(m[1]) ? m[1] : ""; essenceCode = m[2]; essence = (essenceInverse && essenceInverse[m[2]]) || "";
       lieu = m[3][0] + m[3].slice(1).replace(/[TIL|]/g, "1").replace(/O/g, "0").replace(/B/g, "8");
     }
 
@@ -291,7 +291,7 @@
   // Options lues dans leur zone : tableau (vide = aucune option) ou null si la lecture n'a rien de sûr
   function optionsDepuisZone(t) {
     if (t == null) return null;
-    const toks = String(t).toUpperCase().replace(/MI\s*-?\s*BOIS/g, "MI-BOIS").split(/[^A-Z-]+/).filter(Boolean);
+    const toks = String(t).toUpperCase().replace(/MI\s*-?\s*BOIS/g, "MI-BOIS").split(/[^A-Z-]+/).filter(x => /[A-Z]/.test(x));
     if (!toks.length) return [];
     const codes = [];
     for (const tok of toks) {

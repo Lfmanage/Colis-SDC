@@ -27,7 +27,7 @@ Sans Supabase : Réglages → Sauvegarde et export → « Télécharger une sauv
 - **Photo** (accueil) et **Retrouver une étiquette** (Colis → Pointés ✅) : même comportement. Tu photographies n'importe quelle étiquette :
   1. le n° existe → la fiche du colis s'ouvre (date et heure de pointage comprises) ; un colis supprimé peut être rétabli ;
   2. le n° n'existe pas mais l'étiquette correspond à un colis noté au calepin et pas encore pointé → l'écran de pointage s'ouvre avec le n° et les corrections (tu appuies toi-même sur Pointer) ;
-  3. sinon → l'appli le dit et propose de **créer** le colis d'après l'étiquette.
+  3. sinon → l'appli le dit et propose **Créer l'étiquette** : un formulaire prérempli avec ce qui a été lu (n°, section, pièces, longueur, lieu, choix) que tu vérifies, complètes ou corriges avant de créer le colis (pointé). Si la lecture a échoué, tu tapes simplement les valeurs.
 - **Copie de l'étiquette** (fiche d'un colis) : aperçu, puis Imprimer (PC) ou Imprimer / partager (iPhone : menu AirPrint / Fichiers).
 - **Stats** : blocs qui se déplient. **Réglages** : couleurs, Supabase, sauvegarde.
 

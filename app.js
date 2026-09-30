@@ -108,7 +108,7 @@ function ouvrirClavierLieu(inp) {
 }
 document.addEventListener("focusin", e => {
   const el = e.target;
-  if (el.id === "pc-lieu" || el.id === "f-lieu") ouvrirClavierLieu(el);
+  if (el.id === "pc-lieu" || el.id === "f-lieu" || el.id === "intro-lieu") ouvrirClavierLieu(el);
   else if (!el.closest || !el.closest(".clavier-lieu")) fermerClavierLieu();
 });
 document.addEventListener("click", e => {
@@ -122,11 +122,11 @@ document.addEventListener("click", e => {
 });
 document.addEventListener("input", e => {
   const el = e.target;
-  if (el.id === "pc-lieu" || el.id === "f-lieu") { // tout ce qui n'est pas autorisé disparaît, même au clavier d'un ordinateur
+  if (el.id === "pc-lieu" || el.id === "f-lieu" || el.id === "intro-lieu") { // tout ce qui n'est pas autorisé disparaît, même au clavier d'un ordinateur
     const interdit = el.dataset.complet ? /[^0-9A-Z]/g : new RegExp(`[^0-9${LETTRES_LIEU.join("")}]`, "g");
     const v = el.value.toUpperCase().replace(interdit, ""); if (v !== el.value) el.value = v;
   }
-  if (el.id === "f-numero" || el.id === "pc-numero" || el.id === "fiche-numero") { const f = formatNumero(el.value); if (f !== el.value) el.value = f; }
+  if (el.id === "f-numero" || el.id === "pc-numero" || el.id === "fiche-numero" || el.id === "intro-numero") { const f = formatNumero(el.value); if (f !== el.value) el.value = f; }
 }, true);
 const dh = iso => {
   if (!iso) return "";
@@ -1049,21 +1049,45 @@ async function retrouverEtiquette(fichier) {
   }
 }
 function proposerCreation(numero, numeroComplet, r, champs) {
-  const spec = Lecture.lireSpec(r.texte), complet = !!(spec && spec.epaisseur != null && spec.pieces && spec.longueur);
-  const options = r.optionsLues || [];
-  let corps = numeroComplet ? `<p>Le n° <b>${esc(numero)}</b> n'existe pas dans tes données.</p>` : `<p>Aucun n° complet n'a pu être lu sur la photo. Reprends une photo de plus près, code-barres bien net.</p>`;
-  if (complet) corps += `<div class="lecture"><b>L'étiquette indique</b><p>${spec.epaisseur} × ${spec.largeur}, ${np(spec.pieces)} pièces de ${nf(spec.longueur, 2)} m${champs.lieu ? ", lieu " + esc(champs.lieu) : ""}${champs.essence ? ", essence " + esc(champs.essence) : ""}${options.length ? ", options " + esc(options.join(" ")) : ""}.</p></div>`;
-  corps += `<div class="actions">${complet && numeroComplet ? `<button type="button" class="btn btn-principal" id="intro-creer">Créer ce colis (pointé)</button>` : ""}<button type="button" class="btn btn-secondaire" data-fermer>Fermer</button></div>`;
-  $("#intro-corps").innerHTML = corps;
+  const spec = Lecture.lireSpec(r.texte), z = r.zones || {}, options = r.optionsLues || [];
+  // Valeurs proposées : celles vérifiées par le volume ; à défaut, chaque zone lue séparément (à contrôler)
+  const verifie = !!(spec && spec.epaisseur != null);
+  const sec = /(\d{2,3})\s*[xX]\s*(\d{2,3})/.exec(z.section || ""), pi = /(\d{1,4})/.exec(z.pieces || ""), lg = /(\d{1,2})[,.](\d{2})/.exec(z.longueur || "");
+  const v = {
+    ep: spec && spec.epaisseur != null ? spec.epaisseur : sec ? +sec[1] : "",
+    larg: spec && spec.largeur != null ? spec.largeur : sec ? +sec[2] : "",
+    pieces: spec && spec.pieces ? spec.pieces : pi ? +pi[1] : "",
+    lo: spec && spec.longueur ? spec.longueur : lg ? +(lg[1] + "." + lg[2]) : ""
+  };
+  const champ = (id, lab, val, attr = "") => `<label class="champ"><span>${lab}</span><input id="${id}" ${attr} value="${esc(val)}"></label>`;
+  $("#intro-corps").innerHTML = `
+    <p>${numeroComplet ? `Le n° <b>${esc(numero)}</b> n'existe pas dans tes données.` : "Le n° n'a pas pu être lu sur la photo : tape-le ci-dessous."}</p>
+    <div class="lecture${verifie ? "" : " attention"}"><b>${verifie ? "✔ Section, pièces et longueur vérifiées (volume)" : "⚠ Lecture incertaine"}</b>
+      <p>${verifie ? "Vérifie le lieu et le choix, puis appuie sur « Créer l'étiquette »." : "Compare avec l'étiquette et corrige si besoin."}</p></div>
+    ${champ("intro-numero", "N° d'étiquette", numeroComplet ? numero : "", 'inputmode="numeric" class="gros-chiffre" placeholder="200-000-1"')}
+    <span class="etiquette-champ">Section (mm)</span>
+    <div class="section">
+      <label class="champ"><input id="intro-ep" inputmode="numeric" placeholder="75" value="${esc(v.ep)}"><small>épaisseur</small></label><span class="fois">×</span>
+      <label class="champ"><input id="intro-larg" inputmode="numeric" placeholder="110" value="${esc(v.larg)}"><small>largeur</small></label>
+    </div>
+    <div class="ligne-2">${champ("intro-pieces", "Pièces", v.pieces, 'inputmode="numeric"')}${champ("intro-long", "Longueur (m)", v.lo === "" ? "" : nf(v.lo, 2), 'inputmode="decimal"')}</div>
+    <div class="ligne-2">${champ("intro-lieu", "Lieu de stock", champs.lieu || "", 'class="majuscules" inputmode="none" autocapitalize="characters" placeholder="G7"')}${champ("intro-choix", "Choix", champs.choix || DEF.choix, 'inputmode="numeric"')}</div>
+    <p class="alerte" id="intro-erreur" hidden></p>
+    <div class="actions"><button type="button" class="btn btn-principal" id="intro-creer">Créer l'étiquette</button><button type="button" class="btn btn-secondaire" data-fermer>Fermer</button></div>`;
   montrer("#introuvable");
-  const bouton = $("#intro-creer"); if (!bouton) return;
-  bouton.onclick = () => {
+  $("#intro-creer").onclick = () => {
+    const erreur = m => { const e = $("#intro-erreur"); e.textContent = m; e.hidden = false; };
+    const n = formatNumero($("#intro-numero").value);
+    if (n.replace(/\D/g, "").length < 7) return erreur("Tape le n° complet de l'étiquette (ex. 203-522-1).");
+    const dejaLa = doublon(n); if (dejaLa) { cacher("#introuvable"); ouvrirFiche(dejaLa.id); toast("Ce n° existe déjà : voici le colis"); return; }
+    const ep = num($("#intro-ep").value), larg = num($("#intro-larg").value), pieces = Math.round(num($("#intro-pieces").value) || 0), lo = num($("#intro-long").value);
+    if (!ep || !larg || !pieces || !lo) return erreur("Renseigne la section, les pièces et la longueur.");
     let dateIso = maintenant();
     if (champs.date) { const d = new Date(champs.date.an, champs.date.mois - 1, champs.date.jour, champs.date.h, champs.date.min); if (!isNaN(d) && d.getTime() <= Date.now() + 2 * 3600e3) dateIso = d.toISOString(); }
-    const c = { id: nouvelId(), numero, commande: "", lieu: champs.lieu || "", epaisseur: spec.epaisseur, largeur: spec.largeur, longueur: spec.longueur, pieces: spec.pieces,
-      choix: champs.choix || DEF.choix, essence: champs.essence || "", nature: DEF.nature, options, ref_client: "", observation: "Créé d'après une photo d'étiquette",
+    const c = { id: nouvelId(), numero: n, commande: "", lieu: $("#intro-lieu").value.trim().toUpperCase(), epaisseur: ep, largeur: larg, longueur: lo, pieces,
+      choix: $("#intro-choix").value.trim() || DEF.choix, essence: champs.essence || "", nature: DEF.nature, options, ref_client: "", observation: "Créé d'après une photo d'étiquette",
       statut: "a_sortir", cree_le: dateIso, etiquete_le: dateIso, supprime: false };
-    enregistrer(c); cacher("#introuvable"); ouvrirFiche(c.id); toast("Colis créé d'après l'étiquette");
+    enregistrer(c); cacher("#introuvable"); ouvrirFiche(c.id); toast("Étiquette créée");
   };
 }
 function calculerVerifs(lec, c) {

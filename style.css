@@ -493,3 +493,17 @@ input, textarea { font: inherit; color: inherit; }
 
 pre.lu { white-space: pre-wrap; word-break: break-word; font-size: 12px; line-height: 1.35; max-height: 220px; overflow: auto; background: #fff; border-radius: 12px; padding: 10px; margin: 8px 0 0; color: var(--encre); font-family: ui-monospace, Menlo, monospace; }
 .lecture .details summary { border-top: 0; padding-top: 6px; font-size: 15px; }
+
+/* Glisser une carte : droite = pointer, gauche = supprimer */
+.swipe { position: relative; margin-bottom: 10px; border-radius: 22px; overflow: hidden; touch-action: pan-y; }
+.swipe .colis { margin-bottom: 0; position: relative; touch-action: pan-y; transition: transform .2s ease; will-change: transform; -webkit-user-select: none; user-select: none; }
+.swipe.glisse .colis { transition: none; background: var(--panneau); }
+.swipe-fond { position: absolute; inset: 0; display: flex; align-items: center; justify-content: space-between; padding: 0 26px;
+  border-radius: 22px; color: #fff; font-weight: 700; font-size: 19px; visibility: hidden; }
+.swipe.droite .swipe-fond, .swipe.gauche .swipe-fond { visibility: visible; }
+.swipe.droite .swipe-fond { background: var(--ok); }
+.swipe.gauche .swipe-fond { background: var(--rouge); }
+.swipe-fond span { opacity: 0; }
+.swipe.droite .sw-pointer, .swipe.gauche .sw-suppr { opacity: 1; }
+.indice-glisse { text-align: center; margin: 2px 0 10px; }
+.swipe-fond { padding: 0 14px; font-size: 16px; }

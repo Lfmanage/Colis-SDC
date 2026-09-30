@@ -321,13 +321,14 @@ function ligne(c) {
   const act = c.statut === "a_etiqueter" ? `<button type="button" class="action-rapide num-btn" data-action="pc">Pointer</button>` : "";
   const histo = c.statut === "a_etiqueter" ? `Noté le ${dh(c.cree_le)}`
     : `Pointé le ${dh(c.etiquete_le || c.cree_le)}`;
-  return `<article class="colis st-${c.statut}" data-id="${c.id}" tabindex="0">
+  return `<div class="swipe" data-id="${c.id}" data-statut="${c.statut}"><div class="swipe-fond" aria-hidden="true"><span class="sw-pointer">✅ Pointer</span><span class="sw-suppr">Supprimer 🗑</span></div>
+  <article class="colis st-${c.statut}" data-id="${c.id}" tabindex="0">
     ${c.numero ? `<span class="num">${esc(c.numero)}</span>` : `<span class="num vide">En attente du n°</span>`}
     <span class="desc"><b>${esc(section(c))}</b> &nbsp;${esc(nf(c.longueur, 2))} m, ${np(c.pieces)} p${vol ? `, ${nf(vol, 3)} m³` : ""}</span>
     <span class="meta">${c.commande || c.lieu ? `${esc(cdeTxt(c))}, lieu ${esc(c.lieu || "–")}` : "Commande et lieu à voir au PC"}</span>
     <span class="meta">${esc(histo)}</span>
     <span class="droite"><span class="statut ${c.statut}">${STATUT_COURT[c.statut]}</span>${act}</span>
-  </article>`;
+  </article></div>`;
 }
 function totaux(arr) {
   const p = arr.reduce((s, c) => s + (c.pieces || 0), 0);
@@ -352,11 +353,13 @@ function rendreListe() {
 
   const q = normaliser($("#recherche").value);
   const mots = q.split(/\s+/).filter(Boolean);
+  let res0 = [];
   let res = tous.filter(c =>
     (mots.length || filtre === "tous" || c.statut === filtre) &&
     (!filtreDate || [c.cree_le, c.etiquete_le].some(x => x && jour(x) === filtreDate)) &&
     (!mots.length || (k => mots.every(m => k.includes(m)))(cle(c))));
   res.sort((a, b) => t(b.etiquete_le || b.cree_le) - t(a.etiquete_le || a.cree_le)); // derniers pointés (ou notés) en haut
+  res0 = res;
 
   const el = $("#liste");
   if (!res.length) {
@@ -390,7 +393,7 @@ function rendreListe() {
     res = [];
   }
   html += res.map(ligne).join("");
-  el.innerHTML = html;
+  el.innerHTML = res0.length ? `<p class="note-stats indice-glisse">Glisse un colis vers la droite pour le pointer, vers la gauche pour le supprimer.</p>` + html : html;
 }
 
 $("#recherche").addEventListener("input", rendreListe);
@@ -399,7 +402,51 @@ $("#filtres").addEventListener("click", e => {
   filtre = b.dataset.filtre; rendreListe();
 });
 $("#btn-file-pc").addEventListener("click", () => ouvrirPC(filePCTous()));
+let ignorerClic = 0;
+function supprimerColis(id) {
+  const c = parId(id); if (!c) return;
+  enregistrer({ ...c, supprime: true });
+  toast(`Colis ${c.numero || section(c)} supprimé`, "Annuler", () => enregistrer({ ...parId(id), supprime: false }));
+}
+// Glisser une carte : à droite = pointer (colis en attente), à gauche = supprimer
+function brancherGlisse(zone) {
+  let d = null;
+  zone.addEventListener("pointerdown", e => {
+    if (e.pointerType === "mouse" && e.button !== 0) return;
+    if (e.target.closest("button, a, input")) return;
+    const sw = e.target.closest(".swipe"); if (!sw) return;
+    d = { sw, carte: sw.querySelector(".colis"), x0: e.clientX, y0: e.clientY, dx: 0, actif: false, id: sw.dataset.id, pointe: sw.dataset.statut !== "a_etiqueter", pid: e.pointerId };
+  });
+  zone.addEventListener("pointermove", e => {
+    if (!d || e.pointerId !== d.pid) return;
+    const dx = e.clientX - d.x0, dy = e.clientY - d.y0;
+    if (!d.actif) {
+      if (Math.abs(dx) < 10 && Math.abs(dy) < 10) return;
+      if (Math.abs(dy) > Math.abs(dx) * 0.7) { d = null; return; } // plutôt vertical : c'est un défilement
+      d.actif = true; d.sw.classList.add("glisse");
+      try { d.carte.setPointerCapture(e.pointerId); } catch {}
+    }
+    let x = d.pointe && dx > 0 ? 0 : dx;   // un colis déjà pointé ne se glisse pas vers la droite
+    x = Math.max(-170, Math.min(170, x));
+    d.dx = x; d.carte.style.transform = `translateX(${x}px)`;
+    d.sw.classList.toggle("droite", x > 0); d.sw.classList.toggle("gauche", x < 0);
+  });
+  const fin = e => {
+    if (!d || e.pointerId !== d.pid) return;
+    const { sw, carte, dx, actif, id } = d; d = null;
+    if (!actif) return;
+    ignorerClic = Date.now() + 400;
+    sw.classList.remove("glisse");
+    if (e.type === "pointerup" && dx > 110) { carte.style.transform = ""; setTimeout(() => sw.classList.remove("droite"), 220); ouvrirPCsur(id); }
+    else if (e.type === "pointerup" && dx < -110) { carte.style.transform = "translateX(-110%)"; setTimeout(() => supprimerColis(id), 200); }
+    else { carte.style.transform = ""; setTimeout(() => sw.classList.remove("droite", "gauche"), 220); }
+  };
+  zone.addEventListener("pointerup", fin);
+  zone.addEventListener("pointercancel", fin);
+}
+["#liste", "#calepin-liste"].forEach(sel => brancherGlisse($(sel)));
 ["#liste", "#calepin-liste"].forEach(sel => $(sel).addEventListener("click", e => {
+  if (Date.now() < ignorerClic) return;
   const aller = e.target.closest("[data-aller]"); if (aller) { allerA(aller.dataset.aller); return; }
   if (e.target.closest("[data-voir]")) { filtre = "a_sortir"; rendreListe(); return; }
   const art = e.target.closest(".colis"); if (!art) return;

@@ -40,6 +40,11 @@ et vérifie section, pièces, longueur et volume. Tu ajoutes la commande (ou Sto
 - Section, pièces et longueur ne sont utilisées que si elles retombent sur le **volume imprimé** ; si une valeur manque, elle est déduite du volume.
 - Pour de meilleurs résultats : étiquette entière, de face, code-barres net.
 
+## Glisser une carte (onglets Calepin et Colis)
+- **Vers la droite** : ouvre le pointage de ce colis (colis en attente seulement).
+- **Vers la gauche** : supprime le colis ; un bouton « Annuler » reste affiché quelques secondes.
+- Un petit geste ou un défilement vertical ne fait rien.
+
 ## Lecture de l'étiquette (v2.6)
 1. Le **code-barres** donne le n° et sert de repère : l'appli en déduit où se trouve chaque info sur l'étiquette et redresse la photo.
 2. Chaque info est lue **dans sa propre zone** (section, pièces, longueur, lieu, volume, options, code 48/600, date), avec seulement les caractères possibles.

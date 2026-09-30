@@ -130,20 +130,7 @@ input, textarea { font: inherit; color: inherit; }
 .section small { display: block; text-align: center; color: var(--encre-douce); font-size: 13px; margin-top: 4px; }
 .fois { font-family: var(--titre); font-size: 26px; padding-top: 14px; color: var(--encre-douce); }
 
-.avec-unite { position: relative; }
-.avec-unite input { padding-right: 40px; font-family: var(--titre); font-size: 24px; }
-.avec-unite em { position: absolute; right: 16px; top: 50%; transform: translateY(-50%); font-style: normal; font-weight: 700; }
 
-.stepper {
-  display: grid; grid-template-columns: 44px 1fr 44px; border-radius: var(--rayon); overflow: hidden;
-  border: 1.5px solid #E1E6DF; background: var(--sauge-clair);
-}
-.stepper button { border: 0; background: transparent; font-size: 24px; font-weight: 600; color: var(--vert); }
-.stepper button:active { background: #CBD7C5; }
-.stepper input {
-  border: 0 !important; border-radius: 0 !important; text-align: center;
-  font-family: var(--titre); font-size: 24px; padding: 12px 4px;
-}
 
 .volume { margin: -2px 0 16px; color: var(--encre-douce); font-size: 15px; }
 .volume b { color: var(--encre); font-weight: 700; }
@@ -352,10 +339,6 @@ input, textarea { font: inherit; color: inherit; }
   #impression svg { display: block; width: 190mm; height: auto; }
 }
 
-/* ───── Pièces : grand champ ───── */
-.stepper-grand { grid-template-columns: 68px 1fr 68px; }
-.stepper-grand button { font-size: 34px; padding: 10px 0; }
-.stepper-grand input { font-size: 38px; padding: 14px 6px; min-width: 0; }
 
 /* ───── Apparence ───── */
 .couleurs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin: 4px 0 16px; }
@@ -487,3 +470,5 @@ pre.lu { white-space: pre-wrap; word-break: break-word; font-size: 12px; line-he
 .kl-bas { display: grid; grid-template-columns: 1fr 2fr; gap: 8px; }
 .clavier-lieu .kl-ok { background: var(--vert) !important; color: #F3EFE3 !important; font-family: var(--texte) !important; font-size: 19px !important; font-weight: 700; }
 .kl-autre { justify-self: center; font-size: 14px; background: none; border: 0; box-shadow: none; padding: 6px 4px; color: var(--vert); font-family: var(--texte); }
+
+.etiquette-champ i { font-style: normal; font-weight: 400; color: var(--encre-douce); margin-left: 6px; font-size: 15px; }

@@ -20,7 +20,7 @@ Tant que ce n'est pas fait, l'accueil affiche un bandeau orange : les colis ne s
 Sans Supabase : Réglages → Sauvegarde et export → « Télécharger une sauvegarde » de temps en temps (restaurable au même endroit).
 
 ## Utilisation
-- **Calepin** : section, pièces, longueur. Rien d'autre.
+- **Calepin** : section, pièces, longueur (côte à côte, comme dans « Créer l'étiquette »), et si tu les connais les **options** (TR, TA, TI, PR, CR, S, MI-BOIS). Rien d'autre : commande, lieu et essence viennent au pointage. Après chaque ajout, tout repart vide.
 - **Pointage** : commande (ou Stock), lieu, essence, options, n° d'étiquette. Rien n'est recopié du colis précédent : chaque colis démarre vide, sauf ce qui est lu sur son étiquette. La photo de l'étiquette remplit tout et corrige les fautes de la note ; le bouton photo est en haut **et** en bas de l'écran.
 - **Lieu de stock** : sur téléphone, un pavé s'ouvre avec seulement les chiffres et les lettres C, D, G, H (lien « Clavier complet » si une autre lettre apparaît un jour). Sur ordinateur, les autres caractères sont simplement ignorés.
 - **Colis** : glisse vers la droite pour pointer, vers la gauche pour **supprimer définitivement** (un bouton Annuler reste quelques secondes ; ensuite, plus aucune trace, ni ici ni en ligne, ni sur tes autres appareils).

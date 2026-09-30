@@ -89,21 +89,17 @@
           <label class="champ"><input id="f-largeur" inputmode="numeric" placeholder="110" aria-label="Largeur"><small>largeur</small></label>
         </div>
 
-        <div class="champ"><span>Pièces</span>
-          <div class="stepper stepper-grand">
-            <button type="button" data-pas="-1" aria-label="Moins">−</button>
-            <input id="f-pieces" inputmode="numeric" placeholder="0">
-            <button type="button" data-pas="1" aria-label="Plus">+</button>
-          </div></div>
-        <label class="champ"><span>Longueur</span>
-          <div class="avec-unite"><input id="f-longueur" inputmode="decimal" placeholder="4,00"><em>m</em></div></label>
+        <div class="ligne-2">
+          <label class="champ"><span>Pièces</span><input id="f-pieces" inputmode="numeric" placeholder="80"></label>
+          <label class="champ"><span>Longueur (m)</span><input id="f-longueur" inputmode="decimal" placeholder="4,00"></label>
+        </div>
 
         <p class="volume" id="volume-live">Volume : –</p>
 
-        <div id="bloc-plus" hidden>
-        <span class="etiquette-champ">Options</span>
+        <span class="etiquette-champ">Options <i>facultatif</i></span>
         <div class="puces" id="f-options"></div>
 
+        <div id="bloc-plus" hidden>
         <details class="details" id="details">
           <summary><span>Plus de détails</span><span class="resume" id="resume-details"></span></summary>
           <div class="ligne-3">
@@ -212,7 +208,7 @@
         <input type="file" id="restaurer-input" accept=".json,application/json" hidden>
       </div>
     </details>
-    <p class="version">Colis SDC · v3.6</p>
+    <p class="version">Colis SDC · v3.7</p>
   </section>
 </main>
 

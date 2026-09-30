@@ -288,12 +288,6 @@ function majLive() {
 $("#form-colis").addEventListener("input", majLive);
 $("#alerte-numero").addEventListener("click", e => { const b = e.target.closest("[data-ouvrir]"); if (b) ouvrirFiche(b.dataset.ouvrir); });
 
-$(".stepper").addEventListener("click", e => {
-  const b = e.target.closest("[data-pas]"); if (!b) return;
-  const n = Math.max(0, (num(F("pieces").value) || 0) + Number(b.dataset.pas));
-  F("pieces").value = n || ""; majLive();
-});
-
 function sauverForm() {
   const v = lireForm(), err = valider(v);
   if (err) { const e = $("#form-erreur"); e.textContent = err; e.hidden = false; e.scrollIntoView({ block: "center", behavior: "smooth" }); return null; }
@@ -312,8 +306,9 @@ function sauverForm() {
 
 function apresSauvegarde() {
   if (editionId) { finEdition(); return; }
-  // colis suivant de la même commande : on garde tout sauf le n° et l'observation
+  // le colis suivant repart de zéro : section, pièces, longueur, options
   ["epaisseur", "largeur", "longueur", "pieces", "numero", "observation"].forEach(k => (F(k).value = ""));
+  optionsChoisies = new Set(); rendrePuces();
   majLive(); window.scrollTo({ top: 0, behavior: "smooth" });
   if (matchMedia("(pointer: fine)").matches) F("epaisseur").focus();
 }

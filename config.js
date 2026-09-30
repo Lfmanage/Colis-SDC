@@ -16,6 +16,9 @@ window.COLIS_CONFIG = {
   ESSENCES: [],
   LIEUX: [],
 
+  // Lettres proposées sur le clavier du « lieu de stock » (les chiffres sont toujours là)
+  LETTRES_LIEU: ["C", "D", "G", "H"],
+
   // Options qui peuvent être imprimées sur l'étiquette (aucune = pas d'option). Le texte est une aide facultative.
   OPTIONS: { TR: "Fongi. coloré (PT)", TA: "", TI: "", PR: "", CR: "Cœur refendu", S: "", "MI-BOIS": "" },
 

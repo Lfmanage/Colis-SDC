@@ -21,7 +21,8 @@ Sans Supabase : Réglages → Sauvegarde et export → « Télécharger une sauv
 
 ## Utilisation
 - **Calepin** : section, pièces, longueur. Rien d'autre.
-- **Pointage** : commande (ou Stock), lieu, essence, options, n° d'étiquette. La photo de l'étiquette remplit tout et corrige les fautes de la note.
+- **Pointage** : commande (ou Stock), lieu, essence, options, n° d'étiquette. La photo de l'étiquette remplit tout et corrige les fautes de la note ; le bouton photo est en haut **et** en bas de l'écran.
+- **Lieu de stock** : sur téléphone, un pavé s'ouvre avec seulement les chiffres et les lettres C, D, G, H (lien « Clavier complet » si une autre lettre apparaît un jour). Sur ordinateur, les autres caractères sont simplement ignorés.
 - **Colis** : glisse vers la droite pour pointer, vers la gauche pour supprimer (bouton Annuler ensuite).
 - **Copie de l'étiquette** (fiche d'un colis) : aperçu, puis Imprimer (PC) ou Imprimer / partager (iPhone : menu AirPrint / Fichiers).
 - **Stats** : blocs qui se déplient. **Réglages** : couleurs, Supabase, sauvegarde.
@@ -33,4 +34,4 @@ Sans Supabase : Réglages → Sauvegarde et export → « Télécharger une sauv
 - Étiquette entière, de face, code-barres net. « Voir ce qui a été lu » montre ce que l'appli a compris.
 
 ## Réglages (config.js)
-`ESSENCES` / `LIEUX` : boutons proposés au pointage · `OPTIONS` · `ESSENCE_ETIQUETTE` (code imprimé pour chaque lettre, ex. S → SE) · `PHOTO: false` masque la photo · `ETIQUETTE_MM` : largeur de la copie sur PC.
+`LETTRES_LIEU` : lettres du pavé du lieu (C, D, G, H) · `ESSENCES` / `LIEUX` : boutons proposés au pointage · `OPTIONS` · `ESSENCE_ETIQUETTE` (code imprimé pour chaque lettre, ex. S → SE) · `PHOTO: false` masque la photo · `ETIQUETTE_MM` : largeur de la copie sur PC.

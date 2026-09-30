@@ -89,8 +89,43 @@ function formatNumero(v) {
   const d = String(v ?? "").replace(/\D/g, "");
   return d.length <= 3 ? d : d.length <= 6 ? d.slice(0, 3) + "-" + d.slice(3) : d.slice(0, 3) + "-" + d.slice(3, 6) + "-" + d.slice(6);
 }
+// ── Lieu de stock : seulement des chiffres et les lettres de config (C, D, G, H) ──
+const LETTRES_LIEU = (CFG.LETTRES_LIEU || ["C", "D", "G", "H"]).map(x => String(x).toUpperCase());
+let inputClavier = null;
+function fermerClavierLieu() { $$(".clavier-lieu").forEach(k => k.remove()); inputClavier = null; }
+function ouvrirClavierLieu(inp) {
+  fermerClavierLieu();
+  if (!matchMedia("(pointer: coarse)").matches || inp.dataset.complet) return; // ordinateur : on tape au clavier ; « clavier complet » : clavier normal
+  inputClavier = inp;
+  const k = document.createElement("div"); k.className = "clavier-lieu";
+  const touche = (x, cl = "") => `<button type="button" data-k="${x}"${cl ? ` class="${cl}"` : ""}>${x}</button>`;
+  k.innerHTML = `<div class="kl-lettres">${LETTRES_LIEU.map(x => touche(x)).join("")}</div>
+    <div class="kl-chiffres">${"1234567890".split("").map(x => touche(x)).join("")}</div>
+    <div class="kl-bas"><button type="button" data-k="effacer" class="kl-eff" aria-label="Effacer">⌫</button><button type="button" data-k="ok" class="kl-ok">Terminé</button></div>
+    <button type="button" class="lien kl-autre" data-k="complet">Autre lettre ? Clavier complet</button>`;
+  inp.closest("label").after(k);
+  k.scrollIntoView({ block: "nearest", behavior: "smooth" });
+}
+document.addEventListener("focusin", e => {
+  const el = e.target;
+  if (el.id === "pc-lieu" || el.id === "f-lieu") ouvrirClavierLieu(el);
+  else if (!el.closest || !el.closest(".clavier-lieu")) fermerClavierLieu();
+});
+document.addEventListener("click", e => {
+  const b = e.target.closest && e.target.closest(".clavier-lieu [data-k]"); if (!b || !inputClavier) return;
+  const inp = inputClavier, k = b.dataset.k;
+  if (k === "ok") { inp.blur(); fermerClavierLieu(); return; }
+  if (k === "complet") { fermerClavierLieu(); inp.dataset.complet = "1"; inp.blur(); inp.inputMode = "text"; setTimeout(() => inp.focus(), 60); return; }
+  if (k === "effacer") inp.value = inp.value.slice(0, -1);
+  else if (inp.value.length < 5) inp.value += k;
+  inp.dispatchEvent(new Event("input", { bubbles: true }));
+});
 document.addEventListener("input", e => {
   const el = e.target;
+  if (el.id === "pc-lieu" || el.id === "f-lieu") { // tout ce qui n'est pas autorisé disparaît, même au clavier d'un ordinateur
+    const interdit = el.dataset.complet ? /[^0-9A-Z]/g : new RegExp(`[^0-9${LETTRES_LIEU.join("")}]`, "g");
+    const v = el.value.toUpperCase().replace(interdit, ""); if (v !== el.value) el.value = v;
+  }
   if (el.id === "f-numero" || el.id === "pc-numero" || el.id === "fiche-numero") { const f = formatNumero(el.value); if (f !== el.value) el.value = f; }
 }, true);
 const dh = iso => {
@@ -285,7 +320,7 @@ function commencerEdition(id) {
   $("#bandeau-edition").hidden = false;
   $("#btn-generer").textContent = "Enregistrer les modifications";
   $("#carte-numero").hidden = false; $("#carte-commande").hidden = false; $("#bloc-plus").hidden = false;
-  cacher("#fiche"); allerA("accueil");
+  cacher("#fiche"); allerA("nouveau");
 }
 function finEdition() {
   editionId = null;
@@ -526,7 +561,7 @@ $("#fiche-corps").addEventListener("click", e => {
     case "dupliquer": {
       finEdition();
       remplirForm({ ...c, numero: "", observation: "" });
-      cacher("#fiche"); allerA("accueil");
+      cacher("#fiche"); allerA("nouveau");
       toast("Copie prête : vérifie puis enregistre"); break;
     }
     case "supprimer":
@@ -591,7 +626,7 @@ function rendrePC() {
       </div>
       <div class="ligne-2" id="pc-ligne">
         <label class="champ" id="pc-champ-commande"><span>N° commande</span><input id="pc-commande" inputmode="numeric" placeholder="34114" value="${esc(commande)}"></label>
-        <label class="champ"><span id="pc-lieu-lab">Lieu de stock</span><input id="pc-lieu" class="majuscules" placeholder="G7" autocapitalize="characters" value="${esc(lieu)}"></label>
+        <label class="champ"><span id="pc-lieu-lab">Lieu de stock</span><input id="pc-lieu" class="majuscules" inputmode="none" placeholder="G7" autocapitalize="characters" value="${esc(lieu)}"></label>
       </div>
       ${lieuxHtml ? `<div id="pc-lieux"><span class="etiquette-champ">Lieux récents</span><div class="puces">${lieuxHtml}</div></div>` : ""}
       <label class="champ"><span>Essence</span><input id="pc-essence" class="majuscules" autocapitalize="characters" placeholder="S" value="${esc(essenceVal)}"></label>
@@ -621,6 +656,7 @@ function rendrePC() {
     </div>
     <p class="alerte" id="pc-alerte" hidden></p>
     <div class="actions" style="margin-top:6px">
+      <button type="button" class="btn btn-principal btn-photo" data-p="photo">📷 Photo de l'étiquette</button>
       <button type="button" class="btn btn-secondaire" data-p="modifier">✏️ Corriger la note (section, pièces, longueur)</button>
       <button type="button" class="btn btn-secondaire" data-p="imprimer">Copie de l'étiquette (imprimer)</button>
     </div>`;

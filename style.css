@@ -476,3 +476,14 @@ pre.lu { white-space: pre-wrap; word-break: break-word; font-size: 12px; line-he
 .swipe.droite .sw-pointer, .swipe.gauche .sw-suppr { opacity: 1; }
 .indice-glisse { text-align: center; margin: 2px 0 10px; }
 .swipe-fond { padding: 0 14px; font-size: 16px; }
+
+/* Pavé du lieu de stock : chiffres et lettres autorisées seulement */
+.clavier-lieu { grid-column: 1 / -1; margin: 4px 0 14px; padding: 10px; border-radius: 22px; background: var(--sauge-clair); display: grid; gap: 8px; }
+.clavier-lieu button[data-k]:not(.kl-autre) { border: 0; border-radius: 14px; background: #fff; color: var(--brun); font-family: var(--titre); font-size: 28px; padding: 12px 0; box-shadow: 0 2px 6px rgba(38, 59, 50, .14); touch-action: manipulation; }
+.clavier-lieu button[data-k]:not(.kl-autre):active { background: var(--sauge); color: #fff; }
+.kl-lettres { display: grid; grid-template-columns: repeat(auto-fit, minmax(56px, 1fr)); gap: 8px; }
+.kl-lettres button { background: var(--vert) !important; color: #F3EFE3 !important; }
+.kl-chiffres { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; }
+.kl-bas { display: grid; grid-template-columns: 1fr 2fr; gap: 8px; }
+.clavier-lieu .kl-ok { background: var(--vert) !important; color: #F3EFE3 !important; font-family: var(--texte) !important; font-size: 19px !important; font-weight: 700; }
+.kl-autre { justify-self: center; font-size: 14px; background: none; border: 0; box-shadow: none; padding: 6px 4px; color: var(--vert); font-family: var(--texte); }

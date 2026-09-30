@@ -177,7 +177,7 @@ function allerA(vue) {
   window.scrollTo(0, 0);
 }
 function majTitre() {
-  $("#entete-titre").textContent = { accueil: "Colis SDC", nouveau: editionId ? "Modifier le colis" : "Calepin", colis: "Colis", stats: "Statistiques", reglages: "Réglages" }[vueActive];
+  $("#entete-titre").textContent = { accueil: "Accueil", nouveau: editionId ? "Modifier le colis" : "Calepin", colis: "Colis", stats: "Statistiques", reglages: "Réglages" }[vueActive];
 }
 $$(".onglets button").forEach(b => b.addEventListener("click", () => allerA(b.dataset.vue)));
 
@@ -350,18 +350,40 @@ function cle(c) {
     dh(c.cree_le), dh(c.etiquete_le), STATUTS[c.statut]].join(" | "));
 }
 
+const ouverts = new Set(); // cartes dépliées (elles le restent quand la liste se redessine)
+const dcourt = iso => { if (!iso) return ""; const d = new Date(iso), p = n => String(n).padStart(2, "0"); return `${p(d.getDate())}/${p(d.getMonth() + 1)} ${p(d.getHours())}:${p(d.getMinutes())}`; };
+function detailHtml(c) {
+  const attente = c.statut === "a_etiqueter";
+  const info = (lab, val, large) => val ? `<div class="info${large ? " large" : ""}"><span>${lab}</span><b>${esc(val)}</b></div>` : "";
+  const btn = (act, txt, cl = "") => `<button type="button" class="mini-btn${cl ? " " + cl : ""}" data-action="${act}">${txt}</button>`;
+  const cde = c.commande === STOCK ? info("Type", "Stock") : info("Commande", c.commande || (attente ? "" : "–"));
+  return `<div class="detail">
+    <div class="grille-infos">
+      ${cde}${info("Lieu", c.lieu || (attente ? "" : "–"))}${info("Essence", c.essence)}${info("Choix", c.choix)}${info("Nature", c.nature)}${info("Options", (c.options || []).join(" "))}
+      ${info("Référence client", c.ref_client, true)}${info("Observation", c.observation, true)}
+    </div>
+    <ul class="chrono">
+      <li><span>Saisi</span><span>${dateLongue(c.cree_le)}</span></li>
+      <li class="${c.etiquete_le ? "" : "futur"}"><span>Pointé</span><span>${c.etiquete_le ? dateLongue(c.etiquete_le) : "pas encore"}</span></li>
+    </ul>
+    <div class="detail-actions">
+      ${attente ? btn("pointer", "Pointer", "mini-principal") : btn("pc", "À taper sur le PC") + btn("imprimer", "Copie de l'étiquette")}
+      ${btn("modifier", "Modifier")}${btn("dupliquer", "Dupliquer")}${btn("supprimer", "Supprimer", "mini-danger")}
+    </div>
+  </div>`;
+}
 function ligne(c) {
-  const vol = volume(c);
-  const act = c.statut === "a_etiqueter" ? `<button type="button" class="action-rapide num-btn" data-action="pc">Pointer</button>` : "";
-  const histo = c.statut === "a_etiqueter" ? `Noté le ${dh(c.cree_le)}`
-    : `Pointé le ${dh(c.etiquete_le || c.cree_le)}`;
+  const vol = volume(c), attente = c.statut === "a_etiqueter";
+  const meta = attente ? "À pointer au PC" : `${esc(cdeTxt(c))}${c.lieu ? " · " + esc(c.lieu) : ""}`;
   return `<div class="swipe" data-id="${c.id}" data-statut="${c.statut}"><div class="swipe-fond" aria-hidden="true"><span class="sw-pointer">✅ Pointer</span><span class="sw-suppr">Supprimer 🗑</span></div>
-  <article class="colis st-${c.statut}" data-id="${c.id}" tabindex="0">
-    ${c.numero ? `<span class="num">${esc(c.numero)}</span>` : `<span class="num vide">En attente du n°</span>`}
-    <span class="desc"><b>${esc(section(c))}</b> &nbsp;${esc(nf(c.longueur, 2))} m, ${np(c.pieces)} p${vol ? `, ${nf(vol, 3)} m³` : ""}</span>
-    <span class="meta">${c.commande || c.lieu ? `${esc(cdeTxt(c))}, lieu ${esc(c.lieu || "–")}` : "Commande et lieu à voir au PC"}</span>
-    <span class="meta">${esc(histo)}</span>
-    <span class="droite"><span class="statut ${c.statut}">${STATUT_COURT[c.statut]}</span>${act}</span>
+  <article class="colis st-${c.statut}${ouverts.has(c.id) ? " ouvert" : ""}" data-id="${c.id}" tabindex="0">
+    <div class="colis-haut">
+      ${c.numero ? `<span class="num">${esc(c.numero)}</span>` : `<span class="num vide">En attente du n°</span>`}
+      <span class="colis-droite"><span class="statut ${c.statut}">${STATUT_COURT[c.statut]}</span>${attente ? `<button type="button" class="action-rapide" data-action="pointer">Pointer</button>` : ""}<i class="caret"></i></span>
+    </div>
+    <div class="colis-ligne"><span><b>${esc(section(c))}</b> &nbsp;${esc(nf(c.longueur, 2))} m · ${np(c.pieces)} p</span>${vol ? `<span class="vol">${nf(vol, 3)} m³</span>` : ""}</div>
+    <div class="colis-meta"><span>${meta}</span><span>${attente ? "noté " + dcourt(c.cree_le) : "pointé " + dcourt(c.etiquete_le || c.cree_le)}</span></div>
+    ${detailHtml(c)}
   </article></div>`;
 }
 function totaux(arr) {
@@ -478,14 +500,13 @@ function brancherGlisse(zone) {
   if (e.target.closest("[data-voir]")) { filtre = "a_sortir"; rendreListe(); return; }
   const art = e.target.closest(".colis"); if (!art) return;
   const act = e.target.closest("[data-action]");
-  const c = parId(art.dataset.id);
-  if (act?.dataset.action === "pc" || (c && c.statut === "a_etiqueter")) ouvrirPCsur(art.dataset.id); // colis à pointer : direct l'écran de pointage
-  else ouvrirFiche(art.dataset.id);
+  if (act) { actionColis(act.dataset.action, art.dataset.id); return; } // boutons du détail et « Pointer »
+  if (e.target.closest(".detail")) return;                              // toucher le détail ne le replie pas
+  art.classList.toggle("ouvert") ? ouverts.add(art.dataset.id) : ouverts.delete(art.dataset.id);
 }));
 ["#liste", "#calepin-liste"].forEach(sel => $(sel).addEventListener("keydown", e => {
   if (e.key !== "Enter" || !e.target.classList.contains("colis")) return;
-  const c = parId(e.target.dataset.id);
-  if (c && c.statut === "a_etiqueter") ouvrirPCsur(c.id); else ouvrirFiche(e.target.dataset.id);
+  e.target.classList.toggle("ouvert") ? ouverts.add(e.target.dataset.id) : ouverts.delete(e.target.dataset.id);
 }));
 $("#btn-pointer").addEventListener("click", () => ouvrirPC(filePCTous()));
 function rendreCalepin() {
@@ -529,7 +550,7 @@ function rendreFiche() {
 
   $("#fiche-corps").innerHTML = `
     <span class="statut ${c.statut}">${STATUTS[c.statut]}</span>
-    <p class="fiche-section" style="margin-top:10px">${esc(section(c))}</p>
+    <p class="fiche-section" style="margin-top:8px">${esc(section(c))}</p>
     <p class="fiche-sous">${np(c.pieces)} pièces de ${esc(nf(c.longueur, 2))} m${vol ? `, ${nf(vol, 3)} m³` : ""}</p>
     <div class="grille-infos">
       ${info(c.commande === STOCK ? "Type" : "Commande", c.commande === STOCK ? "Stock" : (c.commande || "–"))}${info("Lieu de stock", c.lieu || "–")}
@@ -559,25 +580,25 @@ function validerNumeroFiche() {
   if (err) { const a = $("#fiche-alerte"); a.textContent = err; a.hidden = false; return; }
   toast("N° d'étiquette enregistré");
 }
-$("#fiche-corps").addEventListener("click", e => {
-  const b = e.target.closest("[data-f]"); if (!b) return;
-  const id = ficheId, c = parId(id);
-  switch (b.dataset.f) {
-    case "numero": validerNumeroFiche(); break;
+function actionColis(action, id) {
+  const c = parId(id); if (!c) return;
+  switch (action) {
+    case "pointer": ouvrirPCsur(id); break;
     case "pc": ouvrirPC([id]); break;
     case "imprimer": imprimer(id); break;
     case "modifier": commencerEdition(id); break;
-    case "dupliquer": {
-      finEdition();
-      remplirForm({ ...c, numero: "", observation: "" });
-      cacher("#fiche"); allerA("nouveau");
-      toast("Copie prête : vérifie puis enregistre"); break;
-    }
-    case "supprimer":
+    case "dupliquer":
+      finEdition(); remplirForm({ ...c, numero: "", observation: "" });
+      cacher("#fiche"); allerA("nouveau"); toast("Copie prête : vérifie puis enregistre"); break;
+    case "supprimer": {
       if (!confirm(`Supprimer définitivement le colis ${c.numero || section(c)} ? Il sera aussi effacé en ligne.`)) return;
-      { const eff = supprimerDefinitivement(id); cacher("#fiche"); toast("Colis supprimé", "Annuler", () => restaurerColis(eff)); }
-      break;
+      const eff = supprimerDefinitivement(id); cacher("#fiche"); toast("Colis supprimé", "Annuler", () => restaurerColis(eff)); break;
+    }
   }
+}
+$("#fiche-corps").addEventListener("click", e => {
+  const b = e.target.closest("[data-f]"); if (!b) return;
+  if (b.dataset.f === "numero") validerNumeroFiche(); else actionColis(b.dataset.f, ficheId);
 });
 
 /* ═════════════ Pointage au PC : commande, lieu, options, n° ═════════════ */
@@ -592,7 +613,11 @@ function rendreAccueil() {
   const n = filePCTous().length, auj = jour(maintenant());
   $("#acc-attente").textContent = np(n);
   $("#acc-auj").textContent = np(actifs().filter(c => c.etiquete_le && jour(c.etiquete_le) === auj).length);
-  const b = $("#acc-pointer"); b.hidden = !n; b.textContent = `Pointer les colis (${n} en attente)`;
+  const b = $("#acc-pointer"); b.hidden = !n; $("#acc-pointer-t").textContent = "Pointer les colis"; $("#acc-pointer-s").textContent = `${n} en attente`;
+  const tous = actifs(), pointes = tous.filter(c => c.statut === "a_sortir");
+  $("#acc-total").textContent = np(tous.length); $("#acc-pointes").textContent = np(pointes.length);
+  $("#acc-vol").textContent = nf(pointes.filter(c => c.etiquete_le && jour(c.etiquete_le) === auj).reduce((s, c) => s + (volume(c) || 0), 0), 1);
+  $("#acc-colis-s").textContent = `${np(tous.length)} colis en tout`;
   let msg = "";
   if (!configure) msg = "⚠️ Tes colis ne sont enregistrés que sur cet appareil. Appuie ici pour les sauvegarder en ligne (Supabase).";
   else if (!session) msg = "Connecte-toi pour sauvegarder tes colis en ligne.";
@@ -1481,39 +1506,71 @@ $("#btn-delier").addEventListener("click", () => {
   localStorage.removeItem("colis.connexion.v1"); location.reload();
 });
 
-/* ═════════════ Apparence (couleurs au choix, gardées dans Supabase) ═════════════ */
-const THEMES = {
-  foret: { nom: "Forêt SDC", vert: "#2F5143", or: "#D8BD86", fond: "#ECF0E8" },
-  chene: { nom: "Chêne", vert: "#5B3F2A", or: "#D9A85B", fond: "#F3EBDD" },
-  ardoise: { nom: "Ardoise", vert: "#34495E", or: "#C9A66B", fond: "#E8ECF0" },
-  mousse: { nom: "Mousse", vert: "#3E6B4E", or: "#E0B45C", fond: "#F1F0E2" }
+/* ═════════════ Apparence (thème, couleurs, animations : gardés dans Supabase) ═════════════ */
+const PRINC = [["Indigo", "#5B4FBF"], ["Terracotta", "#D4917F"], ["Pêche", "#DDA791"], ["Rose poudré", "#D4A5A8"], ["Cuivre", "#C08A6E"], ["Or", "#D4B06E"], ["Sauge", "#8FA58F"],
+  ["Menthe", "#8CC4B8"], ["Ciel", "#8DB8D9"], ["Bleu", "#5F7DB9"], ["Lavande", "#A199CE"], ["Bordeaux", "#843C4E"], ["Gris", "#9DA0AA"]];
+const PALETTES = {
+  princ: PRINC,
+  fond: [["Beige", "#F4F0EA"], ["Blanc froid", "#FBFBFD"], ["Crème", "#F7EDD6"], ["Rose", "#F1E2E5"], ["Pêche", "#F6E3D6"], ["Lavande", "#E8E3F5"], ["Bleu clair", "#DDE9F5"],
+    ["Vert clair", "#E1EEE3"], ["Sable", "#EFEAE0"], ["Gris bleu", "#E9EDF2"], ["Blanc", "#FFFFFF"], ["Mauve", "#F3E9F1"]],
+  nav: [["Assortie", "auto"], ...PRINC],
+  chiffre: [["Cuivre foncé", "#B4682F"], ["Bordeaux", "#843C4E"], ["Indigo", "#5B4FBF"], ["Vert", "#3F7F5B"], ["Bleu", "#2F6DA3"], ["Brique", "#C0533D"], ["Or foncé", "#8C6D1F"],
+    ["Ardoise", "#5A6B7B"], ["Noir", "#26201F"], ["Violet", "#7A4E9A"], ["Framboise", "#B23B6B"], ["Turquoise", "#1F8A8A"], ["Olive", "#6B7F3A"]]
 };
-let reglages = Object.assign({ vert: THEMES.foret.vert, or: THEMES.foret.or, fond: THEMES.foret.fond, image: true, maj: null, attente: false }, lire(K.reglages, {}));
+const CLES_REGLAGES = ["mode", "anim", "c_princ", "c_fond", "c_nav", "c_chiffre"];
+const REGLAGES_DEFAUT = { mode: "auto", anim: true, c_princ: "#843C4E", c_fond: "#F4F0EA", c_nav: "auto", c_chiffre: "#B4682F" };
+const anciens = lire(K.reglages, {});
+let reglages = { ...REGLAGES_DEFAUT, maj: anciens.maj || null, attente: !!anciens.attente };
+CLES_REGLAGES.forEach(k => { if (anciens[k] !== undefined) reglages[k] = anciens[k]; }); // les anciens réglages (vert, or, forêt…) sont abandonnés
 const rgb = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16));
 const hex = v => "#" + v.map(x => Math.round(Math.max(0, Math.min(255, x))).toString(16).padStart(2, "0")).join("");
 const mix = (a, b, k) => { const x = rgb(a), y = rgb(b); return hex(x.map((v, i) => v + (y[i] - v) * k)); };
+const clarte = h => { const [r, g, b] = rgb(h); return (0.299 * r + 0.587 * g + 0.114 * b) / 255; };
+const themeSombre = () => reglages.mode === "sombre" || (reglages.mode === "auto" && matchMedia("(prefers-color-scheme: dark)").matches);
 function appliquerTheme() {
-  const r = reglages, s = document.documentElement.style, W = "#ffffff";
-  const encre = mix(r.vert, "#000000", 0.5);
-  s.setProperty("--vert", r.vert); s.setProperty("--vert-fonce", mix(r.vert, "#000000", 0.25));
-  s.setProperty("--sauge", mix(r.vert, W, 0.42)); s.setProperty("--sauge-clair", mix(r.vert, W, 0.86));
-  s.setProperty("--or", r.or); s.setProperty("--encre", encre); s.setProperty("--encre-douce", mix(encre, W, 0.4));
-  s.setProperty("--givre", `rgba(${rgb(mix(r.fond, W, 0.55)).join(",")}, 0.88)`);
-  s.setProperty("--entete", `rgba(${rgb(mix(r.fond, W, 0.6)).join(",")}, 0.93)`);
-  s.setProperty("--panneau", mix(r.fond, W, 0.6));
-  const f = rgb(r.fond).join(",");
-  s.setProperty("--voile1", `rgba(${f}, ${r.image ? 0.35 : 1})`); s.setProperty("--voile2", `rgba(${f}, ${r.image ? 0.55 : 1})`);
-  document.body.style.background = mix(r.fond, "#000000", 0.06);
-  $(".fond").style.backgroundImage = r.image ? "" : "none";
-  const m = document.querySelector('meta[name="theme-color"]'); if (m) m.content = mix(r.vert, W, 0.42);
+  const r = reglages, s = document.documentElement.style, W = "#ffffff", sombre = themeSombre();
+  const ac = r.c_princ, base = "#121216";
+  const set = (k, v) => s.setProperty(k, v);
+  set("--accent", ac);
+  set("--sur-accent", clarte(ac) > 0.55 ? "#26201F" : "#FFFFFF");
+  set("--accent-texte", sombre ? (clarte(ac) < 0.5 ? mix(ac, W, 0.45) : ac) : (clarte(ac) > 0.5 ? mix(ac, "#000000", 0.45) : ac));
+  set("--accent-fort", sombre ? mix(ac, W, 0.3) : mix(ac, "#000000", 0.28));
+  set("--accent-doux", sombre ? mix(base, ac, 0.28) : mix(ac, W, 0.88));
+  set("--accent-moyen", sombre ? mix(ac, W, 0.3) : mix(ac, W, 0.55));
+  let barre;
+  if (sombre) {
+    set("--fond", mix(base, ac, 0.05)); set("--fond-haut", mix(base, ac, 0.13)); set("--carte", "#1E1E24"); set("--champ", "#25252C"); set("--panneau", "#1B1B20");
+    set("--texte", "#F2EEEE"); set("--texte-doux", "#A9A2A5"); set("--bord", "rgba(255,255,255,.11)"); set("--ombre", "0 3px 14px rgba(0,0,0,.35)");
+    set("--hero1", mix(base, ac, 0.42)); set("--hero2", mix(base, ac, 0.24));
+    set("--chiffre", clarte(r.c_chiffre) < 0.45 ? mix(r.c_chiffre, W, 0.5) : r.c_chiffre);
+    barre = r.c_nav === "auto" ? mix(base, ac, 0.2) : mix(r.c_nav, "#101014", 0.72);
+  } else {
+    set("--fond", r.c_fond); set("--fond-haut", mix(r.c_fond, ac, 0.07)); set("--carte", "#FFFFFF"); set("--champ", "#FFFFFF"); set("--panneau", mix(r.c_fond, W, 0.6));
+    set("--texte", "#26201F"); set("--texte-doux", "#7A7072"); set("--bord", "rgba(38,32,31,.11)"); set("--ombre", "0 3px 14px rgba(38,32,31,.07)");
+    set("--hero1", mix(ac, W, 0.7)); set("--hero2", mix(ac, W, 0.87));
+    set("--chiffre", r.c_chiffre);
+    barre = r.c_nav === "auto" ? mix(ac, W, 0.84) : r.c_nav;
+  }
+  set("--barre", barre);
+  const navSombre = clarte(barre) < 0.42;
+  set("--nav-texte", navSombre ? "rgba(255,255,255,.72)" : (sombre ? "#A9A2A5" : "#7A7072"));
+  set("--nav-actif", navSombre ? "#FFFFFF" : (sombre ? "#FFFFFF" : mix(ac, "#000000", clarte(ac) > 0.5 ? 0.45 : 0.1)));
+  set("--nav-pastille", navSombre ? "rgba(255,255,255,.2)" : mix(ac, sombre ? base : W, sombre ? 0.55 : 0.8));
+  document.documentElement.style.colorScheme = sombre ? "dark" : "light";
+  document.body.classList.toggle("sans-anim", !r.anim);
+  const m = document.querySelector('meta[name="theme-color"]'); if (m) m.content = sombre ? mix(base, ac, 0.05) : r.c_fond;
 }
+matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => { if (reglages.mode === "auto") appliquerTheme(); });
 function majUIapparence() {
-  $("#c-vert").value = reglages.vert; $("#c-or").value = reglages.or; $("#c-fond").value = reglages.fond;
-  $("#c-image").checked = !!reglages.image;
-  $("#themes").innerHTML = Object.entries(THEMES).map(([k, th]) => {
-    const actif = th.vert.toLowerCase() === reglages.vert.toLowerCase() && th.or.toLowerCase() === reglages.or.toLowerCase() && th.fond.toLowerCase() === reglages.fond.toLowerCase();
-    return `<button type="button" class="puce" data-theme="${k}" aria-pressed="${actif}"><i class="sw" style="background:${th.vert}"></i>${esc(th.nom)}</button>`;
-  }).join("");
+  $$("#theme-mode [data-mode]").forEach(b => b.setAttribute("aria-pressed", b.dataset.mode === reglages.mode));
+  $("#c-anim").checked = !!reglages.anim;
+  const tint = mix(reglages.c_princ, "#ffffff", 0.84);
+  const pal = (id, cle, liste, nombre) => {
+    $(id).innerHTML = liste.map(([nom, val]) => `<button type="button" class="pastille" data-cle="${cle}" data-val="${val}" title="${esc(nom)}" aria-label="${esc(nom)}" aria-pressed="${String(reglages[cle]).toLowerCase() === val.toLowerCase()}" style="background:${val === "auto" ? tint : val}"></button>`).join("");
+    $(nombre).textContent = `${liste.length} couleurs`;
+  };
+  pal("#pal-princ", "c_princ", PALETTES.princ, "#n-princ"); pal("#pal-fond", "c_fond", PALETTES.fond, "#n-fond");
+  pal("#pal-nav", "c_nav", PALETTES.nav, "#n-nav"); pal("#pal-chiffre", "c_chiffre", PALETTES.chiffre, "#n-chiffre");
 }
 let minuteurReglages;
 function changerReglages(patch) {
@@ -1521,23 +1578,21 @@ function changerReglages(patch) {
   ecrire(K.reglages, reglages); appliquerTheme(); majUIapparence();
   clearTimeout(minuteurReglages); minuteurReglages = setTimeout(synchroniser, 800);
 }
-$("#themes").addEventListener("click", e => {
-  const b = e.target.closest("[data-theme]"); if (!b) return;
-  const th = THEMES[b.dataset.theme]; changerReglages({ vert: th.vert, or: th.or, fond: th.fond });
+$("#pli-apparence").addEventListener("click", e => {
+  const p = e.target.closest(".pastille"); if (p) { changerReglages({ [p.dataset.cle]: p.dataset.val }); return; }
+  const m = e.target.closest("[data-mode]"); if (m) changerReglages({ mode: m.dataset.mode });
 });
-$("#c-vert").addEventListener("input", e => changerReglages({ vert: e.target.value }));
-$("#c-or").addEventListener("input", e => changerReglages({ or: e.target.value }));
-$("#c-fond").addEventListener("input", e => changerReglages({ fond: e.target.value }));
-$("#c-image").addEventListener("change", e => changerReglages({ image: e.target.checked }));
+$("#c-anim").addEventListener("change", e => changerReglages({ anim: e.target.checked }));
+const valeursReglages = () => Object.fromEntries(CLES_REGLAGES.map(k => [k, reglages[k]]));
 async function syncReglages() {
   const { data, error } = await sb.from("reglages").select("valeurs,maj_le").maybeSingle();
   if (error) return; // table pas encore créée : on ignore, les colis se synchronisent quand même
   if ((reglages.attente || !data) && reglages.maj) {
-    const { vert, or, fond, image } = reglages;
-    const r = await sb.from("reglages").upsert({ user_id: session.user.id, valeurs: { vert, or, fond, image }, maj_le: reglages.maj }, { onConflict: "user_id" });
+    const r = await sb.from("reglages").upsert({ user_id: session.user.id, valeurs: valeursReglages(), maj_le: reglages.maj }, { onConflict: "user_id" });
     if (!r.error) { reglages.attente = false; ecrire(K.reglages, reglages); }
   } else if (data && (!reglages.maj || t(data.maj_le) > t(reglages.maj))) {
-    reglages = { ...reglages, ...data.valeurs, maj: data.maj_le, attente: false };
+    const v = data.valeurs || {}, recu = {}; CLES_REGLAGES.forEach(k => { if (v[k] !== undefined) recu[k] = v[k]; });
+    reglages = { ...reglages, ...recu, maj: data.maj_le, attente: false };
     ecrire(K.reglages, reglages); appliquerTheme(); majUIapparence();
   }
 }
@@ -1724,8 +1779,7 @@ $("#btn-export").addEventListener("click", () => {
   donnerFichier(new Blob([csv], { type: "text/csv;charset=utf-8" }), `colis-sdc-${jour(maintenant())}.csv`, "Colis SDC (Excel)");
 });
 $("#btn-sauvegarde").addEventListener("click", async () => {
-  const { vert, or, fond, image } = reglages;
-  const blob = new Blob([JSON.stringify({ appli: "colis-sdc", date: maintenant(), colis: liste, reglages: { vert, or, fond, image } })], { type: "application/json" });
+  const blob = new Blob([JSON.stringify({ appli: "colis-sdc", date: maintenant(), colis: liste, reglages: valeursReglages() })], { type: "application/json" });
   const r = await donnerFichier(blob, `colis-sdc-sauvegarde-${jour(maintenant())}.json`, "Sauvegarde Colis SDC");
   if (r !== "annule") { ecrire(K.sauvegarde, maintenant()); majEtat(); toast("Sauvegarde enregistrée"); }
 });

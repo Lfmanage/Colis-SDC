@@ -1,7 +1,8 @@
-# Colis SDC — guide final
+# Colis SDC 1.0 — guide
 
 ## Les fichiers du dépôt GitHub (rien d'autre n'est nécessaire)
-`index.html` · `app.js` · `lecture.js` · `style.css` · `config.js` · `sw.js` · `manifest.webmanifest` · `bg.svg` · dossier `icons` (4 images)
+`index.html` · `app.js` · `lecture.js` · `style.css` · `config.js` · `sw.js` · `manifest.webmanifest` · dossier `icons` (4 images)
+`bg.svg` n'existe plus : tu peux le supprimer du dépôt.
 Les fichiers `supabase.sql` et `LISEZMOI.md` peuvent y rester ou non : l'appli ne s'en sert pas.
 Tout autre fichier (anciens zips, captures, anciennes versions) peut être supprimé du dépôt.
 
@@ -29,7 +30,11 @@ Sans Supabase : Réglages → Sauvegarde et export → « Télécharger une sauv
   2. le n° n'existe pas mais l'étiquette correspond à un colis noté au calepin et pas encore pointé → l'écran de pointage s'ouvre avec le n° et les corrections (tu appuies toi-même sur Pointer) ;
   3. sinon → l'appli le dit et propose **Créer l'étiquette** : un formulaire prérempli avec ce qui a été lu (n°, section, pièces, longueur, lieu, choix) et le choix **Commande** (n° facultatif) ou **Stock**, que tu vérifies, complètes ou corriges avant de créer le colis (pointé). Si la lecture a échoué, tu tapes simplement les valeurs.
 - **Copie de l'étiquette** (fiche d'un colis) : aperçu, puis Imprimer (PC) ou Imprimer / partager (iPhone : menu AirPrint / Fichiers).
-- **Stats** : blocs qui se déplient. **Réglages** : couleurs, Supabase, sauvegarde.
+- **Colis** : cartes compactes ; touche une carte pour la **déplier** (commande, lieu, essence, choix, options, dates, et les boutons Pointer / À taper sur le PC / Copie / Modifier / Dupliquer / Supprimer).
+- **Stats** : blocs qui se déplient. **Réglages** : apparence, Supabase, sauvegarde.
+
+## Apparence (style Poka)
+Réglages → Apparence : thème **Auto / Clair / Sombre**, animations, **couleur principale** (13), **couleur de fond** (12), **barre de navigation** (14) et **couleur des chiffres** (13). Les choix sont gardés en ligne si Supabase est relié. Polices : Fraunces (titres) et Inter (texte), chargées depuis Google Fonts puis gardées pour l'usage hors ligne.
 
 ## La photo de l'étiquette
 - Le code-barres donne le n° exact et sert de repère ; chaque info est lue dans sa zone puis contrôlée par le volume imprimé.

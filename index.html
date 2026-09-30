@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Colis SDC</title>
-<meta name="theme-color" content="#7C9577">
+<meta name="theme-color" content="#F4F0EA">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
@@ -14,12 +14,10 @@
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600&family=Figtree:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
-<div class="fond" aria-hidden="true"></div>
-
 <!-- ───────── Connexion ───────── -->
 <div id="login" class="login" hidden>
   <form class="carte login-carte" id="login-form">
@@ -43,20 +41,24 @@
   <!-- ───────── Nouveau colis ───────── -->
   <!-- ───────── Accueil ───────── -->
   <section id="vue-accueil" class="vue">
-    <div class="accueil-tete">
-      <img src="icons/icon-192.png" alt="" class="accueil-logo">
-      <div><h2 class="titre">Les Scieries du Centre</h2><p class="accueil-sous">Colis, étiquettes et pointage</p></div>
-    </div>
     <button type="button" class="btn btn-pc" id="acc-alerte" hidden></button>
-    <div class="stats-cartes">
-      <div class="stat"><span>En attente de pointage</span><b id="acc-attente">0</b></div>
-      <div class="stat"><span>Pointés aujourd'hui</span><b id="acc-auj">0</b></div>
+    <div class="hero">
+      <div class="hero-haut">
+        <div><span class="hero-lab">En attente de pointage</span><b class="hero-num" id="acc-attente">0</b></div>
+        <div class="hero-mini"><span>Pointés aujourd'hui</span><b id="acc-auj">0</b></div>
+      </div>
+      <div class="hero-bas">
+        <div class="mini-case"><span>Colis</span><b id="acc-total">0</b></div>
+        <div class="mini-case"><span>Pointés</span><b id="acc-pointes">0</b></div>
+        <div class="mini-case"><span>m³ du jour</span><b id="acc-vol">0</b></div>
+      </div>
     </div>
-    <div class="actions accueil-actions">
-      <button type="button" class="btn btn-principal" id="acc-noter">✏️ Noter un colis</button>
-      <button type="button" class="btn btn-principal" id="acc-pointer" hidden></button>
-      <button type="button" class="btn btn-secondaire btn-photo" id="acc-photo">📷 Photo</button>
-      <button type="button" class="btn btn-secondaire" id="acc-colis">Liste des colis</button>
+    <div class="section-tete"><h2>Actions</h2></div>
+    <div class="rangees">
+      <button type="button" class="rangee" id="acc-noter"><i class="rond"><svg viewBox="0 0 24 24"><path d="M4 20l4-1 11-11-3-3L5 16z"/><path d="M14 6l3 3"/></svg></i><span><b>Noter un colis</b><small>Section, pièces, longueur, options</small></span></button>
+      <button type="button" class="rangee" id="acc-pointer" hidden><i class="rond"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></svg></i><span><b id="acc-pointer-t">Pointer les colis</b><small id="acc-pointer-s"></small></span></button>
+      <button type="button" class="rangee btn-photo" id="acc-photo"><i class="rond"><svg viewBox="0 0 24 24"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg></i><span><b>Photo</b><small>Retrouver ou créer une étiquette</small></span></button>
+      <button type="button" class="rangee" id="acc-colis"><i class="rond"><svg viewBox="0 0 24 24"><path d="M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01"/></svg></i><span><b>Liste des colis</b><small id="acc-colis-s"></small></span></button>
     </div>
   </section>
 
@@ -68,7 +70,7 @@
         <button type="button" class="lien" id="btn-annuler-edition">Annuler</button>
       </div>
 
-      <div class="carte carte-or" id="carte-commande" hidden>
+      <div class="carte" id="carte-commande" hidden>
         <div class="carte-tete">
           <h2 class="sous-titre">Commande</h2>
         </div>
@@ -168,16 +170,19 @@
 
   <!-- ───────── Réglages ───────── -->
   <section id="vue-reglages" class="vue" hidden>
-    <details class="pli">
+    <details class="pli" id="pli-apparence">
       <summary><span>Apparence</span></summary>
       <div class="pli-corps">
-      <div class="puces" id="themes"></div>
-      <div class="couleurs">
-        <label class="couleur"><span>Principale</span><input type="color" id="c-vert"></label>
-        <label class="couleur"><span>Accent</span><input type="color" id="c-or"></label>
-        <label class="couleur"><span>Fond</span><input type="color" id="c-fond"></label>
-      </div>
-      <label class="interrupteur"><input type="checkbox" id="c-image"><span>Image de forêt en fond</span></label>
+        <div class="bloc-couleurs"><div class="bloc-tete">Thème</div>
+          <div class="segment seg3" id="theme-mode">
+            <button type="button" data-mode="auto">Auto</button><button type="button" data-mode="clair">Clair</button><button type="button" data-mode="sombre">Sombre</button>
+          </div>
+        </div>
+        <label class="interrupteur"><span>Animations<small>Active les animations de l'appli</small></span><input type="checkbox" id="c-anim"><span class="bascule"></span></label>
+        <div class="bloc-couleurs"><div class="bloc-tete">Couleurs principales <em id="n-princ"></em></div><div class="pastilles" id="pal-princ"></div></div>
+        <div class="bloc-couleurs"><div class="bloc-tete">Couleurs de fond <em id="n-fond"></em></div><div class="pastilles" id="pal-fond"></div></div>
+        <div class="bloc-couleurs"><div class="bloc-tete">Barre de navigation <em id="n-nav"></em></div><div class="pastilles" id="pal-nav"></div></div>
+        <div class="bloc-couleurs"><div class="bloc-tete">Couleur des chiffres <em id="n-chiffre"></em></div><div class="pastilles" id="pal-chiffre"></div></div>
       </div>
     </details>
     <details class="pli" id="pli-supabase">
@@ -208,22 +213,22 @@
         <input type="file" id="restaurer-input" accept=".json,application/json" hidden>
       </div>
     </details>
-    <p class="version">Colis SDC · v3.7</p>
+    <p class="version">Colis SDC · v1.0</p>
   </section>
 </main>
 
 <!-- ───────── Barre d'onglets ───────── -->
 <nav class="onglets">
   <button type="button" data-vue="accueil" class="actif">
-    <svg viewBox="0 0 24 24"><path d="M3 11l9-8 9 8M5 10v10h5v-6h4v6h5V10"/></svg><span>Accueil</span></button>
+    <i class="ico"><svg viewBox="0 0 24 24"><path d="M3 11l9-8 9 8M5 10v10h5v-6h4v6h5V10"/></svg></i><span>Accueil</span></button>
   <button type="button" data-vue="nouveau">
-    <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg><span>Calepin</span></button>
+    <i class="ico"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></i><span>Calepin</span></button>
   <button type="button" data-vue="colis">
-    <svg viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="4" rx="1"/><rect x="3" y="10" width="18" height="4" rx="1"/><rect x="3" y="14" width="18" height="4" rx="1"/></svg><span>Colis</span></button>
+    <i class="ico"><svg viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="4" rx="1"/><rect x="3" y="10" width="18" height="4" rx="1"/><rect x="3" y="14" width="18" height="4" rx="1"/></svg></i><span>Colis</span></button>
   <button type="button" data-vue="stats">
-    <svg viewBox="0 0 24 24"><path d="M5 20V11M12 20V4M19 20v-6"/></svg><span>Stats</span></button>
+    <i class="ico"><svg viewBox="0 0 24 24"><path d="M5 20V11M12 20V4M19 20v-6"/></svg></i><span>Stats</span></button>
   <button type="button" data-vue="reglages">
-    <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1 7 17M17 7l2.1-2.1"/></svg><span>Réglages</span></button>
+    <i class="ico"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1 7 17M17 7l2.1-2.1"/></svg></i><span>Réglages</span></button>
 </nav>
 
 <!-- ───────── Fiche colis ───────── -->

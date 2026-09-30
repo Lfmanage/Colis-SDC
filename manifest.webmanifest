@@ -1,17 +1,30 @@
 {
   "name": "Colis SDC",
   "short_name": "Colis",
-  "description": "Saisie des colis, étiquettes et sorties – Les Scieries du Centre",
+  "description": "Saisie des colis, étiquettes et pointage – Les Scieries du Centre",
   "lang": "fr",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
   "orientation": "any",
-  "background_color": "#E6ECE2",
-  "theme_color": "#7C9577",
+  "background_color": "#F4F0EA",
+  "theme_color": "#F4F0EA",
   "icons": [
-    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
-    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png" },
-    { "src": "icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+    {
+      "src": "icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    },
+    {
+      "src": "icons/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
   ]
 }

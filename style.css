@@ -260,7 +260,7 @@ input, textarea { font: inherit; color: inherit; }
 /* ───── Onglets ───── */
 .onglets {
   position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(var(--bas) + 10px); z-index: 30;
-  display: grid; grid-template-columns: repeat(4, 1fr); gap: 2px; width: min(440px, calc(100% - 24px));
+  display: grid; grid-template-columns: repeat(5, 1fr); gap: 2px; width: min(480px, calc(100% - 20px));
   background: var(--entete); -webkit-backdrop-filter: blur(16px); backdrop-filter: blur(16px);
   border-radius: 26px; padding: 6px; box-shadow: 0 10px 30px rgba(38, 59, 50, 0.22);
 }
@@ -479,3 +479,17 @@ input, textarea { font: inherit; color: inherit; }
 
 #pc-options .puce, #f-options .puce { min-width: 64px; justify-content: center; }
 .puce small:empty { display: none; }
+
+/* Accueil */
+.accueil-tete { display: flex; align-items: center; gap: 14px; margin: 4px 2px 18px; }
+.accueil-logo { width: 68px; height: 68px; border-radius: 20px; box-shadow: var(--ombre); flex: none; }
+.accueil-tete .titre { font-size: 30px; }
+.accueil-sous { margin: 2px 0 0; color: var(--encre-douce); font-size: 16px; }
+.accueil-actions { gap: 12px; margin-top: 4px; }
+.accueil-actions .btn { padding: 22px 20px; }
+.onglets button span { font-size: 12px; }
+#filtres { grid-template-columns: 1.4fr 1fr; }
+.btn-photo-haut { margin-bottom: 14px; }
+
+pre.lu { white-space: pre-wrap; word-break: break-word; font-size: 12px; line-height: 1.35; max-height: 220px; overflow: auto; background: #fff; border-radius: 12px; padding: 10px; margin: 8px 0 0; color: var(--encre); font-family: ui-monospace, Menlo, monospace; }
+.lecture .details summary { border-top: 0; padding-top: 6px; font-size: 15px; }

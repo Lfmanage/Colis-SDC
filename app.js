@@ -7,10 +7,10 @@ const OPTIONS = CFG.OPTIONS || { TR: "Fongi. coloré", CR: "Cœur refendu" };
 const K = { reglages: "colis.reglages.v1", data: "colis.donnees.v1", attente: "colis.attente.v1", tire: "colis.tire.v1", memo: "colis.memo.v1", synchro: "colis.synchroOk.v1" };
 const STOCK = "STOCK"; // un colis « du stock » n'a pas de commande : sa commande vaut STOCK
 const cdeTxt = c => c.commande === STOCK ? "Stock" : "Cde " + (c.commande || "–");
-const STATUTS = { a_etiqueter: "En attente de pointage", a_sortir: "Pointé ✅", sorti: "Sorti" };
-const STATUT_COURT = { a_etiqueter: "En attente", a_sortir: "Pointé ✅", sorti: "Sorti" };
+const STATUTS = { a_etiqueter: "En attente de pointage", a_sortir: "Pointé ✅" }; // « a_sortir » = pointé (nom interne)
+const STATUT_COURT = { a_etiqueter: "En attente", a_sortir: "Pointé ✅" };
 const COLONNES = ["id","numero","commande","lieu","epaisseur","largeur","longueur","pieces","choix","essence","nature",
-  "options","ref_client","observation","statut","cree_le","etiquete_le","sorti_le","maj_le","supprime"];
+  "options","ref_client","observation","statut","cree_le","etiquete_le","maj_le","supprime"];
 
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
@@ -21,6 +21,8 @@ function lire(k, d) { try { const v = localStorage.getItem(k); return v ? JSON.p
 function ecrire(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch { toast("Mémoire de l'appareil pleine : exporte puis synchronise."); } }
 
 let liste = lire(K.data, []);
+const sansSortie = () => liste.forEach(c => { if (c.statut === "sorti") c.statut = "a_sortir"; }); // anciens colis « sortis » = pointés
+sansSortie();
 let attente = new Set(lire(K.attente, []));
 function sauverLocal() { ecrire(K.data, liste); ecrire(K.attente, [...attente]); }
 const actifs = () => liste.filter(c => !c.supprime);
@@ -121,10 +123,11 @@ function allerA(vue) {
   if (vue === "colis") rendreListe();
   if (vue === "reglages") { majEtat(); majUIapparence(); }
   if (vue === "stats") rendreStats();
+  if (vue === "accueil") rendreAccueil();
   window.scrollTo(0, 0);
 }
 function majTitre() {
-  $("#entete-titre").textContent = { nouveau: editionId ? "Modifier le colis" : "Calepin", colis: "Colis", stats: "Statistiques", reglages: "Réglages" }[vueActive];
+  $("#entete-titre").textContent = { accueil: "Colis SDC", nouveau: editionId ? "Modifier le colis" : "Calepin", colis: "Colis", stats: "Statistiques", reglages: "Réglages" }[vueActive];
 }
 $$(".onglets button").forEach(b => b.addEventListener("click", () => allerA(b.dataset.vue)));
 
@@ -251,7 +254,7 @@ function sauverForm() {
     if (!c.numero && c.statut === "a_sortir") { c.statut = "a_etiqueter"; c.etiquete_le = null; }
   } else {
     c = { id: nouvelId(), ...v, statut: v.numero ? "a_sortir" : "a_etiqueter", cree_le: maintenant(),
-      etiquete_le: v.numero ? maintenant() : null, sorti_le: null, supprime: false };
+      etiquete_le: v.numero ? maintenant() : null, supprime: false };
   }
   enregistrer(c);
   ecrire(K.memo, { t: Date.now(), commande: v.commande, lieu: v.lieu, ref_client: v.ref_client });
@@ -292,7 +295,7 @@ function commencerEdition(id) {
   $("#bandeau-edition").hidden = false;
   $("#btn-generer").textContent = "Enregistrer les modifications";
   $("#carte-numero").hidden = false; $("#carte-commande").hidden = false; $("#bloc-plus").hidden = false;
-  cacher("#fiche"); allerA("nouveau");
+  cacher("#fiche"); allerA("accueil");
 }
 function finEdition() {
   editionId = null;
@@ -310,15 +313,14 @@ const normaliser = s => String(s ?? "").toLowerCase().normalize("NFD").replace(/
 function cle(c) {
   return normaliser([c.numero, (c.numero || "").replace(/\D/g, ""), c.commande, c.lieu, `${c.epaisseur}x${c.largeur}`, longueurCourte(c.longueur),
     nf(c.longueur, 2), c.pieces, c.ref_client, c.observation, (c.options || []).join(" "),
-    dh(c.cree_le), dh(c.etiquete_le), dh(c.sorti_le), STATUTS[c.statut]].join(" | "));
+    dh(c.cree_le), dh(c.etiquete_le), STATUTS[c.statut]].join(" | "));
 }
 
 function ligne(c) {
   const vol = volume(c);
-  const act = c.statut === "a_sortir" ? `<button type="button" class="action-rapide" data-action="sortir">Sortir</button>`
-    : c.statut === "a_etiqueter" ? `<button type="button" class="action-rapide num-btn" data-action="pc">Pointer</button>` : "";
+  const act = c.statut === "a_etiqueter" ? `<button type="button" class="action-rapide num-btn" data-action="pc">Pointer</button>` : "";
   const histo = c.statut === "a_etiqueter" ? `Noté le ${dh(c.cree_le)}`
-    : `Pointé le ${dh(c.etiquete_le || c.cree_le)}${c.statut === "sorti" && c.sorti_le ? `, sorti le ${dh(c.sorti_le)}` : ""}`;
+    : `Pointé le ${dh(c.etiquete_le || c.cree_le)}`;
   return `<article class="colis st-${c.statut}" data-id="${c.id}" tabindex="0">
     ${c.numero ? `<span class="num">${esc(c.numero)}</span>` : `<span class="num vide">En attente du n°</span>`}
     <span class="desc"><b>${esc(section(c))}</b> &nbsp;${esc(nf(c.longueur, 2))} m, ${np(c.pieces)} p${vol ? `, ${nf(vol, 3)} m³` : ""}</span>
@@ -330,9 +332,9 @@ function ligne(c) {
 function totaux(arr) {
   const p = arr.reduce((s, c) => s + (c.pieces || 0), 0);
   const v = arr.reduce((s, c) => s + (volume(c) || 0), 0);
-  const as = arr.filter(c => c.statut === "a_sortir").length, so = arr.filter(c => c.statut === "sorti").length;
+  const as = arr.filter(c => c.statut === "a_sortir").length;
   const ae = arr.filter(c => c.statut === "a_etiqueter").length;
-  const st = [ae && `${ae} en attente`, as && `${as} pointé${as > 1 ? "s" : ""}`, so && `${so} sorti${so > 1 ? "s" : ""}`].filter(Boolean).join(", ");
+  const st = [ae && `${ae} en attente`, as && `${as} pointé${as > 1 ? "s" : ""}`].filter(Boolean).join(", ");
   return `${arr.length} colis, ${np(p)} pièces, ${nf(v, 3)} m³${st ? " — " + st : ""}`;
 }
 
@@ -352,7 +354,7 @@ function rendreListe() {
   const mots = q.split(/\s+/).filter(Boolean);
   let res = tous.filter(c =>
     (mots.length || filtre === "tous" || c.statut === filtre) &&
-    (!filtreDate || [c.cree_le, c.etiquete_le, c.sorti_le].some(x => x && jour(x) === filtreDate)) &&
+    (!filtreDate || [c.cree_le, c.etiquete_le].some(x => x && jour(x) === filtreDate)) &&
     (!mots.length || (k => mots.every(m => k.includes(m)))(cle(c))));
   res.sort((a, b) => t(b.cree_le) - t(a.cree_le));
 
@@ -402,12 +404,14 @@ $("#btn-file-pc").addEventListener("click", () => ouvrirPC(filePCTous()));
   if (e.target.closest("[data-voir]")) { filtre = "a_sortir"; rendreListe(); return; }
   const art = e.target.closest(".colis"); if (!art) return;
   const act = e.target.closest("[data-action]");
-  if (act?.dataset.action === "sortir") sortir(art.dataset.id);
-  else if (act?.dataset.action === "pc") ouvrirPC([art.dataset.id]);
+  const c = parId(art.dataset.id);
+  if (act?.dataset.action === "pc" || (c && c.statut === "a_etiqueter")) ouvrirPCsur(art.dataset.id); // colis à pointer : direct l'écran de pointage
   else ouvrirFiche(art.dataset.id);
 }));
 ["#liste", "#calepin-liste"].forEach(sel => $(sel).addEventListener("keydown", e => {
-  if (e.key === "Enter" && e.target.classList.contains("colis")) ouvrirFiche(e.target.dataset.id);
+  if (e.key !== "Enter" || !e.target.classList.contains("colis")) return;
+  const c = parId(e.target.dataset.id);
+  if (c && c.statut === "a_etiqueter") ouvrirPCsur(c.id); else ouvrirFiche(e.target.dataset.id);
 }));
 $("#btn-pointer").addEventListener("click", () => ouvrirPC(filePCTous()));
 function rendreCalepin() {
@@ -420,15 +424,6 @@ function rendreCalepin() {
 }
 
 /* ═════════════ Statuts ═════════════ */
-function sortir(id) {
-  const c = { ...parId(id), statut: "sorti", sorti_le: maintenant() };
-  enregistrer(c);
-  toast(`Colis ${c.numero || section(c)} sorti`, "Annuler", () => annulerSortie(id));
-}
-function annulerSortie(id) {
-  const o = parId(id);
-  enregistrer({ ...o, statut: o.numero ? "a_sortir" : "a_etiqueter", sorti_le: null });
-}
 function assignerNumero(id, val) {
   val = formatNumero(val);
   if (!val) return "Tape le n° imprimé sur l'étiquette.";
@@ -456,8 +451,7 @@ function rendreFiche() {
       <label class="champ"><span>N° d'étiquette imprimé par le PC</span><input id="fiche-numero" inputmode="numeric" class="gros-chiffre" placeholder="203458"></label>
       <button type="button" class="btn btn-principal" data-f="numero" style="margin-top:28px">Pointer</button>
     </div><p class="alerte" id="fiche-alerte" hidden></p>`;
-  else if (c.statut === "a_sortir") actions = `<button type="button" class="btn btn-sortir" data-f="sortir">Marquer sorti</button>`;
-  else actions = `<button type="button" class="btn btn-secondaire" data-f="annuler-sortie">Annuler la sortie</button>`;
+
 
   $("#fiche-corps").innerHTML = `
     <span class="statut ${c.statut}">${STATUTS[c.statut]}</span>
@@ -472,7 +466,6 @@ function rendreFiche() {
     <ul class="chrono">
       <li><span>Saisi</span><span>${dateLongue(c.cree_le)}</span></li>
       <li class="${c.etiquete_le ? "" : "futur"}"><span>Pointé</span><span>${c.etiquete_le ? dateLongue(c.etiquete_le) : "pas encore"}</span></li>
-      <li class="${c.sorti_le ? "" : "futur"}"><span>Sorti</span><span>${c.sorti_le ? dateLongue(c.sorti_le) : "pas encore"}</span></li>
     </ul>
     <div class="actions">
       ${actions}
@@ -497,15 +490,13 @@ $("#fiche-corps").addEventListener("click", e => {
   const id = ficheId, c = parId(id);
   switch (b.dataset.f) {
     case "numero": validerNumeroFiche(); break;
-    case "sortir": sortir(id); break;
-    case "annuler-sortie": annulerSortie(id); break;
     case "pc": ouvrirPC([id]); break;
     case "imprimer": imprimer(id); break;
     case "modifier": commencerEdition(id); break;
     case "dupliquer": {
       finEdition();
       remplirForm({ ...c, numero: "", observation: "" });
-      cacher("#fiche"); allerA("nouveau");
+      cacher("#fiche"); allerA("accueil");
       toast("Copie prête : vérifie puis enregistre"); break;
     }
     case "supprimer":
@@ -521,6 +512,19 @@ let filePC = [], posPC = 0, dernierPC = null, pcOptions = new Set(), pcType = "c
 const lectures = {}; // ce que la photo de l'étiquette a lu, par colis
 const filePCTous = () => actifs().filter(c => c.statut === "a_etiqueter").sort((a, b) => t(a.cree_le) - t(b.cree_le)).map(c => c.id);
 const PC = id => $("#pc-" + id);
+function ouvrirPCsur(id) { // écran de pointage, positionné sur ce colis
+  const ids = filePCTous(); filePC = ids; posPC = Math.max(0, ids.indexOf(id)); rendrePC(); montrer("#pc");
+}
+function rendreAccueil() {
+  const n = filePCTous().length, auj = jour(maintenant());
+  $("#acc-attente").textContent = np(n);
+  $("#acc-auj").textContent = np(actifs().filter(c => c.etiquete_le && jour(c.etiquete_le) === auj).length);
+  const b = $("#acc-pointer"); b.hidden = !n; b.textContent = `Pointer les colis (${n} en attente)`;
+}
+$("#acc-noter").addEventListener("click", () => allerA("nouveau"));
+$("#acc-pointer").addEventListener("click", () => ouvrirPC(filePCTous()));
+$("#acc-photo").addEventListener("click", () => { photoCible = null; $("#photo-input").click(); });
+$("#acc-colis").addEventListener("click", () => allerA("colis"));
 function ouvrirPC(ids) { filePC = ids; posPC = 0; rendrePC(); montrer("#pc"); }
 
 function rendrePC() {
@@ -539,6 +543,7 @@ function rendrePC() {
     ${plusieurs ? `<div class="file-pc"><span>Colis ${posPC + 1} sur ${filePC.length}</span>
       <span><button type="button" class="lien" data-p="prec" ${posPC ? "" : "hidden"}>Précédent</button>
       <button type="button" class="lien" data-p="suiv" ${posPC < filePC.length - 1 ? "" : "hidden"}>Passer</button></span></div>` : ""}
+    <button type="button" class="btn btn-principal btn-photo btn-photo-haut" data-p="photo">📷 Photo de l'étiquette</button>
     ${bandeauLecture(lec, c)}
     <p class="fiche-section" style="font-size:34px">${esc(section(c))}</p>
     <p class="fiche-sous">${np(c.pieces)} pièces de ${esc(nf(c.longueur, 2))} m</p>
@@ -580,7 +585,6 @@ function rendrePC() {
     <p class="alerte" id="pc-alerte" hidden></p>
     <div class="actions" style="margin-top:6px">
       <button type="button" class="btn btn-secondaire" data-p="modifier">✏️ Corriger la note (section, pièces, longueur)</button>
-      <button type="button" class="btn btn-secondaire" data-p="photo">📷 Photo de l'étiquette</button>
       <button type="button" class="btn btn-secondaire" data-p="imprimer">Imprimer la copie de l'étiquette</button>
     </div>`;
   appliquerTypePC(); majTerminal();
@@ -676,7 +680,7 @@ $("#pc-corps").addEventListener("click", e => {
   if (p === "prendre") { garderPC(); const id = filePC[posPC], l = lectures[id]; if (l && l.spec) appliquerSpec(id, l.spec); rendrePC(); }
   if (p === "desinverser") { // annuler la correction faite d'après l'étiquette
     garderPC(); const id = filePC[posPC], l = lectures[id];
-    if (l && l.avant) { enregistrer({ ...parId(id), ...l.avant }); l.corrige = false; l.avant = null; l.verifs = Lecture.verifier(parId(id), l.texte); }
+    if (l && l.avant) { enregistrer({ ...parId(id), ...l.avant }); l.corrige = false; l.avant = null; l.verifs = calculerVerifs(l, parId(id)); }
     rendrePC();
   }
   if (p === "suiv") { garderPC(); posPC++; rendrePC(); }
@@ -780,30 +784,49 @@ function zoneEtiquette(img, W, H) { // la plus grande zone blanche et peu color�
   const x = Math.max(0, (best.x0 - mx) / k), y = Math.max(0, (best.y0 - my) / k);
   return { x, y, w: Math.min(W, (best.x1 + 1 + mx) / k) - x, h: Math.min(H, (best.y1 + 1 + my) / k) - y };
 }
+function binaire(g, l, h, fac, rayon) { // noir/blanc « local » : chaque point est comparé à la moyenne de ses voisins
+  const W1 = l + 1, ii = new Uint32Array(W1 * (h + 1));
+  for (let y = 0; y < h; y++) { let ligne = 0; for (let x = 0; x < l; x++) { ligne += g[y * l + x]; ii[(y + 1) * W1 + x + 1] = ii[y * W1 + x + 1] + ligne; } }
+  const out = new Uint8Array(l * h);
+  for (let y = 0; y < h; y++) {
+    const y0 = Math.max(0, y - rayon), y1 = Math.min(h, y + rayon + 1);
+    for (let x = 0; x < l; x++) {
+      const x0 = Math.max(0, x - rayon), x1 = Math.min(l, x + rayon + 1);
+      const moy = (ii[y1 * W1 + x1] - ii[y0 * W1 + x1] - ii[y1 * W1 + x0] + ii[y0 * W1 + x0]) / ((x1 - x0) * (y1 - y0));
+      out[y * l + x] = g[y * l + x] > moy * fac ? 255 : 0;
+    }
+  }
+  return out;
+}
+function versCanvas(vals, l, h) {
+  const cv = document.createElement("canvas"); cv.width = l; cv.height = h;
+  const ctx = cv.getContext("2d"), id = ctx.createImageData(l, h);
+  for (let i = 0, j = 0; i < vals.length; i++, j += 4) { id.data[j] = id.data[j + 1] = id.data[j + 2] = vals[i]; id.data[j + 3] = 255; }
+  ctx.putImageData(id, 0, 0); return cv;
+}
+function etirer(g) { // étire le contraste : le plus sombre devient noir, le plus clair blanc
+  const tri = Uint8Array.from(g).sort(), bas = tri[Math.floor(g.length * 0.02)], haut = tri[Math.floor(g.length * 0.98)], e = 255 / Math.max(1, haut - bas);
+  for (let i = 0; i < g.length; i++) g[i] = Math.max(0, Math.min(255, (g[i] - bas) * e));
+  return g;
+}
+function versNoirBlanc(img, sx, sy, sw, sh, largeur, facteurs) {
+  const k = Math.min(1, largeur / sw), l = Math.round(sw * k), h = Math.round(sh * k);
+  const [, ctx] = dessiner(img, l, h, sx, sy, sw, sh), g = etirer(gris(ctx, l, h)), rayon = Math.max(12, Math.round(l * 0.03));
+  return facteurs.map(f => versCanvas(binaire(g, l, h, f, rayon), l, h));
+}
 async function preparerImage(fichier) {
   const img = await ouvrirImage(fichier);
   const W = img.width || img.naturalWidth, H = img.height || img.naturalHeight;
-  // 1. code-barres : image entière en haute résolution
+  // 1. code-barres : image entière en haute résolution (lignes de lecture aussi penchées)
   const kb = Math.min(1, 3000 / Math.max(W, H)), lb = Math.round(W * kb), hb = Math.round(H * kb);
   const [, cb] = dessiner(img, lb, hb);
-  const code = Lecture.codeBarres(gris(cb, lb, hb), lb, hb);
-  // 2. étiquette recadrée, agrandie à 2400 px de large, contraste étiré, puis noir et blanc
-  const z = zoneEtiquette(img, W, H) || { x: 0, y: 0, w: W, h: H };
-  const k = Math.min(2400 / z.w, 3200 / z.h), l = Math.round(z.w * k), h = Math.round(z.h * k);
-  const [cvG, ctx] = dessiner(img, l, h, z.x, z.y, z.w, z.h);
-  const g = gris(ctx, l, h), tri = Uint8Array.from(g).sort();
-  const bas = tri[Math.floor(g.length * 0.02)], haut = tri[Math.floor(g.length * 0.98)], e = 255 / Math.max(1, haut - bas);
-  for (let i = 0; i < g.length; i++) g[i] = Math.max(0, Math.min(255, (g[i] - bas) * e));
-  const s = otsu(g), id = ctx.createImageData(l, h), cvB = document.createElement("canvas");
-  const idG = ctx.createImageData(l, h);
-  for (let i = 0, j = 0; i < g.length; i++, j += 4) {
-    const v = g[i] > s ? 255 : 0;
-    id.data[j] = id.data[j + 1] = id.data[j + 2] = v; id.data[j + 3] = 255;
-    idG.data[j] = idG.data[j + 1] = idG.data[j + 2] = g[i]; idG.data[j + 3] = 255;
-  }
-  ctx.putImageData(idG, 0, 0);
-  cvB.width = l; cvB.height = h; cvB.getContext("2d").putImageData(id, 0, 0);
-  return { code, noirBlanc: cvB, grisImg: cvG };
+  const code = Lecture.codeBarres(gris(cb, lb, hb), lb, hb, 5000);
+  // 2. image entière en noir et blanc local, avec deux réglages qui se complètent
+  const [n82, n90] = versNoirBlanc(img, 0, 0, W, H, 1800, [0.82, 0.9]);
+  // 3. étiquette recadrée (ne sert qu'en secours : le repérage se trompe parfois quand il y a un écran ou du reflet)
+  const z = zoneEtiquette(img, W, H);
+  const recadre = () => z ? versNoirBlanc(img, z.x, z.y, z.w, z.h, 2400, [0.85])[0] : null;
+  return { code, complet: [n82, n90], recadre };
 }
 let photoCible = null; // colis affiché au pointage quand la photo est prise depuis cet écran
 async function lireEtiquette(fichier, cible) {
@@ -814,30 +837,46 @@ async function lireEtiquette(fichier, cible) {
     const prep = await preparerImage(fichier);
     etatLecture("Chargement du lecteur (la première fois, ça peut être long)…");
     const T = await chargerTesseract();
-    const passes = [[prep.noirBlanc, "6"], [prep.noirBlanc, "11"], [prep.grisImg, "6"]]; // trois lectures, on garde tout ce qui a été compris
-    let passe = 0;
-    worker = await T.createWorker("eng", 1, { logger: m => { if (m.status === "recognizing text") etatLecture(`Lecture de l'étiquette… ${Math.round(((passe - 1) + m.progress) / passes.length * 100)} %`); } });
+    let passe = 0, total = 2;
+    worker = await T.createWorker("eng", 1, { logger: m => { if (m.status === "recognizing text") etatLecture(`Lecture de l'étiquette… (${Math.min(passe, total)}/${total})`); } });
     let texte = "";
-    for (const [img, psm] of passes) {
+    const motsPasses = [];
+    const lire = async (image, psm) => {
       passe++; await worker.setParameters({ tessedit_pageseg_mode: psm });
-      texte += "\n" + (await worker.recognize(img)).data.text;
+      const d = (await worker.recognize(image)).data; texte += "\n" + d.text;
+      if (image.width === prep.complet[0].width) motsPasses.push(Lecture.motsDepuis(d)); // mêmes coordonnées que les autres passes sur l'image entière
+    };
+    await lire(prep.complet[0], "11");
+    await lire(prep.complet[1], "6");
+    if (!Lecture.lireSpec(texte)) { // rien de cohérent : on essaie l'étiquette recadrée
+      const cv = prep.recadre();
+      if (cv) { total = 4; await lire(cv, "6"); await lire(cv, "11"); }
     }
     etatLecture(null);
-    traiterLecture(texte, cible, prep.code);
+    traiterLecture(texte, cible, prep.code, Lecture.optionsPresDuNumero(motsPasses));
   } catch (err) {
     etatLecture(null);
     toast(err && err.message ? err.message : "Lecture impossible : réessaie avec une photo plus nette.");
   } finally { if (worker) worker.terminate().catch(() => {}); }
+}
+function calculerVerifs(lec, c) {
+  const s = lec.specLu;
+  if (!s) return Lecture.verifier(c, lec.texte);
+  const vol = (c.epaisseur / 1000) * (c.largeur / 1000) * c.longueur * c.pieces;
+  return {
+    section: s.epaisseur != null ? (s.epaisseur === c.epaisseur && s.largeur === c.largeur) : Math.abs(c.epaisseur * c.largeur - s.aire) <= s.aire * 0.005,
+    pieces: s.pieces === c.pieces, longueur: s.longueur === c.longueur, volume: Math.abs(vol - s.volume) < 0.0015
+  };
 }
 const CHAMPS_NOTE = ["epaisseur", "largeur", "pieces", "longueur"];
 const differe = (spec, c) => CHAMPS_NOTE.some(k => spec[k] !== c[k]);
 function appliquerSpec(id, spec) { // l'étiquette fait foi : la note est remplacée (annulable)
   const c = parId(id), l = lectures[id];
   const avant = Object.fromEntries(CHAMPS_NOTE.map(k => [k, c[k]]));
-  enregistrer({ ...c, ...Object.fromEntries(CHAMPS_NOTE.map(k => [k, spec[k]])) });
-  if (l) { l.avant = avant; l.corrige = true; l.spec = null; l.verifs = Lecture.verifier(parId(id), l.texte); }
+  enregistrer({ ...c, ...Object.fromEntries(CHAMPS_NOTE.filter(k => spec[k] != null).map(k => [k, spec[k]])) });
+  if (l) { l.avant = avant; l.corrige = true; l.spec = null; l.verifs = calculerVerifs(l, parId(id)); }
 }
-function traiterLecture(texte, cible, code) {
+function traiterLecture(texte, cible, code, optionsLues) {
   const attente = filePCTous().map(parId);
   const champs = Lecture.lireChamps(texte, ESSENCE_INVERSE), spec = Lecture.lireSpec(texte);
   const numCode = Lecture.numeroDepuisCode(code); // le code-barres est bien plus sûr que le texte
@@ -845,12 +884,8 @@ function traiterLecture(texte, cible, code) {
 
   // 1. Quel colis ? Celui affiché au pointage, sinon celui qui ressemble le plus à l'étiquette
   let colis = cible && parId(cible) && parId(cible).statut === "a_etiqueter" ? parId(cible) : null;
-  if (!colis && spec && !spec.partiel) { const r = Lecture.correspondance(spec, attente); if (r) colis = r.colis; }
+  if (!colis && spec) { const r = Lecture.correspondance(spec, attente); if (r) colis = r.colis; }
   if (!colis) { const r = Lecture.trouver(texte, attente); if (r) colis = r.colis; }
-  if (!colis && spec && spec.partiel) {
-    const memeSection = attente.filter(c => Lecture.verifier(c, texte).section);
-    colis = memeSection.find(c => c.pieces === spec.pieces || c.longueur === spec.longueur) || memeSection[0] || null;
-  }
   if (!colis) { toast(`Aucun colis en attente ne correspond${numero ? " (lu : n° " + numero + ")" : ""}. Ouvre le colis dans « Pointer » puis reprends la photo depuis cet écran.`); return; }
   if (numero) {
     const d = doublon(numero, colis.id);
@@ -863,24 +898,31 @@ function traiterLecture(texte, cible, code) {
   }
   if (!$("#pc").hidden) garderPC();
   const id = colis.id;
-  lectures[id] = { numero, parCode: !!numCode, lieu: champs.lieu, choix: champs.choix, essence: champs.essence, essenceCode: champs.essenceCode, options: champs.options, dateIso, texte, spec: null, corrige: false, avant: null, verifs: null };
+  lectures[id] = { numero, parCode: !!numCode, lieu: champs.lieu, choix: champs.choix, essence: champs.essence, essenceCode: champs.essenceCode, options: optionsLues, code, dateIso, texte, specLu: spec, spec: null, corrige: false, avant: null, verifs: null };
 
   // 2. L'étiquette corrige la note toute seule (section, pièces, longueur) — annulable
   const c0 = parId(id), avant = Object.fromEntries(CHAMPS_NOTE.map(k => [k, c0[k]]));
-  const nouveau = spec ? Object.fromEntries(CHAMPS_NOTE.filter(k => spec[k] != null).map(k => [k, spec[k]])) : {};
+  const nouveau = spec ? Object.fromEntries(["pieces", "longueur"].filter(k => spec[k] != null).map(k => [k, spec[k]])) : {};
+  if (spec && spec.epaisseur != null && (spec.epaisseur !== c0.epaisseur || spec.largeur !== c0.largeur)) lectures[id].spec = { epaisseur: spec.epaisseur, largeur: spec.largeur }; // la section, on la propose seulement
   if (!spec && Lecture.verifier(c0, texte).inverse) { nouveau.pieces = c0.longueur; nouveau.longueur = c0.pieces; }
   if (Object.keys(nouveau).some(k => nouveau[k] !== c0[k])) {
     enregistrer({ ...c0, ...nouveau });
     Object.assign(lectures[id], { avant, corrige: true });
   }
-  lectures[id].verifs = Lecture.verifier(parId(id), texte);
-  // Options : exactement celles imprimées sur l'étiquette (aucune = pas d'option)
-  enregistrer({ ...parId(id), options: champs.options });
+  lectures[id].verifs = calculerVerifs(lectures[id], parId(id));
+  // Options : celles imprimées juste au-dessus du n° (aucune = pas d'option). Si la zone n'a pas été localisée, on ne touche à rien.
+  if (optionsLues) enregistrer({ ...parId(id), options: optionsLues });
 
   const ids = filePCTous();
   filePC = ids; posPC = Math.max(0, ids.indexOf(id));
   rendrePC(); montrer("#pc");
   toast(lectures[id].corrige ? "Note corrigée d'après l'étiquette" : numero ? `N° ${numero} ajouté` : "Étiquette lue");
+}
+function resumeLecture(lec) {
+  const s = lec.specLu;
+  return [`code-barres : ${lec.code || "non lu"}`, `n° retenu : ${lec.numero || "non lu"}`,
+    `options : ${lec.options === null ? "zone non repérée" : lec.options.length ? lec.options.join(" ") : "aucune"}`,
+    `valeurs lues : ${s ? JSON.stringify(s) : "aucune cohérente"}`, "", (lec.texte || "").replace(/\n{2,}/g, "\n").trim().slice(0, 700)].join("\n");
 }
 function bandeauLecture(lec, c) {
   if (!lec) return "";
@@ -890,10 +932,12 @@ function bandeauLecture(lec, c) {
   return `<div class="lecture${tout ? "" : " attention"}"><b>📷 Lu sur l'étiquette</b>
     <p>${lec.numero ? "n° <b>" + esc(lec.numero) + "</b>" + (lec.parCode ? " (code-barres ✔)" : "") + (lec.numero.replace(/\D/g, "").length < 7 ? " (fin du n° non lue : ajoute-la)" : "") : "n° non lu : tape-le ci-dessous"}${lec.lieu ? ", lieu " + esc(lec.lieu) : ""}${lec.dateIso ? ", imprimée le " + esc(dh(lec.dateIso)) : ""}</p>
     ${lec.corrige && lec.avant ? `<p class="ecart"><b>✔ Corrigé d'après l'étiquette :</b> ${CHAMPS_NOTE.filter(k => lec.avant[k] !== c[k]).map(k => `${{ epaisseur: "épaisseur", largeur: "largeur", pieces: "pièces", longueur: "longueur" }[k]} ${k === "longueur" ? nf(lec.avant[k], 2) : np(lec.avant[k])} → <b>${k === "longueur" ? nf(c[k], 2) : np(c[k])}</b>`).join(", ")}. <button type="button" class="lien" data-p="desinverser">Annuler</button></p>` : ""}
-    ${lec.spec ? `<p class="ecart"><b>≠ L'étiquette dit</b> ${esc(txt(lec.spec))} (ta note : ${esc(txt(c))}). <button type="button" class="lien" data-p="prendre">Prendre l'étiquette</button></p>` : ""}
+    ${lec.spec ? `<p class="ecart"><b>≠ Section :</b> l'étiquette dit ${lec.spec.epaisseur} × ${lec.spec.largeur}, ta note dit ${esc(section(c))}. <button type="button" class="lien" data-p="prendre">Prendre l'étiquette</button></p>` : ""}
+    ${lec.options === null ? `<p class="note-stats">Options : zone non repérée sur la photo, coche-les toi-même.</p>` : ""}
     ${lec.essenceCode && !lec.essence ? `<p class="note-stats">Essence lue sur l'étiquette : « ${esc(lec.essenceCode)} ». Choisis la lettre du terminal.</p>` : ""}
     <div class="verifs">${lignes.map(([l, ok]) => `<i class="${ok ? "ok" : "ko"}">${l} ${ok ? "✔" : "?"}</i>`).join("")}</div>
-    ${tout ? "" : `<p class="note-stats">Un « ? » veut dire non lu ou différent de ta note : compare avec l'étiquette avant de pointer.</p>`}</div>`;
+    ${tout ? "" : `<p class="note-stats">Un « ? » veut dire non lu ou différent de ta note : compare avec l'étiquette avant de pointer.</p>`}
+    <details class="details"><summary><span>Voir ce qui a été lu</span></summary><pre class="lu">${esc(resumeLecture(lec))}</pre></details></div>`;
 }
 $("#photo-input").addEventListener("change", e => { const f = e.target.files && e.target.files[0]; e.target.value = ""; const cible = photoCible; photoCible = null; if (f) lireEtiquette(f, cible); });
 $("#btn-photo").addEventListener("click", () => { photoCible = null; $("#photo-input").click(); });
@@ -1006,6 +1050,7 @@ async function tirer() {
     if (data.length < PAS) break;
     de += PAS;
   }
+  sansSortie();
   if (max) ecrire(K.tire, max);
   sauverLocal();
 }
@@ -1126,7 +1171,7 @@ $("#stats-corps").addEventListener("toggle", e => {
   if (!d.dataset || !d.dataset.pli) return;
   d.open ? statsOuverts.add(d.dataset.pli) : statsOuverts.delete(d.dataset.pli);
 }, true);
-const SERIES = { pointes: ["Pointés ✅", c => c.etiquete_le], sortis: ["Sortis", c => c.sorti_le], saisis: ["Saisis", c => c.cree_le] };
+const SERIES = { pointes: ["Pointés ✅", c => c.etiquete_le], saisis: ["Saisis", c => c.cree_le] };
 const METRIQUES = { n: ["Colis", () => 1], v: ["m³", c => volume(c) || 0], p: ["Pièces", c => c.pieces || 0] };
 const JOURS_COURTS = ["L", "M", "M", "J", "V", "S", "D"];
 const JOURS_LONGS = ["lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi", "dimanche"];
@@ -1183,13 +1228,13 @@ function rendreStats() {
   const unite = statMetrique === "v" ? " m³" : "";
 
   // Cartes du haut
-  const P = somme(tous.filter(c => dans(c.etiquete_le))), O = somme(tous.filter(c => dans(c.sorti_le)));
+  const P = somme(tous.filter(c => dans(c.etiquete_le))), S = somme(tous.filter(c => dans(c.cree_le)));
   const carte = (lab, s) => `<div class="stat"><span>${lab}</span><b>${np(s.n)}</b><small>${np(s.p)} pièces, ${nf(s.v, 2)} m³</small></div>`;
-  const attente = somme(tous.filter(c => c.statut === "a_etiqueter")), stock = somme(tous.filter(c => c.statut === "a_sortir"));
+  const attente = somme(tous.filter(c => c.statut === "a_etiqueter"));
 
   // Série choisie et graphique par jour (ou par mois si la période est longue)
   const items = tous.filter(c => dans(serieFn(c)));
-  const evenements = tous.flatMap(c => [c.cree_le, c.etiquete_le, c.sorti_le]).filter(Boolean).map(t);
+  const evenements = tous.flatMap(c => [c.cree_le, c.etiquete_le]).filter(Boolean).map(t);
   const debutGraph = debutJour(ouvert ? (evenements.length ? Math.min(...evenements) : Date.now()) : a);
   const dernier = debutJour(Math.min(b - 1, Date.now()));
   const nbJours = Math.max(1, Math.round((dernier - debutGraph) / 86400000) + 1);
@@ -1219,7 +1264,6 @@ function rendreStats() {
   const It = somme(items);
   const moy = arr => arr.length ? arr.reduce((s, x) => s + x, 0) / arr.length : null;
   const dPoint = moy(tous.filter(c => dans(c.etiquete_le) && c.cree_le).map(c => t(c.etiquete_le) - t(c.cree_le)));
-  const dSortie = moy(tous.filter(c => dans(c.sorti_le) && c.etiquete_le).map(c => t(c.sorti_le) - t(c.etiquete_le)));
   const lig = (lab, val, sm = "") => `<div class="rang simple"><b>${lab}</b><em>${val}</em>${sm ? `<small>${sm}</small>` : ""}</div>`;
   const moyennes = items.length ? [
     lig("Jours d'activité", np(joursActifs)),
@@ -1227,8 +1271,7 @@ function rendreStats() {
     lig("m³ par jour d'activité", nf(It.v / joursActifs, 2)),
     lig("Pièces par colis", np(It.p / It.n)),
     lig("m³ par colis", nf(It.v / It.n, 3)),
-    lig("Délai saisie → pointage", duree(dPoint), "temps entre la note au calepin et le pointage au PC"),
-    lig("Délai pointage → sortie", duree(dSortie), "temps entre le pointage et la sortie du colis")
+    lig("Délai saisie → pointage", duree(dPoint), "temps entre la note au calepin et le pointage au PC")
   ].join("") : "";
 
   // Records
@@ -1262,15 +1305,6 @@ function rendreStats() {
   const puces = (attr, obj, actif) => `<div class="filtres">${Object.entries(obj).map(([k, v]) => `<button type="button" ${attr}="${k}" class="${k === actif ? "actif" : ""}">${v[0]}</button>`).join("")}</div>`;
   const libPeriode = ouvert && periode !== "perso" ? "depuis le début" : "sur la période";
 
-  // À sortir maintenant (état actuel, indépendant de la période)
-  const parLieu = {};
-  tous.filter(c => c.statut === "a_sortir").forEach(c => (parLieu[c.lieu || "Sans lieu"] ||= []).push(c));
-  const lieux = Object.entries(parLieu).map(([k, arr]) => ({ k, ...somme(arr) })).sort((x, y) => y.v - x.v);
-  const anciens = tous.filter(c => c.statut === "a_sortir").sort((x, y) => t(x.etiquete_le) - t(y.etiquete_le)).slice(0, 5);
-  const contenuStock = `${lieux.map(r => lig(esc("Lieu " + r.k), `${nf(r.v, 2)} m³`, `${np(r.n)} colis, ${np(r.p)} pièces`)).join("")}
-    <p class="mini">Pointés depuis le plus longtemps</p>
-    ${anciens.map(c => lig(esc(section(c) + (c.numero ? ", n° " + c.numero : "")), duree(Date.now() - t(c.etiquete_le)), esc(`lieu ${c.lieu || "–"}, ${c.commande === STOCK ? "stock" : "cde " + (c.commande || "–")}`))).join("")}`;
-
   const sousBloc = (titre, rows) => rows.length ? `<p class="mini">${titre}</p>${rangs(rows)}` : "";
   const autres = [sousBloc("Par épaisseur", groupe(c => c.epaisseur && c.epaisseur + " mm", 10)),
     sousBloc("Par longueur", groupe(c => c.longueur && nf(c.longueur, 2) + " m", 10)),
@@ -1279,8 +1313,7 @@ function rendreStats() {
 
   $("#stats-corps").innerHTML = `
     <div class="stats-cartes">
-      ${carte("Pointés ✅", P)}${carte("Sortis", O)}
-      ${carte("En attente de pointage", attente)}${carte("Pointés, à sortir", stock)}
+      ${carte("Pointés ✅", P)}${carte("En attente de pointage", attente)}
     </div>
     ${pli("options", "Afficher", `${serieNom}, en ${metNom.toLowerCase()}`, puces("data-serie", SERIES, statSerie) + puces("data-metrique", METRIQUES, statMetrique))}
     ${items.length ? [
@@ -1294,8 +1327,7 @@ function rendreStats() {
       pli("moyennes", "Moyennes", `${nf(It.n / joursActifs, 1)} colis par jour`, moyennes),
       pli("records", "Records", "", records),
       autres ? pli("autres", "Épaisseur, longueur, essence, option", "", autres) : ""
-    ].join("") : `<div class="vide-liste">Aucun colis ${serieNom.toLowerCase().replace(" ✅", "")} sur cette période.</div>`}
-    ${lieux.length ? pli("stock", "À sortir maintenant", `${np(stock.n)} colis`, contenuStock) : ""}`;
+    ].join("") : `<div class="vide-liste">Aucun colis ${serieNom.toLowerCase().replace(" ✅", "")} sur cette période.</div>`}`;
 }
 
 /* ═════════════ Export CSV ═════════════ */
@@ -1303,7 +1335,7 @@ $("#btn-export").addEventListener("click", () => {
   const cols = [["numero", "N° étiquette"], ["commande", "Commande"], ["lieu", "Lieu de stock"], ["epaisseur", "Épaisseur"],
     ["largeur", "Largeur"], ["longueur", "Longueur (m)"], ["pieces", "Pièces"], ["volume", "Volume (m3)"], ["essence", "Essence"],
     ["choix", "Choix"], ["nature", "Nature"], ["options", "Options"], ["ref_client", "Réf. client"], ["observation", "Observation"],
-    ["statut", "Statut"], ["cree_le", "Saisi le"], ["etiquete_le", "Pointé le"], ["sorti_le", "Sorti le"]];
+    ["statut", "Statut"], ["cree_le", "Saisi le"], ["etiquete_le", "Pointé le"]];
   const cell = v => `"${String(v ?? "").replace(/"/g, '""')}"`;
   const dt = iso => iso ? new Date(iso).toLocaleString("fr-FR") : "";
   const lignes = actifs().sort((a, b) => t(a.cree_le) - t(b.cree_le)).map(c => cols.map(([k]) =>
@@ -1319,6 +1351,7 @@ $("#btn-export").addEventListener("click", () => {
 /* ═════════════ Démarrage ═════════════ */
 function rafraichir() {
   rendreCalepin();
+  if (vueActive === "accueil") rendreAccueil();
   if (vueActive === "stats") rendreStats();
   if (vueActive === "colis") rendreListe();
   if (ficheId && !$("#fiche").hidden) rendreFiche();
@@ -1327,7 +1360,7 @@ function rafraichir() {
 appliquerTheme(); majUIapparence();
 document.body.classList.toggle("sans-photo", CFG.PHOTO === false);
 formVierge();
-allerA("nouveau");
+allerA("accueil");
 rendreCalepin();
 initSynchro();
 if ("serviceWorker" in navigator) addEventListener("load", () => navigator.serviceWorker.register("sw.js").catch(() => {}));

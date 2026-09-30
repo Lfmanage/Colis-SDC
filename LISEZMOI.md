@@ -34,6 +34,18 @@ et vérifie section, pièces, longueur et volume. Tu ajoutes la commande (ou Sto
 - Photo à plat, bien éclairée, étiquette bien cadrée. Si un « ? » apparaît, compare avec l'étiquette avant de pointer.
 - Pour masquer les boutons photo : `PHOTO: false` dans `config.js`.
 
+## Comment la photo lit l'étiquette
+- Le **code-barres** donne le n° complet (ex. 203482001 = 203-482-1), même si la photo est un peu penchée.
+- Le texte est lu sur toute la photo en noir et blanc « local » (marche aussi quand la photo est sombre).
+- Section, pièces et longueur ne sont utilisées que si elles retombent sur le **volume imprimé** ; si une valeur manque, elle est déduite du volume.
+- Pour de meilleurs résultats : étiquette entière, de face, code-barres net.
+
+## Options lues par la photo
+Les options (TR, TA, TI, PR, CR, S, MI-BOIS) sont lues **uniquement à l'endroit où l'étiquette les imprime : juste au-dessus du n°**.
+Si rien n'est imprimé à cet endroit, aucune option n'est cochée. Si la photo ne permet pas de repérer cette zone, l'appli ne touche à rien et te le dit.
+La section n'est jamais changée toute seule : l'appli te la propose avec un bouton.
+Le lien « Voir ce qui a été lu » (dans l'encadré de la photo) montre ce que l'appli a compris : utile pour me signaler un souci.
+
 ## Mise à jour
 Après une modification sur GitHub, ferme puis rouvre l'appli (deux fois si besoin).
 Si l'ancienne version reste affichée, augmente `VERSION` dans `sw.js` (ex. `colis-v1.0.1`).

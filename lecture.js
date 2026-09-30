@@ -65,23 +65,7 @@
       choix = m[1]; essenceCode = m[2]; essence = (essenceInverse && essenceInverse[m[2]]) || ""; lieu = m[3];
     }
 
-    // Options possibles : TR, TA, TI, PR, CR, S, MI-BOIS (plusieurs possibles, aucune = pas d'option)
-    const DEUX = ["TR", "TA", "TI", "PR", "CR"], trouvees = new Set();
-    const eclater = tok => tok === "MI-BOIS" || tok === "S" || DEUX.includes(tok) ? [tok]
-      : /^(TR|TA|TI|PR|CR)+$/.test(tok) ? tok.match(/../g) : null;           // « TRCR » collé
-    for (const ligne of T.split(/\n/)) {
-      const propre = ligne.replace(/MI\s*[-–]?\s*BOIS/g, "MI-BOIS").trim();
-      if (!propre || propre.length > 24) continue;
-      const toks = propre.split(/[^A-Z-]+/).filter(x => x && x !== "-");
-      const codes = toks.map(eclater);
-      if (!toks.length || codes.some(x => !x)) continue;                     // la ligne ne contient que des options
-      const liste = codes.flat();
-      if (liste.length === 1 && liste[0] === "S") continue;                   // un « S » seul : trop souvent un bruit de lecture
-      liste.forEach(x => trouvees.add(x));
-    }
-    for (const x of DEUX) if (new RegExp("(?:^|[^A-Z])" + x + "(?![A-Z])").test(T)) trouvees.add(x);
-    if (/MI\s*[-–]?\s*BOIS/.test(T)) trouvees.add("MI-BOIS");
-    const options = ["TR", "TA", "TI", "PR", "CR", "S", "MI-BOIS"].filter(x => trouvees.has(x));
+    const options = null; // les options se lisent avec la position des mots (optionsPresDuNumero) : le texte seul se trompe trop (bois, écran, logo…)
 
     let date = null;
     if ((m = T.match(/(?:^|\D)(\d{2})\.(\d{2})\.(\d{2})\s+(\d{2})[:H]?(\d{2})(?!\d)/)))
@@ -90,44 +74,51 @@
     return { numero, choix, essence, essenceCode, lieu, options, date };
   }
 
-  // Section, pièces et longueur imprimées sur l'étiquette. Elles ne sont gardées que si le calcul
-  // épaisseur × largeur × pièces × longueur retombe sur le volume imprimé : sinon la lecture n'est pas fiable.
+  // Section, pièces et longueur imprimées sur l'étiquette.
+  // Une valeur n'est retenue que si le calcul épaisseur × largeur × pièces × longueur retombe sur le volume imprimé.
+  // Si la lecture a raté une des valeurs, on la déduit du volume (ex. section illisible : on garde l'aire e × l).
   function lireSpec(texte) {
     const T = N(texte);
-    const vols = [...T.matchAll(/(?:^|\D)(\d{1,3})[.,]\s?(\d{3})(?!\d)/g)].map(m => +(m[1] + "." + m[2]));
-    const sections = [...T.matchAll(/(?:^|\D)(\d{2,3})\s*[X*]\s*(\d{2,3})(?!\d)/g)].map(m => [+m[1], +m[2]]);
-    const codes = [...T.matchAll(/(?:^|\D)(\d{1,4})\s*\/\s*(\d{3,4})(?!\d)/g)].map(m => [+m[1], +m[2] / 100]);
-    for (const [epaisseur, largeur] of sections) for (const [pieces, longueur] of codes) for (const v of vols)
-      if (pieces > 0 && longueur >= 0.5 && longueur <= 13 && Math.abs(epaisseur / 1000 * largeur / 1000 * pieces * longueur - v) < 0.0015)
-        return { epaisseur, largeur, pieces, longueur, volume: v };
-    // Volume illisible : on garde quand même pièces et longueur si le code « 150/400 » est confirmé
-    // par « 150 P » ou par la longueur « 4,00 » imprimée à côté.
-    for (const [pieces, longueur] of codes) {
-      if (!(pieces > 0 && longueur >= 0.5 && longueur <= 13)) continue;
-      const pOk = new RegExp("(?:^|\\D)" + pieces + "\\s*P(?![A-Z])").test(T);
-      const [e, d] = longueur.toFixed(2).split(".");
-      const lOk = new RegExp("(?:^|\\D)" + e + "\\s?[.,]\\s?" + d + "(?!\\d)").test(T);
-      if (pOk || lOk) return { pieces, longueur, partiel: true };
+    const nombres = (re, f) => [...T.matchAll(re)].map(f).filter(Boolean);
+    const vols = nombres(/(?:^|\D)(\d{1,3})[.,]\s?(\d{3})(?!\d)/g, m => +(m[1] + "." + m[2]));
+    const sections = nombres(/(?:^|\D)(\d{2,3})\s*[X*]\s*(\d{2,3})(?!\d)/g, m => [+m[1], +m[2]]);
+    const codes = nombres(/(?:^|\D)(\d{1,4})\s*\/\s*(\d{3,4})(?!\d)/g, m => [+m[1], +m[2] / 100]);
+    const pieces = [...new Set([...codes.map(c => c[0]), ...nombres(/(?:^|\D)(\d{1,4})\s*P(?![A-Z])/g, m => +m[1])])].filter(p => p > 0);
+    const longueurs = [...new Set([...codes.map(c => c[1]), ...nombres(/(?:^|\D)(\d{1,2})\s?[.,]\s?(\d{2})\s*M(?![A-Z0-9])/g, m => +(m[1] + "." + m[2]))])].filter(x => x >= 0.5 && x <= 13);
+    const ok = (a, b) => Math.abs(a - b) < 0.0015;
+    // 1. tout est lu et cohérent
+    for (const [epaisseur, largeur] of sections) for (const p of pieces) for (const lo of longueurs) for (const v of vols)
+      if (ok(epaisseur / 1000 * largeur / 1000 * p * lo, v)) return { epaisseur, largeur, pieces: p, longueur: lo, volume: v };
+    // 2. section illisible : pièces, longueur et volume sont cohérents → on retient l'aire e × l (mm²)
+    const dejaCode = codes.filter(c => c[1] >= 0.5 && c[1] <= 13);
+    for (const [p, lo] of [...dejaCode, ...pieces.flatMap(p => longueurs.map(lo => [p, lo]))]) for (const v of vols) {
+      const aire = v * 1e6 / (p * lo);
+      if (p > 0 && aire >= 300 && aire <= 100000 && Math.abs(aire - Math.round(aire)) < aire * 0.004) return { pieces: p, longueur: lo, aire: Math.round(aire), volume: v, partiel: true };
+    }
+    // 3. une valeur manque : on la calcule avec la section lue et le volume
+    for (const [epaisseur, largeur] of sections) for (const v of vols) {
+      const aire = epaisseur * largeur / 1e6;
+      for (const p of pieces) { const lo = v / (aire * p); if (lo >= 0.5 && lo <= 13 && Math.abs(lo * 10 - Math.round(lo * 10)) < 0.06) return { epaisseur, largeur, pieces: p, longueur: Math.round(lo * 100) / 100, volume: v }; }
+      for (const lo of longueurs) { const p = v / (aire * lo); if (p >= 1 && Math.abs(p - Math.round(p)) < 0.03) return { epaisseur, largeur, pieces: Math.round(p), longueur: lo, volume: v }; }
     }
     return null;
   }
 
   // Retrouve le colis en attente qui correspond à l'étiquette, même si la note contient une faute.
-  // « auto » = la section est identique (donc c'est bien le même colis : seules les pièces ou la longueur sont fausses)
-  // et un seul colis convient : on peut corriger sans demander.
   function correspondance(spec, colis) {
-    const meme = (x, y) => x.epaisseur === y.epaisseur && x.largeur === y.largeur && x.pieces === y.pieces && x.longueur === y.longueur;
+    const aire = c => c.epaisseur * c.largeur;
     const scores = [];
     for (const c of colis) {
-      const sec = (c.epaisseur === spec.epaisseur && c.largeur === spec.largeur) ? 3 : (c.epaisseur === spec.epaisseur || c.largeur === spec.largeur) ? 1 : 0;
+      let sec = 0;
+      if (spec.epaisseur != null) sec = (c.epaisseur === spec.epaisseur && c.largeur === spec.largeur) ? 3 : (c.epaisseur === spec.epaisseur || c.largeur === spec.largeur) ? 1 : 0;
+      else if (spec.aire != null) sec = Math.abs(aire(c) - spec.aire) <= spec.aire * 0.005 ? 3 : 0;   // même surface : très probablement le même colis
       const pl = Math.max((c.pieces === spec.pieces) + (c.longueur === spec.longueur), (c.pieces === spec.longueur && c.longueur === spec.pieces) ? 2 : 0);
       if (sec + pl >= 3) scores.push({ c, sec, score: sec + pl });
     }
     if (!scores.length) return null;
     const max = Math.max(...scores.map(s => s.score));
     const egaux = scores.filter(s => s.score === max);
-    const identiques = egaux.every(s => meme(s.c, egaux[0].c));
-    return { colis: egaux[0].c, exact: max === 5, auto: egaux[0].sec === 3 && identiques };
+    return { colis: egaux[0].c, exact: max === 5, auto: egaux[0].sec === 3 };
   }
 
   // ───── Code-barres (Code 39) : le n° d'étiquette y est codé en entier, ex. « 203458001 » = 203-458-1 ─────
@@ -148,15 +139,14 @@
     return CAR39.get(code) || null;
   }
   function ligne39(px, n, fac, div) { // une ligne de pixels gris → texte du code-barres, ou null
-    // seuil local : moyenne glissante
     const R = Math.max(8, Math.floor(n / div)), cum = new Float64Array(n + 1);
     for (let x = 0; x < n; x++) cum[x + 1] = cum[x] + px[x];
-    const runs = [], noir = [];
+    const runs = [], noir = [], pos = [];
     let prec = null, lg = 0;
     for (let x = 0; x < n; x++) {
       const a = Math.max(0, x - R), b = Math.min(n, x + R + 1), moy = (cum[b] - cum[a]) / (b - a);
       const d = px[x] < moy * fac;
-      if (d === prec) lg++; else { if (prec !== null) { runs.push(lg); noir.push(prec); } prec = d; lg = 1; }
+      if (d === prec) lg++; else { if (prec !== null) { runs.push(lg); noir.push(prec); } prec = d; lg = 1; pos.push(x); }
     }
     runs.push(lg); noir.push(prec);
     for (let i = 0; i + 9 <= runs.length; i++) {
@@ -167,36 +157,93 @@
       while (j + 9 <= runs.length) {
         const c = car39(runs, j);
         if (!c) break;
-        if (c === "*") return txt.length >= 3 ? txt : null;
+        if (c === "*") return txt.length >= 3 ? { t: txt, xs: pos[i], xe: j + 9 < pos.length ? pos[j + 9] : n } : null;
         txt += c; j += 10;
       }
     }
     return null;
   }
-  // gris : tableau d'octets (L × H), lecture de gauche à droite et à l'envers
-  function codeBarres(gris, L, H) {
-    const votes = new Map(), row = new Uint8Array(L), inv = new Uint8Array(L);
-    const essais = [[0.85, 16], [0.92, 32], [0.97, 16], [0.85, 32], [0.92, 16]]; // plusieurs réglages de contraste
+  // gris : tableau d'octets (L × H). On lit de gauche à droite et à l'envers, d'abord à plat,
+  // puis en penchant les lignes de lecture de quelques degrés (photo prise de travers).
+  function codeBarresPos(gris, L, H, budgetMs) {
+    const fin = Date.now() + (budgetMs || 5000), votes = new Map(), lus = new Map();
     let best = null, n = 0;
-    for (const [fac, div] of essais) {
-      for (let y = 0; y < H; y++) {
-        const o = y * L;
-        for (let x = 0; x < L; x++) { row[x] = gris[o + x]; inv[L - 1 - x] = gris[o + x]; }
-        for (const r of [row, inv]) {
-          const t = ligne39(r, L, fac, div);
-          if (t) { const v = (votes.get(t) || 0) + 1; votes.set(t, v); if (v > n) { best = t; n = v; } }
+    const essais = [[0.85, 16], [0.92, 32], [0.97, 16]];
+    const angles = [0, -5, 5, -8, 8, -3, 3, -11, 11, -14, 14];
+    const row = new Uint8Array(L), inv = new Uint8Array(L);
+    const resultat = () => {
+      if (!(best && n >= 2)) return null;
+      const r = lus.get(best), xs = r.map(o => o.xs).sort((a, b) => a - b), xe = r.map(o => o.xe).sort((a, b) => a - b);
+      const med = a => a[a.length >> 1], ys = r.map(o => o.y);
+      return { code: best, x0: med(xs), x1: med(xe), y0: Math.min(...ys), y1: Math.max(...ys), deg: r[0].deg, retourne: r[0].retourne };
+    };
+    for (const deg of angles) {
+      const pente = Math.tan(deg * Math.PI / 180);
+      const pas = deg === 0 ? 1 : 3;
+      for (const [fac, div] of essais) {
+        for (let y0 = 0; y0 < H; y0 += pas) {
+          const yFin = y0 + (L - 1) * pente;
+          if (yFin < 0 || yFin >= H) continue;
+          for (let x = 0; x < L; x++) { const v = gris[Math.round(y0 + x * pente) * L + x]; row[x] = v; inv[L - 1 - x] = v; }
+          [[row, false], [inv, true]].forEach(([r, retourne]) => {
+            const o = ligne39(r, L, fac, div);
+            if (!o) return;
+            const v = (votes.get(o.t) || 0) + 1; votes.set(o.t, v); if (v > n) { best = o.t; n = v; }
+            // position dans l'image d'origine (la lecture « à l'envers » est retournée)
+            const xs = retourne ? L - 1 - o.xe : o.xs, xe = retourne ? L - 1 - o.xs : o.xe;
+            if (!lus.has(o.t)) lus.set(o.t, []);
+            lus.get(o.t).push({ xs, xe, y: y0 + xs * pente, deg, retourne });
+          });
         }
+        if (n >= 3) return resultat();
+        if (Date.now() > fin) return resultat();
       }
-      if (n >= 3) break; // assez de lignes d'accord : inutile d'essayer d'autres réglages
     }
-    return best && n >= 2 ? best : null;
+    return resultat();
   }
+  function codeBarres(gris, L, H, budgetMs) { const r = codeBarresPos(gris, L, H, budgetMs); return r ? r.code : null; }
   // « 203458001 » → n° 2034581 (6 chiffres + suffixe sans les zéros)
   function numeroDepuisCode(code) {
     const m = /^(\d{6})(\d{1,3})$/.exec(code || "");
     return m ? m[1] + String(+m[2]) : "";
   }
 
-  const API = { verifier, trouver, lireChamps, lireSpec, correspondance, codeBarres, numeroDepuisCode };
+  // ───── Options : elles sont imprimées en petit, juste AU-DESSUS du n° d'étiquette ─────
+  const OPTIONS_OK = ["TR", "TA", "TI", "PR", "CR", "S", "MI-BOIS"];
+  // data = résultat de Tesseract : liste de mots avec position, ou tableau « tsv »
+  function motsDepuis(data) {
+    if (!data) return [];
+    if (Array.isArray(data.words) && data.words.length)
+      return data.words.filter(w => w && w.bbox).map(w => ({ text: String(w.text || ""), conf: w.confidence ?? w.conf ?? 0, x0: w.bbox.x0, y0: w.bbox.y0, x1: w.bbox.x1, y1: w.bbox.y1 }));
+    if (typeof data.tsv === "string") {
+      const mots = [];
+      for (const ligne of data.tsv.split("\n")) {
+        const c = ligne.split("\t");
+        if (c.length >= 12 && c[0] === "5" && c[11].trim()) mots.push({ text: c[11], conf: +c[10], x0: +c[6], y0: +c[7], x1: +c[6] + +c[8], y1: +c[7] + +c[9] });
+      }
+      return mots;
+    }
+    return [];
+  }
+  // passes = une liste de mots par lecture (même image, mêmes coordonnées).
+  // Renvoie les options imprimées (tableau, vide = aucune option) ou null si le n° n'a pas pu être localisé.
+  function optionsPresDuNumero(passes) {
+    const tous = passes.flat();
+    const numeros = tous.filter(m => /^\d{6,8}$/.test(String(m.text).replace(/[^\d]/g, "")) && String(m.text).replace(/[^\d]/g, "").length === String(m.text).trim().length && m.conf >= 40);
+    if (!numeros.length) return null;
+    const n = numeros.sort((a, b) => b.conf - a.conf)[0];
+    const w = n.x1 - n.x0, h = n.y1 - n.y0;
+    const dans = m => m.x0 >= n.x0 - 0.5 * w && m.x1 <= n.x1 + 0.5 * w && m.y0 >= n.y0 - 1.2 * h && m.y1 <= n.y0 + 0.35 * h;
+    const trouvees = new Set(), mots = tous.filter(dans);
+    for (const m of mots) {
+      const t = String(m.text).toUpperCase().replace(/[^A-Z-]/g, "");
+      const codes = t === "MIBOIS" ? ["MI-BOIS"] : /^(TR|TA|TI|PR|CR)+$/.test(t) ? t.match(/../g) : OPTIONS_OK.includes(t) ? [t] : [];
+      for (const c of codes) if (m.conf >= (c === "S" ? 85 : 60)) trouvees.add(c);
+    }
+    if (mots.some(m => /^MI-?$/i.test(m.text) && m.conf >= 60) && mots.some(m => /^BOIS$/i.test(m.text) && m.conf >= 60)) trouvees.add("MI-BOIS");
+    return OPTIONS_OK.filter(x => trouvees.has(x));
+  }
+
+  const API = { motsDepuis, optionsPresDuNumero, verifier, trouver, lireChamps, lireSpec, correspondance, codeBarres, codeBarresPos, numeroDepuisCode };
   if (typeof module !== "undefined" && module.exports) module.exports = API; else racine.Lecture = API;
 })(typeof window !== "undefined" ? window : this);

@@ -13,7 +13,7 @@ window.COLIS_CONFIG = {
 
   // Essences et lieux proposés en un tap au pointage (ex. ["S", "D"] et ["G7", "H1"]).
   // Ceux déjà utilisés sur des colis apparaissent aussi tout seuls.
-  ESSENCES: [],
+  ESSENCES: ["S", "D"],
   LIEUX: [],
 
   // Lettres proposées sur le clavier du « lieu de stock » (les chiffres sont toujours là)

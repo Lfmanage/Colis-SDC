@@ -212,6 +212,27 @@ $("#f-options").addEventListener("click", e => {
   b.setAttribute("aria-pressed", optionsChoisies.has(k));
 });
 
+/* Choix du bois et essence : boutons à appuyer au calepin (ils remplissent les champs « Plus de détails ») */
+const CHOIX_BOUTONS = CFG.CHOIX || [["10", "1.0"], ["20", "2.0"], ["21", "2.1"], ["30", "3.0"], ["40", "4.0"]];
+const ESSENCE_BOUTONS = ["S", "D"];
+function rendrePucesChoixEssence() {
+  const ch = F("choix").value.trim(), es = F("essence").value.trim().toUpperCase();
+  $("#f-choix-puces").innerHTML = CHOIX_BOUTONS.map(([val, lib]) =>
+    `<button type="button" class="puce" data-choix="${esc(val)}" aria-pressed="${val === ch}">${esc(lib)}</button>`).join("");
+  $("#f-essence-puces").innerHTML = ESSENCE_BOUTONS.map(x =>
+    `<button type="button" class="puce" data-essence="${esc(x)}" aria-pressed="${x === es}">${esc(x)}</button>`).join("");
+}
+$("#f-choix-puces").addEventListener("click", e => {
+  const b = e.target.closest("[data-choix]"); if (!b) return;
+  F("choix").value = F("choix").value.trim() === b.dataset.choix ? "" : b.dataset.choix;
+  rendrePucesChoixEssence(); majLive();
+});
+$("#f-essence-puces").addEventListener("click", e => {
+  const b = e.target.closest("[data-essence]"); if (!b) return;
+  F("essence").value = F("essence").value.trim().toUpperCase() === b.dataset.essence ? "" : b.dataset.essence;
+  rendrePucesChoixEssence(); majLive();
+});
+
 function remplirForm(c) {
   F("commande").value = c.commande || "";
   F("lieu").value = c.lieu || "";
@@ -228,7 +249,7 @@ function remplirForm(c) {
   F("ref").value = c.ref_client || "";
   F("observation").value = c.observation || "";
   F("numero").value = c.numero || "";
-  rendrePuces(); majLive();
+  rendrePuces(); rendrePucesChoixEssence(); majLive();
 }
 
 function formVierge() {
@@ -285,7 +306,7 @@ function majLive() {
   } else al.hidden = true;
   $("#form-erreur").hidden = true;
 }
-$("#form-colis").addEventListener("input", majLive);
+$("#form-colis").addEventListener("input", e => { majLive(); if (e.target.id === "f-choix" || e.target.id === "f-essence") rendrePucesChoixEssence(); });
 $("#alerte-numero").addEventListener("click", e => { const b = e.target.closest("[data-ouvrir]"); if (b) ouvrirFiche(b.dataset.ouvrir); });
 
 function sauverForm() {
@@ -650,8 +671,13 @@ function rendrePC() {
       <button type="button" class="lien" data-p="suiv" ${posPC < filePC.length - 1 ? "" : "hidden"}>Passer</button></span></div>` : ""}
     <button type="button" class="btn btn-principal btn-photo btn-photo-haut" data-p="photo">📷 Photo de l'étiquette</button>
     ${bandeauLecture(lec, c)}
-    <p class="fiche-section" style="font-size:34px">${esc(section(c))}</p>
-    <p class="fiche-sous">${np(c.pieces)} pièces de ${esc(nf(c.longueur, 2))} m</p>
+    <div class="pc-titre">
+      <div>
+        <p class="fiche-section" style="font-size:34px">${esc(section(c))}</p>
+        <p class="fiche-sous">${np(c.pieces)} pièces de ${esc(nf(c.longueur, 2))} m</p>
+      </div>
+      <button type="button" class="btn btn-principal btn-pointer-haut" data-p="valider">${c.numero ? "Enregistrer" : "Pointer"}</button>
+    </div>
     <div class="carte carte-or">
       <div class="segment" id="pc-type">
         <button type="button" data-type="cde" aria-pressed="true">Commande</button>
@@ -743,7 +769,7 @@ function sauverChampsPC(extra = {}) {
 }
 let avertiNumero = "";
 function validerNumeroPC() {
-  const a = $("#pc-alerte"), erreur = m => { a.textContent = m; a.hidden = false; };
+  const a = $("#pc-alerte"), erreur = m => { a.textContent = m; a.hidden = false; a.scrollIntoView({ block: "center", behavior: "smooth" }); };
   const ch = champsPC();
   if (pcType === "stock" ? !ch.lieu : (!ch.commande || !ch.lieu)) return erreur(pcType === "stock" ? "Choisis le lieu de stockage." : "Renseigne la commande et le lieu de stock (feuille de commande).");
   if (!ch.essence) return erreur("Choisis l'essence du bois (S, D…).");

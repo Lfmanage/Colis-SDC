@@ -687,7 +687,6 @@ function rendrePC() {
         <label class="champ" id="pc-champ-commande"><span>N° commande</span><input id="pc-commande" inputmode="numeric" placeholder="34114" value="${esc(commande)}"></label>
         <label class="champ"><span id="pc-lieu-lab">Lieu de stock</span><input id="pc-lieu" class="majuscules" inputmode="none" placeholder="G7" autocapitalize="characters" value="${esc(lieu)}"></label>
       </div>
-      ${lieuxHtml ? `<div id="pc-lieux"><span class="etiquette-champ">Lieux récents</span><div class="puces">${lieuxHtml}</div></div>` : ""}
       <label class="champ"><span>Essence</span><input id="pc-essence" class="majuscules" autocapitalize="characters" placeholder="S" value="${esc(essenceVal)}"></label>
       ${essencesHtml ? `<div class="puces" id="pc-essences">${essencesHtml}</div>` : ""}
       <span class="etiquette-champ">Options</span>

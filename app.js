@@ -1536,17 +1536,23 @@ const PRINC = [["Indigo", "#5B4FBF"], ["Terracotta", "#D4917F"], ["Pêche", "#DD
   ["Menthe", "#8CC4B8"], ["Ciel", "#8DB8D9"], ["Bleu", "#5F7DB9"], ["Lavande", "#A199CE"], ["Bordeaux", "#843C4E"], ["Gris", "#9DA0AA"]];
 const PALETTES = {
   princ: PRINC,
-  fond: [["Beige", "#F4F0EA"], ["Blanc froid", "#FBFBFD"], ["Crème", "#F7EDD6"], ["Rose", "#F1E2E5"], ["Pêche", "#F6E3D6"], ["Lavande", "#E8E3F5"], ["Bleu clair", "#DDE9F5"],
+  fond: [["Brume", "#EEF2F7"], ["Beige", "#F4F0EA"], ["Blanc froid", "#FBFBFD"], ["Crème", "#F7EDD6"], ["Rose", "#F1E2E5"], ["Pêche", "#F6E3D6"], ["Lavande", "#E8E3F5"], ["Bleu clair", "#DDE9F5"],
     ["Vert clair", "#E1EEE3"], ["Sable", "#EFEAE0"], ["Gris bleu", "#E9EDF2"], ["Blanc", "#FFFFFF"], ["Mauve", "#F3E9F1"]],
   nav: [["Assortie", "auto"], ...PRINC],
-  chiffre: [["Cuivre foncé", "#B4682F"], ["Bordeaux", "#843C4E"], ["Indigo", "#5B4FBF"], ["Vert", "#3F7F5B"], ["Bleu", "#2F6DA3"], ["Brique", "#C0533D"], ["Or foncé", "#8C6D1F"],
-    ["Ardoise", "#5A6B7B"], ["Noir", "#26201F"], ["Violet", "#7A4E9A"], ["Framboise", "#B23B6B"], ["Turquoise", "#1F8A8A"], ["Olive", "#6B7F3A"]]
+  chiffre: [["Turquoise", "#1F8A8A"], ["Cuivre foncé", "#B4682F"], ["Bordeaux", "#843C4E"], ["Indigo", "#5B4FBF"], ["Vert", "#3F7F5B"], ["Bleu", "#2F6DA3"], ["Brique", "#C0533D"], ["Or foncé", "#8C6D1F"],
+    ["Ardoise", "#5A6B7B"], ["Noir", "#26201F"], ["Violet", "#7A4E9A"], ["Framboise", "#B23B6B"], ["Olive", "#6B7F3A"]]
 };
 const CLES_REGLAGES = ["mode", "anim", "c_princ", "c_fond", "c_nav", "c_chiffre"];
-const REGLAGES_DEFAUT = { mode: "auto", anim: true, c_princ: "#843C4E", c_fond: "#F4F0EA", c_nav: "auto", c_chiffre: "#B4682F" };
+const REGLAGES_DEFAUT = { mode: "auto", anim: true, c_princ: "#843C4E", c_fond: "#EEF2F7", c_nav: "auto", c_chiffre: "#1F8A8A" };
 const anciens = lire(K.reglages, {});
 let reglages = { ...REGLAGES_DEFAUT, maj: anciens.maj || null, attente: !!anciens.attente };
 CLES_REGLAGES.forEach(k => { if (anciens[k] !== undefined) reglages[k] = anciens[k]; }); // les anciens réglages (vert, or, forêt…) sont abandonnés
+const THEME_V = 2; // nouvelle palette : on garde la couleur principale choisie, le reste est remplacé
+if (anciens.tv !== THEME_V) {
+  Object.assign(reglages, { c_fond: REGLAGES_DEFAUT.c_fond, c_nav: REGLAGES_DEFAUT.c_nav, c_chiffre: REGLAGES_DEFAUT.c_chiffre, maj: maintenant(), attente: true });
+  reglages.tv = THEME_V; ecrire(K.reglages, reglages);
+}
+reglages.tv = THEME_V;
 const rgb = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16));
 const hex = v => "#" + v.map(x => Math.round(Math.max(0, Math.min(255, x))).toString(16).padStart(2, "0")).join("");
 const mix = (a, b, k) => { const x = rgb(a), y = rgb(b); return hex(x.map((v, i) => v + (y[i] - v) * k)); };
@@ -1554,31 +1560,31 @@ const clarte = h => { const [r, g, b] = rgb(h); return (0.299 * r + 0.587 * g + 
 const themeSombre = () => reglages.mode === "sombre" || (reglages.mode === "auto" && matchMedia("(prefers-color-scheme: dark)").matches);
 function appliquerTheme() {
   const r = reglages, s = document.documentElement.style, W = "#ffffff", sombre = themeSombre();
-  const ac = r.c_princ, base = "#121216";
+  const ac = r.c_princ, base = "#0F1219";
   const set = (k, v) => s.setProperty(k, v);
   set("--accent", ac);
-  set("--sur-accent", clarte(ac) > 0.55 ? "#26201F" : "#FFFFFF");
+  set("--sur-accent", clarte(ac) > 0.55 ? "#1C2230" : "#FFFFFF");
   set("--accent-texte", sombre ? (clarte(ac) < 0.5 ? mix(ac, W, 0.45) : ac) : (clarte(ac) > 0.5 ? mix(ac, "#000000", 0.45) : ac));
   set("--accent-fort", sombre ? mix(ac, W, 0.3) : mix(ac, "#000000", 0.28));
   set("--accent-doux", sombre ? mix(base, ac, 0.28) : mix(ac, W, 0.88));
   set("--accent-moyen", sombre ? mix(ac, W, 0.3) : mix(ac, W, 0.55));
   let barre;
   if (sombre) {
-    set("--fond", mix(base, ac, 0.05)); set("--fond-haut", mix(base, ac, 0.13)); set("--carte", "#1E1E24"); set("--champ", "#25252C"); set("--panneau", "#1B1B20");
-    set("--texte", "#F2EEEE"); set("--texte-doux", "#A9A2A5"); set("--bord", "rgba(255,255,255,.11)"); set("--ombre", "0 3px 14px rgba(0,0,0,.35)");
+    set("--fond", mix(base, ac, 0.05)); set("--fond-haut", mix(base, ac, 0.13)); set("--carte", "#1A1F2B"); set("--champ", "#222836"); set("--panneau", "#161A24");
+    set("--texte", "#EEF1F8"); set("--texte-doux", "#9AA3B5"); set("--bord", "rgba(255,255,255,.11)"); set("--ombre", "0 3px 14px rgba(0,0,0,.35)");
     set("--hero1", mix(base, ac, 0.42)); set("--hero2", mix(base, ac, 0.24));
     set("--chiffre", clarte(r.c_chiffre) < 0.45 ? mix(r.c_chiffre, W, 0.5) : r.c_chiffre);
     barre = r.c_nav === "auto" ? mix(base, ac, 0.2) : mix(r.c_nav, "#101014", 0.72);
   } else {
     set("--fond", r.c_fond); set("--fond-haut", mix(r.c_fond, ac, 0.07)); set("--carte", "#FFFFFF"); set("--champ", "#FFFFFF"); set("--panneau", mix(r.c_fond, W, 0.6));
-    set("--texte", "#26201F"); set("--texte-doux", "#7A7072"); set("--bord", "rgba(38,32,31,.11)"); set("--ombre", "0 3px 14px rgba(38,32,31,.07)");
+    set("--texte", "#1C2230"); set("--texte-doux", "#667085"); set("--bord", "rgba(28,34,48,.10)"); set("--ombre", "0 3px 14px rgba(28,34,48,.07)");
     set("--hero1", mix(ac, W, 0.7)); set("--hero2", mix(ac, W, 0.87));
     set("--chiffre", r.c_chiffre);
     barre = r.c_nav === "auto" ? mix(ac, W, 0.84) : r.c_nav;
   }
   set("--barre", barre);
   const navSombre = clarte(barre) < 0.42;
-  set("--nav-texte", navSombre ? "rgba(255,255,255,.72)" : (sombre ? "#A9A2A5" : "#7A7072"));
+  set("--nav-texte", navSombre ? "rgba(255,255,255,.72)" : (sombre ? "#9AA3B5" : "#667085"));
   set("--nav-actif", navSombre ? "#FFFFFF" : (sombre ? "#FFFFFF" : mix(ac, "#000000", clarte(ac) > 0.5 ? 0.45 : 0.1)));
   set("--nav-pastille", navSombre ? "rgba(255,255,255,.2)" : mix(ac, sombre ? base : W, sombre ? 0.55 : 0.8));
   document.documentElement.style.colorScheme = sombre ? "dark" : "light";

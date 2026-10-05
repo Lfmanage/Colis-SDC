@@ -2,11 +2,11 @@
    Toutes les couleurs passent par des variables : elles sont calculées par l'appli (Réglages → Apparence). */
 :root {
   --accent: #84404E; --accent-fort: #6B323E; --accent-doux: #F0E4E7; --accent-moyen: #C9A9B1;
-  --fond: #F4F0EA; --fond-haut: #F1EAE9; --carte: #FFFFFF; --champ: #FFFFFF; --panneau: #FBF9F6; --barre: #E2D3D7;
-  --hero1: #D9C6CB; --hero2: #EBDFE2; --chiffre: #B4682F;
-  --texte: #26201F; --texte-doux: #7A7072; --bord: rgba(38, 32, 31, .11); --ombre: 0 3px 14px rgba(38, 32, 31, .07);
-  --ok: #3F8A52; --ok-fond: rgba(63, 138, 82, .14); --alerte: #B86A1E; --alerte-fond: rgba(214, 140, 50, .17);
-  --rouge: #B23B2E; --rouge-fond: rgba(178, 59, 46, .12); --info: #4C6475; --info-fond: rgba(76, 100, 117, .13);
+  --fond: #EEF2F7; --fond-haut: #E9EDF6; --carte: #FFFFFF; --champ: #FFFFFF; --panneau: #F7F9FC; --barre: #E2D3D7;
+  --hero1: #D9C6CB; --hero2: #EBDFE2; --chiffre: #1F8A8A;
+  --texte: #1C2230; --texte-doux: #667085; --bord: rgba(28, 34, 48, .10); --ombre: 0 3px 14px rgba(28, 34, 48, .07);
+  --ok: #1F9D77; --ok-fond: rgba(31, 157, 119, .14); --alerte: #C9741A; --alerte-fond: rgba(233, 150, 40, .18);
+  --rouge: #D6455D; --rouge-fond: rgba(214, 69, 93, .12); --info: #3B7DC4; --info-fond: rgba(59, 125, 196, .13);
   --titre: "Fraunces", "Iowan Old Style", Georgia, serif;
   --police: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
   --haut: env(safe-area-inset-top, 0px); --bas: env(safe-area-inset-bottom, 0px);
@@ -208,9 +208,9 @@ input, textarea { font: inherit; color: inherit; }
 .saisie-numero .champ { margin: 0; }
 .saisie-numero .btn { width: auto; padding: 12px 20px; }
 .btn-photo-haut { margin-bottom: 10px; }
-.terminal { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 16px; background: #34394F; color: #E9EAF2; border-radius: 18px; padding: 10px 14px; margin-bottom: 12px; }
+.terminal { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 16px; background: #1F2638; color: #E9EDF7; border-radius: 18px; padding: 10px 14px; margin-bottom: 12px; }
 .terminal > div { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; border-bottom: 1px dashed rgba(233, 234, 242, .16); padding: 4px 0; min-width: 0; }
-.terminal span { flex: 0 1 auto; min-width: 0; font-size: 12.5px; line-height: 1.15; color: #B8C4F0; font-weight: 600; }
+.terminal span { flex: 0 1 auto; min-width: 0; font-size: 12.5px; line-height: 1.15; color: #9FD8D8; font-weight: 600; }
 .terminal b { flex: none; white-space: nowrap; font: 600 clamp(19px, 6vw, 25px) var(--titre); color: #fff; letter-spacing: .02em; }
 .terminal .vide { color: rgba(255, 255, 255, .3); }
 .terminal .plein { grid-column: 1 / -1; }

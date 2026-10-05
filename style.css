@@ -344,9 +344,9 @@ pre.lu { white-space: pre-wrap; word-break: break-word; font-size: 11.5px; line-
 /* ═════════ Design 2.0 : verre dépoli sur bois d'automne flouté ═════════ */
 html { background: #1A100B; }
 body { background: transparent; }
-body::before { content: ""; position: fixed; inset: 0; z-index: -3; background: var(--fond-img, url("fond-automne.jpg?v=232")) center / cover no-repeat; transform: scale(1.05); }
+body::before { content: ""; position: fixed; inset: 0; z-index: -3; background: var(--fond-img, url("fond-automne.jpg?v=233")) center / cover no-repeat; transform: scale(1.05); }
 body::after { content: ""; position: fixed; inset: 0; z-index: -2; background: var(--voile, rgba(18, 10, 6, .5)); pointer-events: none; }
-.login { background: var(--voile, rgba(18, 10, 6, .5)), url("fond-automne.jpg?v=232") center / cover no-repeat; }
+.login { background: var(--voile, rgba(18, 10, 6, .5)), url("fond-automne.jpg?v=233") center / cover no-repeat; }
 
 /* verre */
 .carte, .stat, .pli, .tuile, .action, .feuille-panneau, .onglets, .recherche input, .fermer {

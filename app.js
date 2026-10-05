@@ -1005,6 +1005,8 @@ async function preparerImage(fichier) {
 }
 // Découpe une zone de l'étiquette, redressée d'après le code-barres, et la passe en noir et blanc net
 const PX_PAR_CODE = 520; // largeur du code-barres une fois redressé, en pixels
+// La ligne des longueurs (« 3/450 28/400 ») est souvent lue avec un chiffre ou un tiret en trop : on ne garde que les codes pièces/longueur
+const nettoyerZone = (nom, t) => { if (nom !== "code") return t; const m = String(t).match(/\d{1,4}\s*\/\s*\d{3,4}/g); return m ? m.map(x => x.replace(/\s+/g, "")).join(" ") : t; };
 function zoneCalee(img, pos, zone) {
   const bw = pos.x1 - pos.x0, th = pos.deg * Math.PI / 180;
   let e1 = [Math.cos(th), Math.sin(th)], e2 = [-Math.sin(th), Math.cos(th)];
@@ -1054,7 +1056,7 @@ async function lireTexteEtiquette(prep) { // lit les zones de l'étiquette (rep�
             let t = "";
             if (!cv.vide) {
               await worker.setParameters({ tessedit_pageseg_mode: psm, tessedit_char_whitelist: zone.liste });
-              t = (await worker.recognize(cv)).data.text.replace(/\s+/g, " ").trim();
+              t = nettoyerZone(zone.nom, (await worker.recognize(cv)).data.text.replace(/\s+/g, " ").trim());
             }
             if (zone.motif.test(t)) { lu = t; break essais; }
             if (lu === null && t) lu = { brut: t };
@@ -1088,7 +1090,7 @@ async function lireTexteEtiquette(prep) { // lit les zones de l'étiquette (rep�
             const zone = Lecture.ZONES.find(z => z.nom === nom), cv = zoneCalee(prep.img, prep.pos, { ...zone, v0: zone.v0 + dv, v1: zone.v1 + dv });
             if (cv.vide) continue;
             await worker.setParameters({ tessedit_pageseg_mode: "7", tessedit_char_whitelist: zone.liste });
-            const t = (await worker.recognize(cv)).data.text.replace(/\s+/g, " ").trim();
+            const t = nettoyerZone(nom, (await worker.recognize(cv)).data.text.replace(/\s+/g, " ").trim());
             if (zone.motif.test(t) || (nom === "volume" && /\d[,.]\d{3}/.test(t)) || (nom === "pieces" && /^\d{1,4}/.test(t))) cand[nom].push(t);
           }
           etatLecture(`Lecture plus précise… ${Math.round(++n / 6 * 100)} %`);
@@ -1097,7 +1099,7 @@ async function lireTexteEtiquette(prep) { // lit les zones de l'étiquette (rep�
         }
         const lieuChoisi = Lecture.majoritaire(cand.lieu.filter(t => Lecture.ZONES.find(z => z.nom === "lieu").motif.test(t)));
         // les valeurs retenues passent en tête du texte : c'est ce que lisent ensuite la vérification et le formulaire
-        texte = (fus ? `${fus.epaisseur} x ${fus.largeur}\n${fus.pieces} P\n${nf(fus.longueur, 2)} m\n${nf(fus.volume, 3)} m3\n${fus.pieces}/${Math.round(fus.longueur * 100)}\n` : "") + (lieuChoisi ? lieuChoisi + "\n" : "") + texte;
+        texte = (fus ? `${fus.epaisseur} x ${fus.largeur}\n${fus.pieces} P\n${nf(fus.longueur, 2)} m\n${nf(fus.volume, 3)} m3\n${(fus.lots || [fus]).map(l => l.pieces + "/" + Math.round(l.longueur * 100)).join(" ")}\n` : "") + (lieuChoisi ? lieuChoisi + "\n" : "") + texte;
         if (fus) { zones.section = `${fus.epaisseur} x ${fus.largeur}`; zones.pieces = `${fus.pieces} P`; zones.longueur = nf(fus.longueur, 2); zones.volume = `${nf(fus.volume, 3)} m3`; }
         if (lieuChoisi) zones.lieu = lieuChoisi;
       }
@@ -1183,11 +1185,13 @@ function proposerCreation(numero, numeroComplet, r, champs) {
     pieces: spec && spec.pieces ? spec.pieces : pi ? +pi[1] : "",
     lo: spec && spec.longueur ? spec.longueur : lg ? +(lg[1] + "." + lg[2]) : ""
   };
+  const lotsLus = spec && spec.lots && spec.lots.length > 1 ? spec.lots : null; // plusieurs longueurs lues sur l'étiquette
   const champ = (id, lab, val, attr = "") => `<label class="champ"><span>${lab}</span><input id="${id}" ${attr} value="${esc(val)}"></label>`;
   $("#intro-corps").innerHTML = `
     <p>${numeroComplet ? `Le n° <b>${esc(numero)}</b> n'existe pas dans tes données.` : "Le n° n'a pas pu être lu sur la photo : tape-le ci-dessous."}</p>
     <div class="lecture${verifie ? "" : " attention"}"><b>${verifie ? "✔ Section, pièces et longueur vérifiées (volume)" : "⚠ Lecture incertaine"}</b>
-      <p>${verifie ? "Vérifie le lieu et le choix, puis appuie sur « Créer l'étiquette »." : "Compare avec l'étiquette et corrige si besoin."}</p></div>
+      <p>${verifie ? "Vérifie le lieu et le choix, puis appuie sur « Créer l'étiquette »." : "Compare avec l'étiquette et corrige si besoin."}</p>
+      ${lotsLus ? `<p><b>Plusieurs longueurs :</b> ${esc(lotsLus.map(l => `${np(l.pieces)} × ${nf(l.longueur, 2)} m`).join(" + "))}</p>` : ""}</div>
     ${champ("intro-numero", "N° d'étiquette", numeroComplet ? numero : "", 'inputmode="numeric" class="gros-chiffre" placeholder="200-000-1"')}
     <span class="etiquette-champ">Section (mm)</span>
     <div class="section">
@@ -1219,25 +1223,29 @@ function proposerCreation(numero, numeroComplet, r, champs) {
     const c = { id: nouvelId(), numero: n, commande: typeIntro === "stock" ? STOCK : $("#intro-commande").value.trim(), lieu: $("#intro-lieu").value.trim().toUpperCase(), epaisseur: ep, largeur: larg, longueur: lo, pieces,
       choix: $("#intro-choix").value.trim() || DEF.choix, essence: champs.essence || "", nature: DEF.nature, options, ref_client: "", observation: "Créé d'après une photo d'étiquette",
       statut: "a_sortir", cree_le: dateIso, etiquete_le: dateIso, supprime: false };
+    if (lotsLus && pieces === lotsLus[0].pieces && lo === lotsLus[0].longueur) c.autres = lotsLus.slice(1).map(l => ({ pieces: l.pieces, longueur: l.longueur }));
     enregistrer(c); cacher("#introuvable"); ouvrirFiche(c.id); toast("Étiquette créée");
   };
 }
 function calculerVerifs(lec, c) {
   const s = lec.specLu;
-  const multi = plusieursLongueurs(c); // plusieurs longueurs : l'étiquette ne peut pas confirmer pièces, longueur et volume d'un coup
-  if (!s) { const v = Lecture.verifier(c, lec.texte); return multi ? { ...v, pieces: true, longueur: true, volume: true } : v; }
-  const vol = volume(c) || 0;
+  if (!s) return Lecture.verifier(c, lec.texte);
+  const memes = Lecture.memesLots(lotsDe(c), lotsEtiquette(s)); // mêmes pièces et mêmes longueurs, dans n'importe quel ordre
   return {
     section: s.epaisseur != null ? (s.epaisseur === c.epaisseur && s.largeur === c.largeur) : Math.abs(c.epaisseur * c.largeur - s.aire) <= s.aire * 0.005,
-    pieces: multi || s.pieces === c.pieces, longueur: multi || s.longueur === c.longueur, volume: multi || Math.abs(vol - s.volume) < 0.0015
+    pieces: memes, longueur: memes, volume: Math.abs((volume(c) || 0) - s.volume) < 0.0015
   };
 }
-const CHAMPS_NOTE = ["epaisseur", "largeur", "pieces", "longueur"];
+const lotsEtiquette = s => (s.lots && s.lots.length ? s.lots : [{ pieces: s.pieces, longueur: s.longueur }]);
+// ce que l'étiquette impose à la note : 1re longueur dans pieces/longueur, les suivantes dans autres
+const champsDepuisSpec = s => { const l = lotsEtiquette(s); return { pieces: l[0].pieces, longueur: l[0].longueur, autres: l.slice(1) }; };
+const CHAMPS_NOTE = ["epaisseur", "largeur", "pieces", "longueur", "autres"];
+const memeValeur = (x, y) => JSON.stringify(x ?? null) === JSON.stringify(y ?? null);
 function appliquerSpec(id, spec) { // l'étiquette fait foi : la note est remplacée (annulable)
   const c = parId(id), l = lectures[id];
-  if (plusieursLongueurs(c)) return;
   const avant = Object.fromEntries(CHAMPS_NOTE.map(k => [k, c[k]]));
-  enregistrer({ ...c, ...Object.fromEntries(CHAMPS_NOTE.filter(k => spec[k] != null).map(k => [k, spec[k]])) });
+  const nouveau = spec.pieces != null ? { ...spec, ...champsDepuisSpec(spec) } : spec;
+  enregistrer({ ...c, ...Object.fromEntries(CHAMPS_NOTE.filter(k => nouveau[k] != null).map(k => [k, nouveau[k]])) });
   if (l) { l.avant = avant; l.corrige = true; l.spec = null; l.verifs = calculerVerifs(l, parId(id)); }
 }
 function traiterLecture(texte, cible, code, optionsLues, zones) {
@@ -1270,10 +1278,10 @@ function traiterLecture(texte, cible, code, optionsLues, zones) {
 
   // 2. L'étiquette corrige la note toute seule (section, pièces, longueur) — annulable
   const c0 = parId(id), avant = Object.fromEntries(CHAMPS_NOTE.map(k => [k, c0[k]]));
-  const nouveau = spec && !plusieursLongueurs(c0) ? Object.fromEntries(["pieces", "longueur"].filter(k => spec[k] != null).map(k => [k, spec[k]])) : {};
+  const nouveau = spec && spec.pieces != null && !Lecture.memesLots(lotsDe(c0), lotsEtiquette(spec)) ? champsDepuisSpec(spec) : {}; // l'étiquette fait foi, sauf si les mêmes lots sont déjà notés
   if (spec && spec.epaisseur != null && (spec.epaisseur !== c0.epaisseur || spec.largeur !== c0.largeur)) lectures[id].spec = { epaisseur: spec.epaisseur, largeur: spec.largeur }; // la section, on la propose seulement
   if (!spec && !plusieursLongueurs(c0) && Lecture.verifier(c0, texte).inverse) { nouveau.pieces = c0.longueur; nouveau.longueur = c0.pieces; }
-  if (Object.keys(nouveau).some(k => nouveau[k] !== c0[k])) {
+  if (Object.keys(nouveau).some(k => !memeValeur(nouveau[k], c0[k]))) {
     enregistrer({ ...c0, ...nouveau });
     Object.assign(lectures[id], { avant, corrige: true });
   }
@@ -1300,7 +1308,11 @@ function bandeauLecture(lec, c) {
   const txt = x => `${x.epaisseur} × ${x.largeur}, ${np(x.pieces)} pièces de ${nf(x.longueur, 2)} m`;
   return `<div class="lecture${tout ? "" : " attention"}"><b>📷 Lu sur l'étiquette</b>
     <p>${lec.numero ? "n° <b>" + esc(lec.numero) + "</b>" + (lec.parCode ? " (code-barres ✔)" : "") + (lec.numero.replace(/\D/g, "").length < 7 ? " (fin du n° non lue : ajoute-la)" : "") : "n° non lu : tape-le ci-dessous"}${lec.lieu ? ", lieu " + esc(lec.lieu) : ""}${lec.dateIso ? ", imprimée le " + esc(dh(lec.dateIso)) : ""}</p>
-    ${lec.corrige && lec.avant ? `<p class="ecart"><b>✔ Corrigé d'après l'étiquette :</b> ${CHAMPS_NOTE.filter(k => lec.avant[k] !== c[k]).map(k => `${{ epaisseur: "épaisseur", largeur: "largeur", pieces: "pièces", longueur: "longueur" }[k]} ${k === "longueur" ? nf(lec.avant[k], 2) : np(lec.avant[k])} → <b>${k === "longueur" ? nf(c[k], 2) : np(c[k])}</b>`).join(", ")}. <button type="button" class="lien" data-p="desinverser">Annuler</button></p>` : ""}
+    ${lec.corrige && lec.avant ? `<p class="ecart"><b>✔ Corrigé d'après l'étiquette :</b> ${(() => { const noms = { epaisseur: "épaisseur", largeur: "largeur", pieces: "pièces", longueur: "longueur" }; const av = { ...c, ...lec.avant };
+      const multiAvant = lec.avant.autres && lec.avant.autres.length, multiApres = plusieursLongueurs(c);
+      const parties = CHAMPS_NOTE.filter(k => k !== "autres" && !(multiAvant || multiApres) && lec.avant[k] !== c[k]).map(k => `${noms[k]} ${k === "longueur" ? nf(lec.avant[k], 2) : np(lec.avant[k])} → <b>${k === "longueur" ? nf(c[k], 2) : np(c[k])}</b>`);
+      if (multiAvant || multiApres) parties.push(`longueurs ${esc(lotsTxt(av))} → <b>${esc(lotsTxt(c))}</b>`);
+      return parties.join(", "); })()}. <button type="button" class="lien" data-p="desinverser">Annuler</button></p>` : ""}
     ${lec.spec ? `<p class="ecart"><b>≠ Section :</b> l'étiquette dit ${lec.spec.epaisseur} × ${lec.spec.largeur}, ta note dit ${esc(section(c))}. <button type="button" class="lien" data-p="prendre">Prendre l'étiquette</button></p>` : ""}
     ${lec.options === null ? `<p class="note-stats">Options : zone non repérée sur la photo, coche-les toi-même.</p>` : ""}
     ${lec.essenceCode && !lec.essence ? `<p class="note-stats">Essence lue sur l'étiquette : « ${esc(lec.essenceCode)} ». Choisis la lettre du terminal.</p>` : ""}
@@ -1644,7 +1656,7 @@ const DECO = (() => {
 })();
 function appliquerDeco() {
   const html = document.documentElement;
-  html.style.setProperty("--fond-img", `url("fond-automne${DECO.flou ? "" : "-net"}.jpg?v=232")`);
+  html.style.setProperty("--fond-img", `url("fond-automne${DECO.flou ? "" : "-net"}.jpg?v=233")`);
   html.classList.toggle("fond-net", !DECO.flou);
   if (window.FEUILLES) FEUILLES.regler(DECO.feuilles);
 }

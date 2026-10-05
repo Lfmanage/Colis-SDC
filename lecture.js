@@ -7,7 +7,10 @@
   const N = t => String(t || "").toUpperCase().replace(/×/g, "X");
   const DEB = "(?:^|[^\\d])";   // pas de chiffre juste avant
   const FIN = "(?![\\d])";      // pas de chiffre juste après
-  const volume = c => (c.epaisseur / 1000) * (c.largeur / 1000) * c.longueur * c.pieces;
+  // un colis = 1re longueur (pieces/longueur) + éventuelles autres longueurs (autres : [{ pieces, longueur }])
+  const lotsDe = c => [{ pieces: c.pieces, longueur: c.longueur }, ...(Array.isArray(c.autres) ? c.autres : []).filter(l => l && l.pieces && l.longueur)];
+  const volume = c => (c.epaisseur / 1000) * (c.largeur / 1000) * lotsDe(c).reduce((s, l) => s + l.pieces * l.longueur, 0);
+  const memesLots = (a, b) => { const k = l => l.pieces + "/" + Math.round(l.longueur * 100); const x = a.map(k).sort(), y = b.map(k).sort(); return x.length === y.length && x.every((v, i) => v === y[i]); };
 
   // 4,00  4.00  4 00  4,0  et aussi 3,50 / 3,5
   function motifLongueur(l) {
@@ -21,17 +24,19 @@
     const ep = c.epaisseur, lar = c.largeur;
     const section = new RegExp(DEB + ep + "\\s*[X*]\\s*" + lar + FIN).test(T);
     const largeurSeule = new RegExp(DEB + lar + FIN).test(T);
-    const pieces = new RegExp(DEB + c.pieces + "\\s*P(?![A-Z])").test(T);
-    const longueur = motifLongueur(c.longueur).test(T);
-    const code = new RegExp(DEB + c.pieces + "\\s*/\\s*" + Math.round(c.longueur * 100) + FIN).test(T); // ex. « 80/400 »
+    const lots = lotsDe(c), multi = lots.length > 1;
+    const codeDe = l => new RegExp(DEB + l.pieces + "\\s*/\\s*" + Math.round(l.longueur * 100) + FIN).test(T); // ex. « 80/400 »
+    const pieces = lots.some(l => new RegExp(DEB + l.pieces + "\\s*P(?![A-Z])").test(T));
+    const longueur = lots.some(l => motifLongueur(l.longueur).test(T));
+    const code = lots.some(codeDe);
     const [ve, vd] = volume(c).toFixed(3).split(".");
     const vol = new RegExp(DEB + ve + "[.,]\\s?" + vd + FIN).test(T);
-    let score = (section ? 3 : largeurSeule ? 1 : 0) + (pieces ? 2 : 0) + (longueur ? 2 : 0) + (vol ? 3 : 0) + (code ? 2 : 0);
+    let score = (section ? 3 : largeurSeule ? 1 : 0) + (pieces ? 2 : 0) + (longueur ? 2 : 0) + (vol ? 3 : 0) + (code ? 2 : 0) + (multi && lots.every(codeDe) ? 2 : 0);
 
     // Pièces et longueur inversés dans la note ? (ex. noté « 6 pièces de 48 m » alors que l'étiquette dit 48 P et 6,00 m)
     // Le volume, lui, reste juste dans les deux cas : il ne peut pas révéler l'inversion.
     let inverse = false;
-    if (!(pieces || longueur || code) && Number.isInteger(c.longueur) && c.longueur > 0) {
+    if (!multi && !(pieces || longueur || code) && Number.isInteger(c.longueur) && c.longueur > 0) {
       const pInv = new RegExp(DEB + c.longueur + "\\s*P(?![A-Z])").test(T);
       const lInv = motifLongueur(c.pieces).test(T);
       const cInv = new RegExp(DEB + c.longueur + "\\s*/\\s*" + Math.round(c.pieces * 100) + FIN).test(T);
@@ -87,6 +92,22 @@
     const pieces = [...new Set([...codes.map(c => c[0]), ...nombres(/(?:^|\D)(\d{1,4})\s*P(?![A-Z])/g, m => +m[1])])].filter(p => p > 0);
     const longueurs = [...new Set([...codes.map(c => c[1]), ...nombres(/(?:^|\D)(\d{1,2})\s?[.,]\s?(\d{2})\s*M(?![A-Z0-9])/g, m => +(m[1] + "." + m[2]))])].filter(x => x >= 0.5 && x <= 13);
     const ok = (a, b) => Math.abs(a - b) < 0.0015;
+    // 0. plusieurs longueurs : la ligne « 3/450 28/400 » donne chaque lot (pièces / longueur en cm) ; le volume imprimé est celui de l'ensemble
+    const lotsLus = [];
+    for (const [p, lo] of codes) if (lo >= 0.5 && lo <= 13 && p > 0 && !lotsLus.some(l => l.pieces === p && l.longueur === lo)) lotsLus.push({ pieces: p, longueur: lo });
+    if (lotsLus.length > 1) {
+      const total = lotsLus.reduce((s, l) => s + l.pieces * l.longueur, 0);
+      for (const [epaisseur, largeur] of sections) for (const v of vols)
+        if (ok(epaisseur / 1000 * largeur / 1000 * total, v)) return { epaisseur, largeur, pieces: lotsLus[0].pieces, longueur: lotsLus[0].longueur, lots: lotsLus, volume: v };
+      for (const v of vols) { // section illisible : l'aire e × l se déduit du volume
+        const aire = v * 1e6 / total;
+        if (!(aire >= 300 && aire <= 100000 && Math.abs(aire - Math.round(aire)) < aire * 0.004)) continue;
+        const A = Math.round(aire), largeurs = nombres(/[X*]\s*(\d{2,3})(?!\d)/g, m => +m[1]), epaisseurs = nombres(/(?:^|\D)(\d{2,3})\s*[X*]/g, m => +m[1]);
+        for (const la of largeurs) { const e = A / la; if (e >= 10 && e <= 400 && Math.abs(e - Math.round(e)) < 0.01) return { epaisseur: Math.round(e), largeur: la, pieces: lotsLus[0].pieces, longueur: lotsLus[0].longueur, lots: lotsLus, volume: v }; }
+        for (const e of epaisseurs) { const la = A / e; if (la >= 10 && la <= 400 && Math.abs(la - Math.round(la)) < 0.01) return { epaisseur: e, largeur: Math.round(la), pieces: lotsLus[0].pieces, longueur: lotsLus[0].longueur, lots: lotsLus, volume: v }; }
+        return { pieces: lotsLus[0].pieces, longueur: lotsLus[0].longueur, lots: lotsLus, aire: A, volume: v, partiel: true };
+      }
+    }
     // 1. tout est lu et cohérent
     for (const [epaisseur, largeur] of sections) for (const p of pieces) for (const lo of longueurs) for (const v of vols)
       if (ok(epaisseur / 1000 * largeur / 1000 * p * lo, v)) return { epaisseur, largeur, pieces: p, longueur: lo, volume: v };
@@ -118,7 +139,12 @@
       let sec = 0;
       if (spec.epaisseur != null) sec = (c.epaisseur === spec.epaisseur && c.largeur === spec.largeur) ? 3 : (c.epaisseur === spec.epaisseur || c.largeur === spec.largeur) ? 1 : 0;
       else if (spec.aire != null) sec = Math.abs(aire(c) - spec.aire) <= spec.aire * 0.005 ? 3 : 0;   // même surface : très probablement le même colis
-      const pl = Math.max((c.pieces === spec.pieces) + (c.longueur === spec.longueur), (c.pieces === spec.longueur && c.longueur === spec.pieces) ? 2 : 0);
+      let pl = Math.max((c.pieces === spec.pieces) + (c.longueur === spec.longueur), (c.pieces === spec.longueur && c.longueur === spec.pieces) ? 2 : 0);
+      if ((spec.lots && spec.lots.length > 1) || (c.autres && c.autres.length)) { // plusieurs longueurs : chaque lot de l'étiquette retrouvé dans la note compte
+        const lc = lotsDe(c), ls = spec.lots || [{ pieces: spec.pieces, longueur: spec.longueur }];
+        const trouves = ls.filter(l => lc.some(x => x.pieces === l.pieces && x.longueur === l.longueur)).length;
+        pl = Math.max(pl, memesLots(lc, ls) ? 2 : Math.min(2, trouves));
+      }
       if (sec + pl >= 3) scores.push({ c, sec, score: sec + pl });
     }
     if (!scores.length) return null;
@@ -274,7 +300,7 @@
     { nom: "lieu",     u0: -0.82, u1: 0.32, v0: -0.63, v1: -0.34, liste: "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ ", motif: /^\d{2}\s*[A-Z]{1,2}\s+[A-Z][0-9TIL]{1,2}$/ },
     { nom: "volume",   u0: 0.52,  u1: 1.22, v0: -0.56, v1: -0.33, liste: "0123456789,.m ", motif: /^\d{1,3}[,.]\d{3}/ },
     { nom: "options",  u0: -0.78, u1: 0.02, v0: -0.33, v1: -0.13, liste: "ABCDEFGHIJKLMNOPQRSTUVWXYZ- ", motif: /^[A-Z -]*$/ },
-    { nom: "code",     u0: -1.08, u1: -0.52, v0: 0.08, v1: 0.25, liste: "0123456789/", motif: /^\d{1,4}\/\d{3,4}$/ },
+    { nom: "code",     u0: -1.08, u1: -0.06, v0: 0.08, v1: 0.27, liste: "0123456789/ ", motif: /^\d{1,4}\/\d{3,4}(?:\s+\d{1,4}\/\d{3,4})*$/ },
     { nom: "date",     u0: -0.62, u1: 0.38, v0: 0.22, v1: 0.42, liste: "0123456789. ", motif: /^\d{2}\.\d{2}\.\d{2}\s*\d{4}$/ }
   ];
   function texteDepuisZones(z) { // assemble ce qui a été lu dans chaque zone, avec les repères attendus par lireSpec/lireChamps
@@ -314,6 +340,24 @@
     const los = tas(c.longueur, t => { const m = /(\d{1,2})[,.](\d{2})(?!\d)/.exec(t); return m ? +(m[1] + "." + m[2]) : null; });
     const codes = tas(c.code, t => { const m = /(\d{1,4})\s*\/\s*(\d{3,4})/.exec(t); return m ? m[1] + "/" + m[2] : null; });
     codes.forEach((n, k) => { const [p, l] = k.split("/"); pcs.set(+p, (pcs.get(+p) || 0) + n); los.set(+l / 100, (los.get(+l / 100) || 0) + n); });
+    // plusieurs longueurs : « 3/450 28/400 » lu dans la zone du code ; seule la liste dont le total retombe sur le volume imprimé est retenue
+    const multi = new Map();
+    for (const t of c.code || []) {
+      const ms = [...String(t).matchAll(/(\d{1,4})\s*\/\s*(\d{3,4})/g)].map(m => ({ pieces: +m[1], longueur: +m[2] / 100 })).filter(l => l.pieces > 0 && l.longueur >= 0.5 && l.longueur <= 13);
+      if (ms.length > 1) { const k = ms.map(l => l.pieces + "/" + Math.round(l.longueur * 100)).join(" "); multi.set(k, (multi.get(k) || 0) + 1); }
+    }
+    let meilleurMulti = null;
+    for (const [k, nk] of multi) {
+      const lots = k.split(" ").map(x => { const [p, l] = x.split("/"); return { pieces: +p, longueur: +l / 100 }; });
+      const total = lots.reduce((s, l) => s + l.pieces * l.longueur, 0);
+      for (const [s, ns] of secs) for (const [v, nv] of vols) {
+        const [e, la] = s.split("x").map(Number);
+        if (Math.abs(e / 1000 * la / 1000 * total - v) >= 0.0015) continue;
+        const appui = ns + nv + nk * 3;
+        if (!meilleurMulti || appui > meilleurMulti.appui) meilleurMulti = { epaisseur: e, largeur: la, pieces: lots[0].pieces, longueur: lots[0].longueur, lots, volume: v, appui };
+      }
+    }
+    if (meilleurMulti) return meilleurMulti;
     let meilleur = null;
     for (const [s, ns] of secs) for (const [p, np] of pcs) for (const [lo, nl] of los) for (const [v, nv] of vols) {
       const [e, la] = s.split("x").map(Number);
@@ -330,6 +374,6 @@
     return best;
   }
 
-  const API = { fusionner, majoritaire, encoder39, texteCodeBarres, ZONES, texteDepuisZones, optionsDepuisZone, motsDepuis, optionsPresDuNumero, verifier, trouver, lireChamps, lireSpec, correspondance,  codeBarresPos, numeroDepuisCode };
+  const API = { lotsDe, memesLots, fusionner, majoritaire, encoder39, texteCodeBarres, ZONES, texteDepuisZones, optionsDepuisZone, motsDepuis, optionsPresDuNumero, verifier, trouver, lireChamps, lireSpec, correspondance,  codeBarresPos, numeroDepuisCode };
   if (typeof module !== "undefined" && module.exports) module.exports = API; else racine.Lecture = API;
 })(typeof window !== "undefined" ? window : this);

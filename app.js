@@ -174,8 +174,19 @@ function toast(msg, actionTxt, action) {
 
 /* ═════════════ Navigation ═════════════ */
 let vueActive = "nouveau";
+/* Accueil : tout tient sur un seul écran, sans défiler (le gros bouton photo prend la place qui reste) */
+function ajusterAccueil() {
+  const v = $("#vue-accueil"), nav = $(".onglets");
+  if (!v || v.hidden || !nav) return;
+  v.style.height = "";
+  const dispo = nav.getBoundingClientRect().top - v.getBoundingClientRect().top - 10;
+  if (dispo > 300) v.style.height = Math.round(dispo) + "px";
+}
+addEventListener("resize", ajusterAccueil);
+addEventListener("orientationchange", () => setTimeout(ajusterAccueil, 250));
 function allerA(vue) {
   vueActive = vue;
+  document.body.classList.toggle("sur-accueil", vue === "accueil");
   $$(".vue").forEach(s => (s.hidden = s.id !== "vue-" + vue));
   $$(".onglets button").forEach(b => b.classList.toggle("actif", b.dataset.vue === vue));
   majTitre();
@@ -184,6 +195,7 @@ function allerA(vue) {
   if (vue === "stats") rendreStats();
   if (vue === "accueil") rendreAccueil();
   window.scrollTo(0, 0);
+  if (vue === "accueil") ajusterAccueil();
 }
 function majTitre() {
   $("#entete-titre").textContent = { accueil: "Accueil", nouveau: editionId ? "Modifier le colis" : "Calepin", colis: "Colis", stats: "Statistiques", reglages: "Réglages" }[vueActive];
@@ -1632,7 +1644,7 @@ const DECO = (() => {
 })();
 function appliquerDeco() {
   const html = document.documentElement;
-  html.style.setProperty("--fond-img", `url("fond-automne${DECO.flou ? "" : "-net"}.jpg?v=230")`);
+  html.style.setProperty("--fond-img", `url("fond-automne${DECO.flou ? "" : "-net"}.jpg?v=231")`);
   html.classList.toggle("fond-net", !DECO.flou);
   if (window.FEUILLES) FEUILLES.regler(DECO.feuilles);
 }

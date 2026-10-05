@@ -11,6 +11,7 @@ create table if not exists public.colis (
   largeur      numeric,
   longueur     numeric,
   pieces       integer,
+  autres       jsonb not null default '[]',  -- longueurs en plus dans le même colis : [{"pieces":20,"longueur":4.5}]
   choix        text,
   essence      text,
   nature       text,
@@ -24,6 +25,9 @@ create table if not exists public.colis (
   maj_le       timestamptz not null default now(),
   supprime     boolean not null default false
 );
+
+-- Déjà créé avec une ancienne version ? Cette ligne ajoute les longueurs multiples (sans rien perdre) :
+alter table public.colis add column if not exists autres jsonb not null default '[]';
 
 -- Un même n° d'étiquette ne peut exister qu'une fois
 create unique index if not exists colis_numero_unique

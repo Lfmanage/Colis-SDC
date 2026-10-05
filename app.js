@@ -9,7 +9,7 @@ const STOCK = "STOCK"; // un colis « du stock » n'a pas de commande : sa comma
 const cdeTxt = c => c.commande === STOCK ? "Stock" : "Cde " + (c.commande || "–");
 const STATUTS = { a_etiqueter: "En attente de pointage", a_sortir: "Pointé ✅" }; // « a_sortir » = pointé (nom interne)
 const STATUT_COURT = { a_etiqueter: "En attente", a_sortir: "Pointé ✅" };
-const COLONNES = ["id","numero","commande","lieu","epaisseur","largeur","longueur","pieces","choix","essence","nature",
+const COLONNES = ["id","numero","commande","lieu","epaisseur","largeur","longueur","pieces","autres","choix","essence","nature",
   "options","ref_client","observation","statut","cree_le","etiquete_le","maj_le","supprime"];
 
 const $ = (s, r = document) => r.querySelector(s);
@@ -76,10 +76,19 @@ function num(s) {
   if (s === "") return null;
   const n = Number(s); return isNaN(n) ? null : n;
 }
+/* Un colis peut mélanger plusieurs longueurs : la 1re est dans pieces/longueur, les suivantes dans « autres » [{ pieces, longueur }] */
+const lotsDe = c => [{ pieces: c.pieces, longueur: c.longueur }, ...(Array.isArray(c.autres) ? c.autres : []).filter(l => l && l.pieces && l.longueur)];
+const plusieursLongueurs = c => lotsDe(c).length > 1;
+const totalPieces = c => lotsDe(c).reduce((s, l) => s + (l.pieces || 0), 0);
 function volume(c) {
-  if (!c.epaisseur || !c.largeur || !c.longueur || !c.pieces) return null;
-  return (c.epaisseur / 1000) * (c.largeur / 1000) * c.longueur * c.pieces;
+  if (!c.epaisseur || !c.largeur) return null;
+  const lots = lotsDe(c);
+  if (lots.some(l => !l.longueur || !l.pieces)) return null;
+  return (c.epaisseur / 1000) * (c.largeur / 1000) * lots.reduce((s, l) => s + l.longueur * l.pieces, 0);
 }
+const lotsTxt = c => lotsDe(c).map(l => `${np(l.pieces)} × ${nf(l.longueur, 2)}`).join(" + ");
+const resumeLots = c => plusieursLongueurs(c) ? `${lotsTxt(c)} m · ${np(totalPieces(c))} p` : `${nf(c.longueur, 2)} m · ${np(c.pieces)} p`;
+const phraseLots = c => plusieursLongueurs(c) ? `${np(totalPieces(c))} pièces : ${lotsTxt(c)} m` : `${np(c.pieces)} pièces de ${nf(c.longueur, 2)} m`;
 const section = c => `${c.epaisseur ?? "?"} × ${c.largeur ?? "?"}`;
 const longueurCourte = v => (v == null ? "" : String(v).replace(".", ","));
 function quand(iso) {
@@ -233,7 +242,25 @@ $("#f-essence-puces").addEventListener("click", e => {
   rendrePucesChoixEssence(); majLive();
 });
 
+function ajouterLigneSup(p = "", l = "", focus = false) {
+  const d = document.createElement("div"); d.className = "ligne-2 ligne-supp";
+  d.innerHTML = `<label class="champ"><span>Pièces</span><input class="sup-pieces" inputmode="numeric" placeholder="20"></label>
+    <label class="champ"><span>Longueur (m)</span><input class="sup-longueur" inputmode="decimal" placeholder="4,50"></label>
+    <button type="button" class="retirer-ligne" aria-label="Retirer cette longueur">×</button>`;
+  d.querySelector(".sup-pieces").value = p; d.querySelector(".sup-longueur").value = l;
+  $("#f-autres").appendChild(d);
+  if (focus) d.querySelector(".sup-pieces").focus();
+}
+const lireAutres = () => $$("#f-autres .ligne-supp").map(d => {
+  const p = num(d.querySelector(".sup-pieces").value);
+  return { pieces: p == null ? null : Math.round(p), longueur: num(d.querySelector(".sup-longueur").value) };
+}).filter(l => l.pieces || l.longueur);
+$("#btn-ajout-longueur").addEventListener("click", () => ajouterLigneSup("", "", true));
+$("#f-autres").addEventListener("click", e => { const b = e.target.closest(".retirer-ligne"); if (b) { b.closest(".ligne-supp").remove(); majLive(); } });
+
 function remplirForm(c) {
+  $("#f-autres").innerHTML = "";
+  (c.autres || []).forEach(l => ajouterLigneSup(l.pieces ?? "", l.longueur != null ? nf(l.longueur, 2) : ""));
   F("commande").value = c.commande || "";
   F("lieu").value = c.lieu || "";
   F("epaisseur").value = c.epaisseur ?? "";
@@ -267,6 +294,7 @@ function lireForm() {
     largeur: num(F("largeur").value),
     longueur: num(F("longueur").value),
     pieces: p == null ? null : Math.round(p),
+    autres: lireAutres(),
     essence: F("essence").value.trim().toUpperCase(),
     choix: F("choix").value.trim(),
     nature: F("nature").value.trim().toUpperCase(),
@@ -289,6 +317,7 @@ function valider(v) {
     avertiLongueur = v.longueur + "|" + v.pieces;
     return `Longueur de ${nf(v.longueur, 2)} m : tu as peut-être inversé pièces et longueur. Corrige, ou appuie encore pour confirmer.`;
   }
+  if (v.autres.some(l => !l.pieces || !l.longueur)) return "Complète ou retire la ligne « autre longueur » (il faut les pièces et la longueur).";
   const d = doublon(v.numero, editionId);
   if (d) return `Le n° ${v.numero} est déjà utilisé (commande ${d.commande || "–"}, ${section(d)}).`;
   return null;
@@ -329,6 +358,7 @@ function apresSauvegarde() {
   if (editionId) { finEdition(); return; }
   // le colis suivant repart de zéro : section, pièces, longueur, options
   ["epaisseur", "largeur", "longueur", "pieces", "numero", "observation"].forEach(k => (F(k).value = ""));
+  $("#f-autres").innerHTML = "";
   optionsChoisies = new Set(); rendrePuces();
   majLive(); window.scrollTo({ top: 0, behavior: "smooth" });
   if (matchMedia("(pointer: fine)").matches) F("epaisseur").focus();
@@ -340,7 +370,7 @@ $("#form-colis").addEventListener("submit", e => {
   const c = sauverForm(); if (!c) return;
   apresSauvegarde();
   if (etaitEdition) { allerA("colis"); ouvrirFiche(c.id); return; }
-  toast(`Dans le calepin : ${section(c)}, ${np(c.pieces)} p`, "Annuler", () => supprimerDefinitivement(c.id));
+  toast(`Dans le calepin : ${section(c)}, ${np(totalPieces(c))} p`, "Annuler", () => supprimerDefinitivement(c.id));
 });
 
 function commencerEdition(id) {
@@ -367,8 +397,7 @@ function ouvrirListe(f, date = "") { filtre = f; filtreDate = date; $("#recherch
 const normaliser = s => String(s ?? "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")
   .replace(/(\d)\s*[x×*]\s*(\d)/g, "$1x$2").trim();
 function cle(c) {
-  return normaliser([c.numero, (c.numero || "").replace(/\D/g, ""), c.commande, c.lieu, `${c.epaisseur}x${c.largeur}`, longueurCourte(c.longueur),
-    nf(c.longueur, 2), c.pieces, c.ref_client, c.observation, (c.options || []).join(" "),
+  return normaliser([c.numero, (c.numero || "").replace(/\D/g, ""), c.commande, c.lieu, `${c.epaisseur}x${c.largeur}`, lotsDe(c).map(l => `${longueurCourte(l.longueur)} ${nf(l.longueur, 2)} ${l.pieces}`).join(" "), totalPieces(c), c.ref_client, c.observation, (c.options || []).join(" "),
     dh(c.cree_le), dh(c.etiquete_le), STATUTS[c.statut]].join(" | "));
 }
 
@@ -403,13 +432,13 @@ function ligne(c) {
       ${c.numero ? `<span class="num">${esc(c.numero)}</span>` : `<span class="num vide">En attente du n°</span>`}
       <span class="colis-droite"><span class="statut ${c.statut}">${STATUT_COURT[c.statut]}</span>${attente ? `<button type="button" class="action-rapide" data-action="pointer">Pointer</button>` : ""}<i class="caret"></i></span>
     </div>
-    <div class="colis-ligne"><span><b>${esc(section(c))}</b> &nbsp;${esc(nf(c.longueur, 2))} m · ${np(c.pieces)} p</span>${vol ? `<span class="vol">${nf(vol, 3)} m³</span>` : ""}</div>
+    <div class="colis-ligne"><span><b>${esc(section(c))}</b> &nbsp;${esc(resumeLots(c))}</span>${vol ? `<span class="vol">${nf(vol, 3)} m³</span>` : ""}</div>
     <div class="colis-meta"><span>${meta}</span><span>${attente ? "noté " + dcourt(c.cree_le) : "pointé " + dcourt(c.etiquete_le || c.cree_le)}</span></div>
     ${detailHtml(c)}
   </article></div>`;
 }
 function totaux(arr) {
-  const p = arr.reduce((s, c) => s + (c.pieces || 0), 0);
+  const p = arr.reduce((s, c) => s + totalPieces(c), 0);
   const v = arr.reduce((s, c) => s + (volume(c) || 0), 0);
   const as = arr.filter(c => c.statut === "a_sortir").length;
   const ae = arr.filter(c => c.statut === "a_etiqueter").length;
@@ -540,7 +569,7 @@ function rendreCalepin() {
   $("#btn-pointer").hidden = !ids.length;
   $("#btn-pointer").textContent = `Pointer au PC : ${ids.length} en attente`;
   $("#calepin").hidden = !ids.length;
-  $("#calepin-total").textContent = ids.length ? `${ids.length} colis, ${np(arr.reduce((s, c) => s + (c.pieces || 0), 0))} pièces` : "";
+  $("#calepin-total").textContent = ids.length ? `${ids.length} colis, ${np(arr.reduce((s, c) => s + totalPieces(c), 0))} pièces` : "";
   $("#calepin-liste").innerHTML = arr.map(ligne).join("");
 }
 
@@ -577,7 +606,7 @@ function rendreFiche() {
   $("#fiche-corps").innerHTML = `
     <span class="statut ${c.statut}">${STATUTS[c.statut]}</span>
     <p class="fiche-section" style="margin-top:8px">${esc(section(c))}</p>
-    <p class="fiche-sous">${np(c.pieces)} pièces de ${esc(nf(c.longueur, 2))} m${vol ? `, ${nf(vol, 3)} m³` : ""}</p>
+    <p class="fiche-sous">${esc(phraseLots(c))}${vol ? `, ${nf(vol, 3)} m³` : ""}</p>
     <div class="grille-infos">
       ${info(c.commande === STOCK ? "Type" : "Commande", c.commande === STOCK ? "Stock" : (c.commande || "–"))}${info("Lieu de stock", c.lieu || "–")}
       ${info("Essence", c.essence)}${info("Choix", c.choix)}${info("Nature", c.nature)}
@@ -639,28 +668,34 @@ function rendreAccueil() {
   const n = filePCTous().length, auj = jour(maintenant());
   $("#acc-attente").textContent = np(n);
   $("#acc-auj").textContent = np(actifs().filter(c => c.etiquete_le && jour(c.etiquete_le) === auj).length);
-  const b = $("#acc-pointer"); b.hidden = !n; $("#acc-pointer-t").textContent = "Pointer les colis"; $("#acc-pointer-s").textContent = `${n} en attente`;
+  const b = $("#acc-pointer"); b.hidden = !n; $("#acc-pointer-t").textContent = "Pointer"; $("#acc-pointer-s").textContent = `${n} en attente`;
   const tous = actifs(), pointes = tous.filter(c => c.statut === "a_sortir");
-  $("#acc-total").textContent = np(tous.length); $("#acc-pointes").textContent = np(pointes.length);
+  $("#acc-pointes").textContent = np(pointes.length);
   $("#acc-vol").textContent = nf(pointes.filter(c => c.etiquete_le && jour(c.etiquete_le) === auj).reduce((s, c) => s + (volume(c) || 0), 0), 1);
   $("#acc-colis-s").textContent = `${np(tous.length)} colis en tout`;
   let msg = "";
-  if (!configure) msg = "⚠️ Tes colis ne sont enregistrés que sur cet appareil. Appuie ici pour les sauvegarder en ligne (Supabase).";
+  if (!configure) msg = ""; // Supabase viendra plus tard : on n'affiche rien tant qu'il n'est pas relié
   else if (!session) msg = "Connecte-toi pour sauvegarder tes colis en ligne.";
   else if (derniereErreur) msg = "⚠️ Sauvegarde en ligne impossible : " + derniereErreur;
   const al = $("#acc-alerte"); al.hidden = !msg; al.textContent = msg;
 }
 $("#acc-alerte").addEventListener("click", () => { allerA("reglages"); $("#pli-supabase").open = true; });
-$("#acc-noter").addEventListener("click", () => allerA("nouveau"));
+$("#acc-plus").addEventListener("click", () => allerA("nouveau"));
 $("#acc-pointer").addEventListener("click", () => ouvrirPC(filePCTous()));
 $("#acc-photo").addEventListener("click", () => ouvrirPhoto("retrouver"));
 $("#acc-colis").addEventListener("click", () => ouvrirListe("tous"));
 $$("[data-ouvre]").forEach(b => b.addEventListener("click", () => {
   const k = b.dataset.ouvre;
-  if (k === "attente") ouvrirListe("a_etiqueter");
-  else if (k === "pointes") ouvrirListe("a_sortir");
+  if (k === "attente") { // « En attente de pointage » → directement l'écran de pointage
+    const ids = filePCTous();
+    if (ids.length) ouvrirPC(ids); else { ouvrirListe("a_etiqueter"); toast("Rien en attente de pointage ✅"); }
+  } else if (k === "pointes") ouvrirListe("a_sortir");
   else if (k === "auj") ouvrirListe("a_sortir", jour(maintenant()));
-  else ouvrirListe("tous");
+  else if (k === "m3") { // « m³ du jour » → les stats, section « Par jour », en m³ et pour aujourd'hui
+    periode = "1"; statSerie = "pointes"; statMetrique = "v"; statsOuverts.add("jour");
+    allerA("stats");
+    const d = $('[data-pli="jour"]'); if (d) d.scrollIntoView({ block: "start" });
+  }
 }));
 function ouvrirPC(ids) { filePC = ids; posPC = 0; rendrePC(); montrer("#pc"); }
 
@@ -674,7 +709,6 @@ function rendrePC() {
   const commande = brut === STOCK ? "" : brut;
   const essenceVal = c.essence || (lec && lec.essence) || "";
   const essencesHtml = essencesConnues().map(x => `<button type="button" class="puce" data-ess="${esc(x)}" aria-pressed="${x === essenceVal.toUpperCase()}">${esc(x)}</button>`).join("");
-  const lieuxHtml = lieuxConnus().map(l => `<button type="button" class="puce" data-lieu="${esc(l)}" aria-pressed="false">${esc(l)}</button>`).join("");
   const plusieurs = filePC.length > 1;
   const cell = (lab, id, cls = "") => `<div class="${cls}"><span>${lab}</span><b id="t-${id}" class="vide">—</b></div>`;
   $("#pc-corps").innerHTML = `
@@ -686,7 +720,7 @@ function rendrePC() {
     <div class="pc-titre">
       <div>
         <p class="fiche-section" style="font-size:34px">${esc(section(c))}</p>
-        <p class="fiche-sous">${np(c.pieces)} pièces de ${esc(nf(c.longueur, 2))} m</p>
+        <p class="fiche-sous">${esc(phraseLots(c))}</p>
       </div>
       <button type="button" class="btn btn-principal btn-pointer-haut" data-p="valider">${c.numero ? "Enregistrer" : "Pointer"}</button>
     </div>
@@ -743,22 +777,11 @@ function majChipsEssence() {
   const v = PC("essence").value.trim().toUpperCase();
   $$("#pc-essences [data-ess]").forEach(b => b.setAttribute("aria-pressed", b.dataset.ess === v));
 }
-function lieuxConnus() {
-  const n = {};
-  actifs().forEach(c => { if (c.lieu) n[c.lieu] = (n[c.lieu] || 0) + 1; });
-  const frequents = Object.entries(n).sort((x, y) => y[1] - x[1]).map(x => x[0]);
-  return [...new Set([...(CFG.LIEUX || []), ...frequents])].slice(0, 16);
-}
-function majChipsLieu() {
-  const v = PC("lieu").value.trim().toUpperCase();
-  $$("#pc-lieux [data-lieu]").forEach(b => b.setAttribute("aria-pressed", b.dataset.lieu === v));
-}
 function appliquerTypePC() {
   const stock = pcType === "stock";
   $$("#pc-type [data-type]").forEach(b => b.setAttribute("aria-pressed", b.dataset.type === pcType));
   $("#pc-champ-commande").hidden = stock;
   $("#pc-ligne").classList.toggle("une-colonne", stock);
-  majChipsLieu();
 }
 function champsPC() {
   return { commande: pcType === "stock" ? STOCK : PC("commande").value.trim(), lieu: PC("lieu").value.trim().toUpperCase(), options: [...pcOptions],
@@ -769,7 +792,7 @@ function majTerminal() {
   const c = parId(filePC[posPC]); if (!c || !PC("commande")) return;
   const ch = champsPC();
   const set = (id, v) => { const el = $("#t-" + id); if (!el) return; const ok = v !== "" && v != null; el.textContent = ok ? v : "—"; el.classList.toggle("vide", !ok); };
-  set("epaisseur", c.epaisseur); set("largeur", c.largeur); set("pieces", np(c.pieces)); set("longueur", longueurCourte(c.longueur));
+  set("epaisseur", c.epaisseur); set("largeur", c.largeur); set("pieces", lotsDe(c).map(l => np(l.pieces)).join(" + ")); set("longueur", lotsDe(c).map(l => longueurCourte(l.longueur)).join(" + "));
   set("essence", ch.essence); set("choix", ch.choix); set("nature", ch.nature); set("lieu", ch.lieu);
   set("options", ch.options.join("  ")); set("ref", ch.ref_client);
 }
@@ -806,8 +829,6 @@ $("#pc-corps").addEventListener("click", e => {
   if (ty) { pcType = ty.dataset.type; appliquerTypePC(); majTerminal(); return; }
   const es = e.target.closest("[data-ess]");
   if (es) { PC("essence").value = es.dataset.ess; majChipsEssence(); majTerminal(); return; }
-  const li = e.target.closest("[data-lieu]");
-  if (li) { PC("lieu").value = li.dataset.lieu; majChipsLieu(); majTerminal(); return; }
   const o = e.target.closest("[data-popt]");
   if (o) {
     const k = o.dataset.popt; pcOptions.has(k) ? pcOptions.delete(k) : pcOptions.add(k);
@@ -830,7 +851,6 @@ $("#pc-corps").addEventListener("click", e => {
 });
 $("#pc-corps").addEventListener("input", e => {
   majTerminal();
-  if (e.target.id === "pc-lieu") majChipsLieu();
   if (e.target.id === "pc-essence") majChipsEssence();
   if (e.target.id === "pc-numero") {
     const d = doublon(e.target.value.replace(/\s/g, ""), filePC[posPC]), al = $("#pc-alerte");
@@ -1192,16 +1212,18 @@ function proposerCreation(numero, numeroComplet, r, champs) {
 }
 function calculerVerifs(lec, c) {
   const s = lec.specLu;
-  if (!s) return Lecture.verifier(c, lec.texte);
-  const vol = (c.epaisseur / 1000) * (c.largeur / 1000) * c.longueur * c.pieces;
+  const multi = plusieursLongueurs(c); // plusieurs longueurs : l'étiquette ne peut pas confirmer pièces, longueur et volume d'un coup
+  if (!s) { const v = Lecture.verifier(c, lec.texte); return multi ? { ...v, pieces: true, longueur: true, volume: true } : v; }
+  const vol = volume(c) || 0;
   return {
     section: s.epaisseur != null ? (s.epaisseur === c.epaisseur && s.largeur === c.largeur) : Math.abs(c.epaisseur * c.largeur - s.aire) <= s.aire * 0.005,
-    pieces: s.pieces === c.pieces, longueur: s.longueur === c.longueur, volume: Math.abs(vol - s.volume) < 0.0015
+    pieces: multi || s.pieces === c.pieces, longueur: multi || s.longueur === c.longueur, volume: multi || Math.abs(vol - s.volume) < 0.0015
   };
 }
 const CHAMPS_NOTE = ["epaisseur", "largeur", "pieces", "longueur"];
 function appliquerSpec(id, spec) { // l'étiquette fait foi : la note est remplacée (annulable)
   const c = parId(id), l = lectures[id];
+  if (plusieursLongueurs(c)) return;
   const avant = Object.fromEntries(CHAMPS_NOTE.map(k => [k, c[k]]));
   enregistrer({ ...c, ...Object.fromEntries(CHAMPS_NOTE.filter(k => spec[k] != null).map(k => [k, spec[k]])) });
   if (l) { l.avant = avant; l.corrige = true; l.spec = null; l.verifs = calculerVerifs(l, parId(id)); }
@@ -1236,9 +1258,9 @@ function traiterLecture(texte, cible, code, optionsLues, zones) {
 
   // 2. L'étiquette corrige la note toute seule (section, pièces, longueur) — annulable
   const c0 = parId(id), avant = Object.fromEntries(CHAMPS_NOTE.map(k => [k, c0[k]]));
-  const nouveau = spec ? Object.fromEntries(["pieces", "longueur"].filter(k => spec[k] != null).map(k => [k, spec[k]])) : {};
+  const nouveau = spec && !plusieursLongueurs(c0) ? Object.fromEntries(["pieces", "longueur"].filter(k => spec[k] != null).map(k => [k, spec[k]])) : {};
   if (spec && spec.epaisseur != null && (spec.epaisseur !== c0.epaisseur || spec.largeur !== c0.largeur)) lectures[id].spec = { epaisseur: spec.epaisseur, largeur: spec.largeur }; // la section, on la propose seulement
-  if (!spec && Lecture.verifier(c0, texte).inverse) { nouveau.pieces = c0.longueur; nouveau.longueur = c0.pieces; }
+  if (!spec && !plusieursLongueurs(c0) && Lecture.verifier(c0, texte).inverse) { nouveau.pieces = c0.longueur; nouveau.longueur = c0.pieces; }
   if (Object.keys(nouveau).some(k => nouveau[k] !== c0[k])) {
     enregistrer({ ...c0, ...nouveau });
     Object.assign(lectures[id], { avant, corrige: true });
@@ -1296,15 +1318,15 @@ function svgEtiquette(c) {
   <rect x="0.3" y="0.3" width="199.4" height="67.4" fill="#fff" stroke="#000" stroke-width="0.4"/>
   ${T(9, 7, 4.6, "Les SCIERIES du CENTRE", { gras: true, par: 2.4 })}
   ${T(75.5, 12, 13.5, `${c.epaisseur} x ${c.largeur}`, { gras: true, par: 5.75 })}
-  ${T(67.5, 22.5, 7.5, `${c.pieces}`, { gras: true })}${T(79, 22.5, 3.2, "P", { gras: true })}
-  ${T(93.7, 22.5, 13.5, nf(c.longueur, 2), { gras: true, par: 4.6 })}${T(120.5, 22.5, 4.2, "m", { gras: true })}
+  ${T(67.5, 22.5, 7.5, `${totalPieces(c)}`, { gras: true })}${T(79, 22.5, 3.2, "P", { gras: true })}
+  ${T(93.7, 22.5, 13.5, plusieursLongueurs(c) ? "mixte" : nf(c.longueur, 2), { gras: true, par: 4.6 })}${T(120.5, 22.5, 4.2, "m", { gras: true })}
   ${T(9, 42, 27, "SDC", { gras: true, par: 13.7 })}
   ${T(57.6, 35, 8, `${c.choix || ""} ${ess}`, { gras: true, par: 3.6 })}${T(82.4, 35, 10, c.lieu || "", { gras: true })}
   ${vol ? T(115, 34, 4, nf(vol, 3) + " m3", { gras: true }) : ""}
   ${opts ? T(57, 43, 3, opts, { gras: true }) : ""}
   ${T(51.3, 54.5, 9.5, gros[0], { gras: true, par: 3.85 })}${gros[1] ? T(82.6, 54.5, 9.5, gros[1], { gras: true }) : ""}
   ${barres}
-  ${T(49, 59.5, 3.2, `${c.pieces}/${Math.round((c.longueur || 0) * 100)}`, { gras: true, par: 1.45 })}
+  ${T(49, 59.5, 3.2, plusieursLongueurs(c) ? `${totalPieces(c)}` : `${c.pieces}/${Math.round((c.longueur || 0) * 100)}`, { gras: true, par: 1.45 })}
   ${T(11.4, 64.2, 3.8, "33 (0)4.73.84.65.13", { gras: true, par: 2.03 })}${T(71.5, 64.2, 3.4, dt, { gras: true, par: 1.84 })}${cde ? T(112, 64.2, 3.4, cde, { gras: true }) : ""}
   ${T(133, 27, 2.8, "Les Scieries du Centre, 63800 Cournon", { serif: true })}
   ${T(153, 31.5, 3.4, "26", { gras: true })}
@@ -1421,7 +1443,7 @@ $("#btn-deconnexion").addEventListener("click", async () => {
   await sb.auth.signOut();
 });
 
-const ligneDistante = c => Object.fromEntries(COLONNES.map(k => [k, k === "options" ? (c.options || []) : k === "supprime" ? !!c.supprime : (c[k] === "" ? null : c[k] ?? null)]));
+const ligneDistante = c => Object.fromEntries(COLONNES.map(k => [k, k === "options" ? (c.options || []) : k === "autres" ? (c.autres || []) : k === "supprime" ? !!c.supprime : (c[k] === "" ? null : c[k] ?? null)]));
 
 async function effacerEnLigne() {
   for (const id of [...suppressions]) {
@@ -1548,9 +1570,6 @@ const PRINC = [["Indigo", "#5B4FBF"], ["Terracotta", "#D4917F"], ["Pêche", "#DD
   ["Menthe", "#8CC4B8"], ["Ciel", "#8DB8D9"], ["Bleu", "#5F7DB9"], ["Lavande", "#A199CE"], ["Bordeaux", "#843C4E"], ["Gris", "#9DA0AA"]];
 const PALETTES = {
   princ: PRINC,
-  fond: [["Brume", "#EEF2F7"], ["Beige", "#F4F0EA"], ["Blanc froid", "#FBFBFD"], ["Crème", "#F7EDD6"], ["Rose", "#F1E2E5"], ["Pêche", "#F6E3D6"], ["Lavande", "#E8E3F5"], ["Bleu clair", "#DDE9F5"],
-    ["Vert clair", "#E1EEE3"], ["Sable", "#EFEAE0"], ["Gris bleu", "#E9EDF2"], ["Blanc", "#FFFFFF"], ["Mauve", "#F3E9F1"]],
-  nav: [["Assortie", "auto"], ...PRINC],
   chiffre: [["Ambre", "#F0B04A"], ["Turquoise", "#1F8A8A"], ["Cuivre foncé", "#B4682F"], ["Bordeaux", "#843C4E"], ["Indigo", "#5B4FBF"], ["Vert", "#3F7F5B"], ["Bleu", "#2F6DA3"], ["Brique", "#C0533D"], ["Or foncé", "#8C6D1F"],
     ["Ardoise", "#5A6B7B"], ["Noir", "#26201F"], ["Violet", "#7A4E9A"], ["Framboise", "#B23B6B"], ["Olive", "#6B7F3A"]]
 };
@@ -1596,6 +1615,7 @@ function appliquerTheme() {
     set("--voile", "linear-gradient(180deg, rgba(255,243,230,.62) 0%, rgba(255,243,230,.48) 40%, rgba(255,243,230,.66) 100%)");
     set("--barre", "rgba(255,249,242,.80)");
   }
+  set("--btn-hero1", mix(ac, "#000000", 0.12)); set("--btn-hero2", mix(ac, "#000000", 0.46));
   set("--nav-texte", sombre ? "rgba(255,255,255,.72)" : "#6E5A4E");
   set("--nav-actif", sombre ? "#FFFFFF" : mix(ac, "#000000", clarte(ac) > 0.5 ? 0.45 : 0.1));
   set("--nav-pastille", sombre ? "rgba(255,255,255,.2)" : mix(ac, W, 0.8));
@@ -1604,15 +1624,23 @@ function appliquerTheme() {
   const m = document.querySelector('meta[name="theme-color"]'); if (m) m.content = sombre ? "#1A100B" : "#F6EDE3";
 }
 matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => { if (reglages.mode === "auto") appliquerTheme(); });
-/* Décor (propre à cet appareil) : fond flou ou net, feuilles qui tombent */
-const DECO = (() => { try { return { feuilles: true, flou: true, ...JSON.parse(localStorage.getItem("colis_deco") || "{}") }; } catch (e) { return { feuilles: true, flou: true }; } })();
+/* Décor (propre à cet appareil) : fond flou ou net, quantité de feuilles qui tombent */
+const DECO = (() => {
+  let d = {}; try { d = JSON.parse(localStorage.getItem("colis_deco") || "{}"); } catch (e) { /* tant pis */ }
+  const niv = typeof d.feuilles === "number" ? d.feuilles : d.feuilles === false ? 0 : 2; // ancien format : oui/non
+  return { feuilles: Math.min(3, Math.max(0, niv)), flou: d.flou !== false };
+})();
 function appliquerDeco() {
-  document.documentElement.style.setProperty("--fond-img", `url("fond-automne${DECO.flou ? "" : "-net"}.jpg?v=210")`);
+  const html = document.documentElement;
+  html.style.setProperty("--fond-img", `url("fond-automne${DECO.flou ? "" : "-net"}.jpg?v=230")`);
+  html.classList.toggle("fond-net", !DECO.flou);
   if (window.FEUILLES) FEUILLES.regler(DECO.feuilles);
 }
-function changerDeco(patch) { Object.assign(DECO, patch); try { localStorage.setItem("colis_deco", JSON.stringify(DECO)); } catch (e) { /* tant pis */ } appliquerDeco(); }
+function changerDeco(patch) { Object.assign(DECO, patch); try { localStorage.setItem("colis_deco", JSON.stringify(DECO)); } catch (e) { /* tant pis */ } appliquerDeco(); majUIapparence(); }
 function majUIapparence() {
-  $("#c-feuilles").checked = !!DECO.feuilles; $("#c-flou").checked = !!DECO.flou;
+  $$("#deco-feuilles [data-niv]").forEach(b => b.setAttribute("aria-pressed", Number(b.dataset.niv) === DECO.feuilles));
+  $$("#deco-fond [data-flou]").forEach(b => b.setAttribute("aria-pressed", (b.dataset.flou === "1") === DECO.flou));
+  $("#deco-etat").textContent = window.FEUILLES ? "" : "⚠️ Le fichier feuilles.js n'est pas en ligne : ajoute-le dans ton dépôt GitHub pour voir tomber les feuilles.";
   $$("#theme-mode [data-mode]").forEach(b => b.setAttribute("aria-pressed", b.dataset.mode === reglages.mode));
   $("#c-anim").checked = !!reglages.anim;
   const tint = mix(reglages.c_princ, "#ffffff", 0.84);
@@ -1620,8 +1648,8 @@ function majUIapparence() {
     $(id).innerHTML = liste.map(([nom, val]) => `<button type="button" class="pastille" data-cle="${cle}" data-val="${val}" title="${esc(nom)}" aria-label="${esc(nom)}" aria-pressed="${String(reglages[cle]).toLowerCase() === val.toLowerCase()}" style="background:${val === "auto" ? tint : val}"></button>`).join("");
     $(nombre).textContent = `${liste.length} couleurs`;
   };
-  pal("#pal-princ", "c_princ", PALETTES.princ, "#n-princ"); pal("#pal-fond", "c_fond", PALETTES.fond, "#n-fond");
-  pal("#pal-nav", "c_nav", PALETTES.nav, "#n-nav"); pal("#pal-chiffre", "c_chiffre", PALETTES.chiffre, "#n-chiffre");
+  pal("#pal-princ", "c_princ", PALETTES.princ, "#n-princ");
+  pal("#pal-chiffre", "c_chiffre", PALETTES.chiffre, "#n-chiffre");
 }
 let minuteurReglages;
 function changerReglages(patch) {
@@ -1657,7 +1685,7 @@ $("#stats-corps").addEventListener("toggle", e => {
   d.open ? statsOuverts.add(d.dataset.pli) : statsOuverts.delete(d.dataset.pli);
 }, true);
 const SERIES = { pointes: ["Pointés ✅", c => c.etiquete_le], saisis: ["Saisis", c => c.cree_le] };
-const METRIQUES = { n: ["Colis", () => 1], v: ["m³", c => volume(c) || 0], p: ["Pièces", c => c.pieces || 0] };
+const METRIQUES = { n: ["Colis", () => 1], v: ["m³", c => volume(c) || 0], p: ["Pièces", c => totalPieces(c)] };
 const JOURS_COURTS = ["L", "M", "M", "J", "V", "S", "D"];
 const JOURS_LONGS = ["lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi", "dimanche"];
 
@@ -1706,7 +1734,7 @@ function rendreStats() {
 
   const tous = actifs(), [a, b] = bornesStats();
   const dans = (iso, r = [a, b]) => !!iso && t(iso) >= r[0] && t(iso) < r[1];
-  const somme = arr => ({ n: arr.length, p: arr.reduce((s, c) => s + (c.pieces || 0), 0), v: arr.reduce((s, c) => s + (volume(c) || 0), 0) });
+  const somme = arr => ({ n: arr.length, p: arr.reduce((s, c) => s + totalPieces(c), 0), v: arr.reduce((s, c) => s + (volume(c) || 0), 0) });
   const ouvert = a === 0;
   const [serieNom, serieFn] = SERIES[statSerie], [metNom, metFn] = METRIQUES[statMetrique];
   const fmt = v => statMetrique === "v" ? nf(v, 2) : np(v);
@@ -1761,15 +1789,15 @@ function rendreStats() {
 
   // Records
   const jourTot = {};
-  items.forEach(c => { const j = jour(serieFn(c)); const o = (jourTot[j] ||= { n: 0, v: 0, p: 0 }); o.n++; o.v += volume(c) || 0; o.p += c.pieces || 0; });
+  items.forEach(c => { const j = jour(serieFn(c)); const o = (jourTot[j] ||= { n: 0, v: 0, p: 0 }); o.n++; o.v += volume(c) || 0; o.p += totalPieces(c); });
   const meilleur = Object.entries(jourTot).sort((x, y) => y[1][statMetrique] - x[1][statMetrique])[0];
   const gros = [...items].sort((x, y) => (volume(y) || 0) - (volume(x) || 0))[0];
-  const plusPieces = [...items].sort((x, y) => (y.pieces || 0) - (x.pieces || 0))[0];
-  const desc = c => esc(`${section(c)}, ${nf(c.longueur, 2)} m, ${np(c.pieces)} p${c.numero ? ", n° " + c.numero : ""}${c.commande ? (c.commande === STOCK ? ", stock" : ", cde " + c.commande) : ""}`);
+  const plusPieces = [...items].sort((x, y) => totalPieces(y) - totalPieces(x))[0];
+  const desc = c => esc(`${section(c)}, ${resumeLots(c).replace(" · ", ", ")}${c.numero ? ", n° " + c.numero : ""}${c.commande ? (c.commande === STOCK ? ", stock" : ", cde " + c.commande) : ""}`);
   const records = items.length ? [
     lig("Meilleur jour", new Date(meilleur[0] + "T12:00").toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "short" }), `${meilleur[1].n} colis, ${np(meilleur[1].p)} pièces, ${nf(meilleur[1].v, 2)} m³`),
     lig("Plus gros colis (m³)", `${nf(volume(gros) || 0, 2)} m³`, desc(gros)),
-    lig("Plus de pièces", np(plusPieces.pieces), desc(plusPieces))
+    lig("Plus de pièces", np(totalPieces(plusPieces)), desc(plusPieces))
   ].join("") : "";
 
   // Groupements
@@ -1777,6 +1805,15 @@ function rendreStats() {
     const m = {};
     items.forEach(c => { const ks = fn(c); (Array.isArray(ks) ? ks : [ks]).forEach(k => { if (k) (m[k] ||= []).push(c); }); });
     return Object.entries(m).map(([k, arr]) => ({ k, ...somme(arr) })).sort((x, y) => y[statMetrique] - x[statMetrique] || y.n - x.n).slice(0, top);
+  };
+  const groupeLongueurs = top => {
+    const m = {};
+    items.forEach(c => lotsDe(c).forEach(l => {
+      if (!l.longueur) return;
+      const o = (m[nf(l.longueur, 2) + " m"] ||= { n: 0, p: 0, v: 0 });
+      o.n++; o.p += l.pieces || 0; o.v += c.epaisseur && c.largeur ? (c.epaisseur / 1000) * (c.largeur / 1000) * l.longueur * (l.pieces || 0) : 0;
+    }));
+    return Object.entries(m).map(([k, o]) => ({ k, ...o })).sort((x, y) => y[statMetrique] - x[statMetrique] || y.n - x.n).slice(0, top);
   };
   const rangs = rows => rows.map(r => {
     const part = totalItems ? r[statMetrique] / totalItems * 100 : 0;
@@ -1792,7 +1829,7 @@ function rendreStats() {
 
   const sousBloc = (titre, rows) => rows.length ? `<p class="mini">${titre}</p>${rangs(rows)}` : "";
   const autres = [sousBloc("Par épaisseur", groupe(c => c.epaisseur && c.epaisseur + " mm", 10)),
-    sousBloc("Par longueur", groupe(c => c.longueur && nf(c.longueur, 2) + " m", 10)),
+    sousBloc("Par longueur", groupeLongueurs(10)),
     sousBloc("Par essence, choix, nature", groupe(c => [c.essence, c.choix && "choix " + c.choix, c.nature].filter(Boolean).join(", "), 10)),
     sousBloc("Par option", groupe(c => (c.options && c.options.length ? c.options : ["Sans option"]), 10))].join("");
 
@@ -1818,13 +1855,13 @@ function rendreStats() {
 /* ═════════════ Export CSV ═════════════ */
 $("#btn-export").addEventListener("click", () => {
   const cols = [["numero", "N° étiquette"], ["commande", "Commande"], ["lieu", "Lieu de stock"], ["epaisseur", "Épaisseur"],
-    ["largeur", "Largeur"], ["longueur", "Longueur (m)"], ["pieces", "Pièces"], ["volume", "Volume (m3)"], ["essence", "Essence"],
+    ["largeur", "Largeur"], ["longueur", "Longueur (m)"], ["pieces", "Pièces"], ["detail", "Détail des longueurs"], ["volume", "Volume (m3)"], ["essence", "Essence"],
     ["choix", "Choix"], ["nature", "Nature"], ["options", "Options"], ["ref_client", "Réf. client"], ["observation", "Observation"],
     ["statut", "Statut"], ["cree_le", "Saisi le"], ["etiquete_le", "Pointé le"]];
   const cell = v => `"${String(v ?? "").replace(/"/g, '""')}"`;
   const dt = iso => iso ? new Date(iso).toLocaleString("fr-FR") : "";
   const lignes = actifs().sort((a, b) => t(a.cree_le) - t(b.cree_le)).map(c => cols.map(([k]) =>
-    cell(k === "volume" ? nf(volume(c), 3) : k === "longueur" ? nf(c.longueur, 2) : k === "options" ? (c.options || []).join(" ")
+    cell(k === "volume" ? nf(volume(c), 3) : k === "longueur" ? lotsDe(c).map(l => nf(l.longueur, 2)).join(" + ") : k === "pieces" ? totalPieces(c) : k === "detail" ? (plusieursLongueurs(c) ? lotsTxt(c) : "") : k === "options" ? (c.options || []).join(" ")
       : k === "commande" ? (c.commande === STOCK ? "Stock" : c.commande) : k === "statut" ? STATUTS[c.statut] : k.endsWith("_le") ? dt(c[k]) : c[k])).join(";"));
   const csv = "\uFEFF" + [cols.map(([, l]) => cell(l)).join(";"), ...lignes].join("\r\n");
   donnerFichier(new Blob([csv], { type: "text/csv;charset=utf-8" }), `colis-sdc-${jour(maintenant())}.csv`, "Colis SDC (Excel)");
@@ -1882,19 +1919,10 @@ $("#btn-maj").addEventListener("click", async () => {
   } catch (e) { /* tant pis */ }
   location.reload();
 });
-})();
-
-// Anti-zoom au double appui (iPhone) : on bloque le 2e appui rapproché, sans gêner les clics
-(function () {
-  let dernier = 0;
-  document.addEventListener("touchend", e => {
-    const t = Date.now();
-    if (t - dernier < 350 && !e.target.closest("input, textarea")) e.preventDefault();
-    dernier = t;
-  }, { passive: false });
-  ["gesturestart", "gesturechange", "gestureend"].forEach(n => document.addEventListener(n, e => e.preventDefault()));
-})();
-
-$("#c-feuilles").addEventListener("change", e => changerDeco({ feuilles: e.target.checked }));
-$("#c-flou").addEventListener("change", e => changerDeco({ flou: e.target.checked }));
+// Décor : feuilles et fond
+$("#deco-feuilles").addEventListener("click", e => { const b = e.target.closest("[data-niv]"); if (b) changerDeco({ feuilles: Number(b.dataset.niv) }); });
+$("#deco-fond").addEventListener("click", e => { const b = e.target.closest("[data-flou]"); if (b) changerDeco({ flou: b.dataset.flou === "1" }); });
 appliquerDeco();
+// Pas de zoom à deux doigts (le double appui est déjà bloqué par le CSS)
+["gesturestart", "gesturechange", "gestureend"].forEach(n => document.addEventListener(n, e => e.preventDefault()));
+})();

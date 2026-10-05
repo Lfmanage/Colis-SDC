@@ -8,15 +8,22 @@
       const s = 96, cv = document.createElement("canvas"); cv.width = cv.height = s;
       const x = cv.getContext("2d"); x.translate(s / 2, s / 2);
       const g = x.createLinearGradient(-s / 2, -s / 2, s / 2, s / 2); g.addColorStop(0, c1); g.addColorStop(1, c2);
+      const LOBES = [[0, 1.0], [0.95, 0.84], [-0.95, 0.84], [2.0, 0.58], [-2.0, 0.58]]; // [angle depuis le haut, longueur]
       x.beginPath();
-      for (let i = 0; i <= 180; i++) {
-        const a = i / 180 * Math.PI * 2, l = Math.abs(Math.cos(a * 2.5)), r = s * 0.46 * (0.30 + 0.70 * Math.pow(l, 1.5));
-        i ? x.lineTo(Math.cos(a) * r, Math.sin(a) * r) : x.moveTo(Math.cos(a) * r, Math.sin(a) * r);
+      for (let i = 0; i <= 240; i++) {
+        const a = -Math.PI / 2 + i / 240 * Math.PI * 2; let r = 0.30;
+        for (const [la, ll] of LOBES) {
+          let d = Math.abs(((a + Math.PI / 2 - la + Math.PI * 3) % (Math.PI * 2)) - Math.PI);
+          d = Math.PI - d; if (d > Math.PI) d = Math.PI * 2 - d;
+          r = Math.max(r, 0.30 + (ll - 0.30) * Math.exp(-d / 0.26));
+        }
+        const rr = s * 0.47 * r * (1 + 0.035 * Math.cos(a * 17));
+        i ? x.lineTo(Math.cos(a) * rr, Math.sin(a) * rr) : x.moveTo(Math.cos(a) * rr, Math.sin(a) * rr);
       }
       x.closePath(); x.fillStyle = g; x.fill();
       x.strokeStyle = "rgba(60,20,8,.35)"; x.lineWidth = 1.4;
-      for (let i = 0; i < 5; i++) { const a = i * Math.PI * 2 / 5; x.beginPath(); x.moveTo(0, 0); x.lineTo(Math.cos(a) * s * 0.4, Math.sin(a) * s * 0.4); x.stroke(); }
-      x.lineWidth = 2.4; x.beginPath(); x.moveTo(0, 0); x.lineTo(-s * 0.1, s * 0.5); x.stroke();
+      LOBES.forEach(([la, ll]) => { const a = -Math.PI / 2 + la; x.beginPath(); x.moveTo(0, s * 0.05); x.lineTo(Math.cos(a) * s * 0.4 * ll, Math.sin(a) * s * 0.4 * ll); x.stroke(); });
+      x.lineWidth = 2.6; x.beginPath(); x.moveTo(0, s * 0.05); x.lineTo(0, s * 0.5); x.stroke();
       sprites.push(cv);
     });
   }
@@ -43,17 +50,19 @@
       }
       raf = requestAnimationFrame(image);
     }
-    function demarrer() {
-      if (actif) return; actif = true; faireSprites(); taille();
-      if (!liste.length) liste = Array.from({ length: n }, () => neuve(true));
-      dernier = performance.now(); canvas.hidden = false; raf = requestAnimationFrame(image);
+    function demarrer(nb) {
+      faireSprites(); taille();
+      if (liste.length > nb) liste.length = nb; else while (liste.length < nb) liste.push(neuve(true));
+      if (actif) return;
+      actif = true; dernier = performance.now(); canvas.hidden = false; raf = requestAnimationFrame(image);
     }
     function arreter() { actif = false; cancelAnimationFrame(raf); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, canvas.width, canvas.height); canvas.hidden = true; }
     addEventListener("resize", () => { if (actif) taille(); });
     document.addEventListener("visibilitychange", () => { if (!actif) return; if (document.hidden) cancelAnimationFrame(raf); else { dernier = performance.now(); raf = requestAnimationFrame(image); } });
-    return { regler: on => (on ? demarrer() : arreter()) };
+    return { regler: nb => (nb > 0 ? demarrer(nb) : arreter()) };
   }
-  const arriere = creer(document.getElementById("feuilles-arriere"), 16, { min: 18, max: 46, alpha: 1 });
-  const avant = creer(document.getElementById("feuilles-avant"), 4, { min: 22, max: 38, alpha: 0.5 });
-  window.FEUILLES = { regler: on => { arriere.regler(on); avant.regler(on); } };
+  const arriere = creer(document.getElementById("feuilles-arriere"), 0, { min: 24, max: 56, alpha: 1 });
+  const avant = creer(document.getElementById("feuilles-avant"), 0, { min: 28, max: 50, alpha: 0.85 });
+  const NB = [[0, 0], [8, 3], [14, 6], [24, 11]]; // [derrière, devant] selon le niveau choisi
+  window.FEUILLES = { regler: niv => { const [b, v] = NB[Math.min(3, Math.max(0, niv | 0))]; arriere.regler(b); avant.regler(v); } };
 })();

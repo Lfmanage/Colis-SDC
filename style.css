@@ -158,25 +158,6 @@ input, textarea { font: inherit; color: inherit; }
 
 /* ───── Accueil ───── */
 .hero { background: linear-gradient(135deg, var(--hero1), var(--hero2)); border-radius: 26px; padding: 16px; margin-bottom: 14px; box-shadow: var(--ombre); }
-.hero-haut { display: grid; grid-template-columns: 1.2fr 1fr; gap: 10px; align-items: stretch; }
-.hero-lab { display: block; font-size: 14px; color: var(--texte); opacity: .8; font-weight: 500; }
-.hero-num { display: block; font: 700 46px/1.05 var(--titre); color: var(--chiffre); margin-top: 2px; }
-.hero-mini { background: color-mix(in srgb, var(--carte) 70%, transparent); border-radius: 18px; padding: 8px 12px; text-align: center; }
-.hero-mini span { display: block; font-size: 12px; color: var(--texte-doux); }
-.hero-mini b { display: block; font: 700 26px/1.15 var(--titre); }
-.hero-bas { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 12px; }
-.mini-case { background: color-mix(in srgb, var(--carte) 62%, transparent); border-radius: 14px; padding: 6px 10px; }
-.mini-case span { display: block; font-size: 11px; color: var(--texte-doux); font-weight: 600; }
-.mini-case b { font: 700 17px var(--titre); }
-.rangees { display: grid; gap: 8px; margin-bottom: 8px; }
-.rangee { display: flex; align-items: center; gap: 12px; width: 100%; text-align: left; border: 1px solid var(--bord); background: var(--carte); border-radius: 20px; padding: 10px 14px; box-shadow: var(--ombre); }
-.rangee .rond { width: 40px; height: 40px; border-radius: 13px; background: var(--accent-doux); display: grid; place-items: center; font-size: 19px; font-style: normal; flex: none; }
-.rangee span { flex: 1; min-width: 0; }
-.rangee b { display: block; font-weight: 600; font-size: 15.5px; }
-.rangee small { display: block; color: var(--texte-doux); font-size: 12.5px; }
-.rangee::after { content: ""; width: 8px; height: 8px; border-right: 2px solid var(--texte-doux); border-top: 2px solid var(--texte-doux); transform: rotate(45deg); margin-right: 4px; }
-.section-tete { display: flex; justify-content: space-between; align-items: baseline; margin: 14px 4px 6px; }
-.section-tete h2 { font: 600 20px var(--titre); margin: 0; }
 
 /* ───── Barre du bas ───── */
 .onglets { position: fixed; left: 0; right: 0; bottom: 0; z-index: 30; display: grid; grid-template-columns: repeat(5, 1fr);
@@ -186,9 +167,7 @@ input, textarea { font: inherit; color: inherit; }
 .onglets svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 .onglets button.actif { color: var(--nav-actif, var(--accent)); font-weight: 700; }
 .onglets button.actif .ico { background: var(--nav-pastille, color-mix(in srgb, var(--accent) 16%, transparent)); }
-.fab { position: fixed; right: 16px; bottom: calc(var(--bas) + 84px); z-index: 29; width: 54px; height: 54px; border-radius: 50%; border: 0; background: var(--accent); color: var(--sur-accent);
   box-shadow: 0 8px 20px color-mix(in srgb, var(--accent) 40%, transparent); display: grid; place-items: center; }
-.fab svg { width: 26px; height: 26px; stroke: var(--sur-accent); stroke-width: 2.4; fill: none; stroke-linecap: round; }
 
 /* ───── Feuilles (pointage, aperçu, création) ───── */
 .feuille { position: fixed; inset: 0; z-index: 50; display: flex; align-items: flex-end; justify-content: center; }
@@ -328,7 +307,6 @@ pre.lu { white-space: pre-wrap; word-break: break-word; font-size: 11.5px; line-
 #f-options { gap: 5px; }
 #f-options .puce { padding: 4px 10px; font-size: 13px; }
 #f-options .puce small { display: none; }
-.rangee .rond svg { width: 21px; height: 21px; stroke: var(--accent-texte); fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 .action-rapide { cursor: pointer; }
 @media (prefers-color-scheme: dark) { .terminal { background: #2A2E42; } }
 
@@ -345,23 +323,19 @@ pre.lu { white-space: pre-wrap; word-break: break-word; font-size: 11.5px; line-
 /* ═════════ Design 2.0 : verre dépoli sur bois d'automne flouté ═════════ */
 html { background: #1A100B; }
 body { background: transparent; }
-body::before { content: ""; position: fixed; inset: 0; z-index: -3; background: var(--fond-img, url("fond-automne.jpg?v=210")) center / cover no-repeat; transform: scale(1.05); }
+body::before { content: ""; position: fixed; inset: 0; z-index: -3; background: var(--fond-img, url("fond-automne.jpg?v=230")) center / cover no-repeat; transform: scale(1.05); }
 body::after { content: ""; position: fixed; inset: 0; z-index: -2; background: var(--voile, rgba(18, 10, 6, .5)); pointer-events: none; }
-.login { background: var(--voile, rgba(18, 10, 6, .5)), url("fond-automne.jpg?v=210") center / cover no-repeat; }
+.login { background: var(--voile, rgba(18, 10, 6, .5)), url("fond-automne.jpg?v=230") center / cover no-repeat; }
 
 /* verre */
-.carte, .rangee, .stat, .pli, .tuile, .action, .feuille-panneau, .onglets, .recherche input, .fermer {
-  -webkit-backdrop-filter: blur(18px) saturate(1.25); backdrop-filter: blur(18px) saturate(1.25);
+.carte,   -webkit-backdrop-filter: blur(18px) saturate(1.25); backdrop-filter: blur(18px) saturate(1.25);
 }
-.carte, .stat, .pli, .tuile, .action, .colis, .rangee { border-color: var(--bord); box-shadow: var(--ombre); }
-.carte, .pli { border-radius: 26px; }
+.carte, .stat, .pli, .tuile, .action, .colis, .carte, .pli { border-radius: 26px; }
 .feuille-panneau { background: var(--panneau); border: 1px solid var(--bord); }
 .feuille-fond { background: rgba(10, 5, 3, .55); }
 .info, .segment, .clavier-lieu { background: color-mix(in srgb, var(--texte) 8%, transparent); }
 .champ input, .champ textarea { background: var(--champ); border-color: var(--bord); }
-.titre, .section-tete h2, .sous-titre, .groupe h3 { text-shadow: 0 1px 14px rgba(0, 0, 0, .18); }
-html[style*="color-scheme: light"] .titre, html[style*="color-scheme: light"] .section-tete h2, html[style*="color-scheme: light"] .groupe h3 { text-shadow: none; }
-
+.titre, html[style*="color-scheme: light"] .titre, html[style*="color-scheme: light"] 
 /* en-tête : transparent, il laisse voir le bois */
 .entete { background: linear-gradient(180deg, rgba(0, 0, 0, .22), transparent); -webkit-backdrop-filter: none; backdrop-filter: none; padding-bottom: 4px; }
 .titre { font-size: 30px; }
@@ -370,7 +344,6 @@ html[style*="color-scheme: light"] .titre, html[style*="color-scheme: light"] .s
 /* barre du bas flottante */
 .onglets { left: 12px; right: 12px; bottom: calc(var(--bas) + 10px); border: 1px solid var(--bord); border-radius: 28px; padding: 7px 6px; box-shadow: 0 14px 34px rgba(0, 0, 0, .3); }
 .onglets .ico { width: 50px; height: 30px; }
-.fab { bottom: calc(var(--bas) + 96px); }
 .contenu { padding-bottom: calc(var(--bas) + 110px); }
 
 /* accueil : le bouton photo est le héros */
@@ -400,8 +373,6 @@ html[style*="color-scheme: light"] .titre, html[style*="color-scheme: light"] .s
 .action b { font-weight: 700; font-size: 16px; }
 .action small { color: var(--texte-doux); font-size: 12.5px; }
 .action:active { transform: scale(.98); }
-.action-large { grid-column: 1 / -1; grid-template-columns: auto 1fr; column-gap: 14px; align-items: center; }
-.action-large .rond { grid-row: 1 / span 2; margin: 0; }
 .acc-actions:not(:has(#acc-pointer:not([hidden]))) #acc-noter { grid-column: 1 / -1; grid-template-columns: auto 1fr; column-gap: 14px; align-items: center; }
 .acc-actions:not(:has(#acc-pointer:not([hidden]))) #acc-noter .rond { grid-row: 1 / span 2; margin: 0; }
 
@@ -458,3 +429,34 @@ html, body, button, a, input, label, summary, .onglets, .onglets * { touch-actio
 .info-filtre { display: flex; align-items: center; justify-content: space-between; gap: 10px; background: var(--carte); border: 1px solid var(--bord); border-radius: 16px; padding: 8px 8px 8px 14px; margin-bottom: 10px; font-size: 13px; -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); }
 .info-filtre b { color: var(--accent-texte); }
 .info-filtre button { flex: none; width: 32px; height: 32px; border-radius: 50%; border: 1px solid var(--bord); background: var(--champ); color: var(--texte); font-size: 15px; }
+
+/* ═════════ v2.2 ═════════ */
+* { touch-action: manipulation; }
+.onglets { grid-template-columns: repeat(4, 1fr); }
+.photo-geant { background: linear-gradient(135deg, var(--btn-hero1, #5B4FBF), var(--btn-hero2, #3E3590)); color: #fff; }
+.photo-geant small { opacity: .92; }
+.tuile-plus { background: linear-gradient(135deg, var(--btn-hero1, #5B4FBF), var(--btn-hero2, #3E3590)); color: #fff; border-color: rgba(255, 255, 255, .28); }
+.tuile-plus b { color: #fff; font-size: 30px; font-weight: 600; min-width: 30px; text-align: center; }
+.tuile-plus span { color: #fff; font-weight: 700; font-size: 13px; }
+.acc-actions:not(:has(#acc-pointer:not([hidden]))) #acc-colis { grid-column: 1 / -1; }
+#acc-alerte { font-size: 12px; padding: 6px 11px; border-radius: 14px; line-height: 1.25; margin-bottom: 8px; }
+[data-pli] { scroll-margin-top: calc(var(--haut, 0px) + 74px); }
+.segment.seg4 { grid-template-columns: repeat(4, 1fr); }
+.segment.seg2 { grid-template-columns: repeat(2, 1fr); }
+/* fond net : le bois et les feuilles se voient vraiment (voile léger, verre moins flou) */
+html.fond-net body::after { opacity: .35; }
+html.fond-net .carte, html.fond-net .tuile, html.fond-net .action, html.fond-net .pli, html.fond-net .stat, html.fond-net   -webkit-backdrop-filter: blur(3px); backdrop-filter: blur(3px); }
+html.fond-net .entete { -webkit-backdrop-filter: blur(4px); backdrop-filter: blur(4px); background: color-mix(in srgb, var(--fond) 45%, transparent); }
+
+.tuile-plus { flex-direction: row; justify-content: flex-start; }
+.action b { white-space: nowrap; font-size: 14px; }
+.action .rond { width: 32px; height: 32px; }
+
+/* plusieurs longueurs dans un même colis */
+.ligne-supp { grid-template-columns: 1fr 1fr auto; align-items: end; margin-top: 8px; }
+.retirer-ligne { width: 46px; height: 46px; border-radius: 14px; border: 1px solid var(--bord); background: var(--champ); color: var(--texte-doux); font-size: 24px; line-height: 1; }
+.ajout-longueur { display: block; margin: 10px 0 2px; font-weight: 700; color: var(--accent-texte); }
+
+/* lisibilité : bouton d'ajout bien visible, puces sélectionnées pleines */
+.ajout-longueur { width: 100%; text-align: center; margin: 10px 0 2px; padding: 11px 14px; border: 1.5px dashed color-mix(in srgb, var(--texte) 38%, transparent); border-radius: 14px; color: var(--texte); font-size: 15px; }
+.puce[aria-pressed="true"] { background: var(--accent); border-color: transparent; color: var(--sur-accent, #fff); }

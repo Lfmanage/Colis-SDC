@@ -1539,17 +1539,17 @@ const PALETTES = {
   fond: [["Brume", "#EEF2F7"], ["Beige", "#F4F0EA"], ["Blanc froid", "#FBFBFD"], ["Crème", "#F7EDD6"], ["Rose", "#F1E2E5"], ["Pêche", "#F6E3D6"], ["Lavande", "#E8E3F5"], ["Bleu clair", "#DDE9F5"],
     ["Vert clair", "#E1EEE3"], ["Sable", "#EFEAE0"], ["Gris bleu", "#E9EDF2"], ["Blanc", "#FFFFFF"], ["Mauve", "#F3E9F1"]],
   nav: [["Assortie", "auto"], ...PRINC],
-  chiffre: [["Turquoise", "#1F8A8A"], ["Cuivre foncé", "#B4682F"], ["Bordeaux", "#843C4E"], ["Indigo", "#5B4FBF"], ["Vert", "#3F7F5B"], ["Bleu", "#2F6DA3"], ["Brique", "#C0533D"], ["Or foncé", "#8C6D1F"],
+  chiffre: [["Ambre", "#F0B04A"], ["Turquoise", "#1F8A8A"], ["Cuivre foncé", "#B4682F"], ["Bordeaux", "#843C4E"], ["Indigo", "#5B4FBF"], ["Vert", "#3F7F5B"], ["Bleu", "#2F6DA3"], ["Brique", "#C0533D"], ["Or foncé", "#8C6D1F"],
     ["Ardoise", "#5A6B7B"], ["Noir", "#26201F"], ["Violet", "#7A4E9A"], ["Framboise", "#B23B6B"], ["Olive", "#6B7F3A"]]
 };
 const CLES_REGLAGES = ["mode", "anim", "c_princ", "c_fond", "c_nav", "c_chiffre"];
-const REGLAGES_DEFAUT = { mode: "auto", anim: true, c_princ: "#843C4E", c_fond: "#EEF2F7", c_nav: "auto", c_chiffre: "#1F8A8A" };
+const REGLAGES_DEFAUT = { mode: "sombre", anim: true, c_princ: "#843C4E", c_fond: "#EEF2F7", c_nav: "auto", c_chiffre: "#F0B04A" };
 const anciens = lire(K.reglages, {});
 let reglages = { ...REGLAGES_DEFAUT, maj: anciens.maj || null, attente: !!anciens.attente };
 CLES_REGLAGES.forEach(k => { if (anciens[k] !== undefined) reglages[k] = anciens[k]; }); // les anciens réglages (vert, or, forêt…) sont abandonnés
-const THEME_V = 2; // nouvelle palette : on garde la couleur principale choisie, le reste est remplacé
+const THEME_V = 3; // nouvelle palette : on garde la couleur principale choisie, le reste est remplacé
 if (anciens.tv !== THEME_V) {
-  Object.assign(reglages, { c_fond: REGLAGES_DEFAUT.c_fond, c_nav: REGLAGES_DEFAUT.c_nav, c_chiffre: REGLAGES_DEFAUT.c_chiffre, maj: maintenant(), attente: true });
+  Object.assign(reglages, { mode: REGLAGES_DEFAUT.mode, c_fond: REGLAGES_DEFAUT.c_fond, c_nav: REGLAGES_DEFAUT.c_nav, c_chiffre: REGLAGES_DEFAUT.c_chiffre, maj: maintenant(), attente: true });
   reglages.tv = THEME_V; ecrire(K.reglages, reglages);
 }
 reglages.tv = THEME_V;
@@ -1568,28 +1568,28 @@ function appliquerTheme() {
   set("--accent-fort", sombre ? mix(ac, W, 0.3) : mix(ac, "#000000", 0.28));
   set("--accent-doux", sombre ? mix(base, ac, 0.28) : mix(ac, W, 0.88));
   set("--accent-moyen", sombre ? mix(ac, W, 0.3) : mix(ac, W, 0.55));
-  let barre;
+  // Design « verre sur bois d'automne » : cartes translucides, voile sur la photo, barre flottante
   if (sombre) {
-    set("--fond", mix(base, ac, 0.05)); set("--fond-haut", mix(base, ac, 0.13)); set("--carte", "#1A1F2B"); set("--champ", "#222836"); set("--panneau", "#161A24");
-    set("--texte", "#EEF1F8"); set("--texte-doux", "#9AA3B5"); set("--bord", "rgba(255,255,255,.11)"); set("--ombre", "0 3px 14px rgba(0,0,0,.35)");
-    set("--hero1", mix(base, ac, 0.42)); set("--hero2", mix(base, ac, 0.24));
+    set("--fond", "#1A100B"); set("--fond-haut", "#22150E"); set("--carte", "rgba(30,20,16,.58)"); set("--champ", "rgba(255,255,255,.09)"); set("--panneau", "rgba(26,17,13,.92)");
+    set("--texte", "#FBF4EE"); set("--texte-doux", "#CDBFB4"); set("--bord", "rgba(255,255,255,.16)"); set("--ombre", "0 8px 28px rgba(0,0,0,.28)");
+    set("--hero1", mix(base, ac, 0.55)); set("--hero2", mix(base, ac, 0.3));
     set("--chiffre", clarte(r.c_chiffre) < 0.45 ? mix(r.c_chiffre, W, 0.5) : r.c_chiffre);
-    barre = r.c_nav === "auto" ? mix(base, ac, 0.2) : mix(r.c_nav, "#101014", 0.72);
+    set("--voile", "linear-gradient(180deg, rgba(18,10,6,.58) 0%, rgba(18,10,6,.38) 38%, rgba(18,10,6,.66) 100%)");
+    set("--barre", "rgba(24,15,11,.66)");
   } else {
-    set("--fond", r.c_fond); set("--fond-haut", mix(r.c_fond, ac, 0.07)); set("--carte", "#FFFFFF"); set("--champ", "#FFFFFF"); set("--panneau", mix(r.c_fond, W, 0.6));
-    set("--texte", "#1C2230"); set("--texte-doux", "#667085"); set("--bord", "rgba(28,34,48,.10)"); set("--ombre", "0 3px 14px rgba(28,34,48,.07)");
+    set("--fond", "#F6EDE3"); set("--fond-haut", "#F1E4D6"); set("--carte", "rgba(255,250,245,.80)"); set("--champ", "rgba(255,255,255,.92)"); set("--panneau", "rgba(255,251,247,.96)");
+    set("--texte", "#2A1B14"); set("--texte-doux", "#6E5A4E"); set("--bord", "rgba(60,36,20,.14)"); set("--ombre", "0 8px 26px rgba(40,20,8,.14)");
     set("--hero1", mix(ac, W, 0.7)); set("--hero2", mix(ac, W, 0.87));
-    set("--chiffre", r.c_chiffre);
-    barre = r.c_nav === "auto" ? mix(ac, W, 0.84) : r.c_nav;
+    set("--chiffre", mix(r.c_chiffre, "#000000", 0.32));
+    set("--voile", "linear-gradient(180deg, rgba(255,243,230,.62) 0%, rgba(255,243,230,.48) 40%, rgba(255,243,230,.66) 100%)");
+    set("--barre", "rgba(255,249,242,.80)");
   }
-  set("--barre", barre);
-  const navSombre = clarte(barre) < 0.42;
-  set("--nav-texte", navSombre ? "rgba(255,255,255,.72)" : (sombre ? "#9AA3B5" : "#667085"));
-  set("--nav-actif", navSombre ? "#FFFFFF" : (sombre ? "#FFFFFF" : mix(ac, "#000000", clarte(ac) > 0.5 ? 0.45 : 0.1)));
-  set("--nav-pastille", navSombre ? "rgba(255,255,255,.2)" : mix(ac, sombre ? base : W, sombre ? 0.55 : 0.8));
+  set("--nav-texte", sombre ? "rgba(255,255,255,.72)" : "#6E5A4E");
+  set("--nav-actif", sombre ? "#FFFFFF" : mix(ac, "#000000", clarte(ac) > 0.5 ? 0.45 : 0.1));
+  set("--nav-pastille", sombre ? "rgba(255,255,255,.2)" : mix(ac, W, 0.8));
   document.documentElement.style.colorScheme = sombre ? "dark" : "light";
   document.body.classList.toggle("sans-anim", !r.anim);
-  const m = document.querySelector('meta[name="theme-color"]'); if (m) m.content = sombre ? mix(base, ac, 0.05) : r.c_fond;
+  const m = document.querySelector('meta[name="theme-color"]'); if (m) m.content = sombre ? "#1A100B" : "#F6EDE3";
 }
 matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => { if (reglages.mode === "auto") appliquerTheme(); });
 function majUIapparence() {

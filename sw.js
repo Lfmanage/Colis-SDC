@@ -1,8 +1,8 @@
 // Service worker : l'appli s'ouvre même sans réseau.
-const VERSION = "colis-v1.2.0";
+const VERSION = "colis-v2.0.0";
 const LIBS = "colis-libs"; // bibliothèques externes (lecteur de photo…) : gardées d'une version à l'autre
 const SHELL = ["./", "index.html", "style.css", "app.js", "lecture.js", "config.js",
-  "manifest.webmanifest", "icons/icon-192.png", "icons/apple-touch-icon.png"];
+  "manifest.webmanifest", "icons/icon-192.png", "icons/apple-touch-icon.png", "fond-automne.jpg"];
 const EXTERNES = ["cdn.jsdelivr.net", "tessdata.projectnaptha.com"];
 
 self.addEventListener("install", e => {

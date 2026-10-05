@@ -345,9 +345,9 @@ pre.lu { white-space: pre-wrap; word-break: break-word; font-size: 11.5px; line-
 /* ═════════ Design 2.0 : verre dépoli sur bois d'automne flouté ═════════ */
 html { background: #1A100B; }
 body { background: transparent; }
-body::before { content: ""; position: fixed; inset: 0; z-index: -2; background: url("fond-automne.jpg?v=202") center / cover no-repeat; transform: scale(1.05); }
-body::after { content: ""; position: fixed; inset: 0; z-index: -1; background: var(--voile, rgba(18, 10, 6, .5)); pointer-events: none; }
-.login { background: var(--voile, rgba(18, 10, 6, .5)), url("fond-automne.jpg?v=202") center / cover no-repeat; }
+body::before { content: ""; position: fixed; inset: 0; z-index: -3; background: var(--fond-img, url("fond-automne.jpg?v=210")) center / cover no-repeat; transform: scale(1.05); }
+body::after { content: ""; position: fixed; inset: 0; z-index: -2; background: var(--voile, rgba(18, 10, 6, .5)); pointer-events: none; }
+.login { background: var(--voile, rgba(18, 10, 6, .5)), url("fond-automne.jpg?v=210") center / cover no-repeat; }
 
 /* verre */
 .carte, .rangee, .stat, .pli, .tuile, .action, .feuille-panneau, .onglets, .recherche input, .fermer {
@@ -421,3 +421,40 @@ html, body, button, a, input, label, summary, .onglets, .onglets * { touch-actio
 
 .version-acc { text-align: center; margin: 12px 0 0; }
 .version-acc .lien { color: var(--texte-doux); font-size: 12.5px; font-weight: 500; text-decoration: underline; }
+
+/* feuilles qui tombent */
+.feuilles-canvas { position: fixed; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+#feuilles-arriere { z-index: -1; }
+#feuilles-avant { z-index: 25; }
+
+/* en-tête : verre dépoli, plus compact (le contenu ne passe plus en dessous du titre) */
+.entete { background: color-mix(in srgb, var(--fond) 72%, transparent); -webkit-backdrop-filter: blur(16px) saturate(1.2); backdrop-filter: blur(16px) saturate(1.2); padding: 10px 16px 8px; }
+.titre { font-size: 26px; }
+
+/* accueil : tout plus petit et plus compact */
+.photo-geant { display: flex; align-items: center; gap: 13px; text-align: left; padding: 11px 15px; margin: 0 0 8px; border-radius: 22px; }
+.photo-halo { width: 46px; height: 46px; margin: 0; flex: none; box-shadow: 0 0 0 5px rgba(255, 255, 255, .09); }
+.photo-halo svg { width: 24px; height: 24px; }
+.photo-texte { display: grid; gap: 1px; }
+.photo-geant b { font: 700 18px/1.15 var(--titre); }
+.photo-geant small { font-size: 12.5px; }
+.tuiles { gap: 7px; margin-bottom: 8px; }
+.tuile { width: 100%; font: inherit; color: var(--texte); text-align: left; cursor: pointer; display: flex; flex-direction: row-reverse; justify-content: flex-end; align-items: center; gap: 10px; padding: 8px 13px; border-radius: 18px; }
+.tuile span { font-size: 12px; line-height: 1.2; }
+.tuile b { font-size: 24px; line-height: 1; margin: 0; min-width: 34px; }
+.tuile:active { transform: scale(.98); }
+.tuile-grande { flex-direction: row; justify-content: space-between; padding: 8px 16px; }
+.tuile-grande span { font-size: 14px; }
+.tuile-grande b { font-size: 32px; }
+.acc-actions { gap: 7px; }
+.action { grid-template-columns: auto 1fr; column-gap: 10px; align-items: center; padding: 8px 12px; border-radius: 18px; }
+.action .rond { grid-row: 1 / span 2; margin: 0; width: 34px; height: 34px; border-radius: 11px; }
+.action .rond svg { width: 19px; height: 19px; }
+.action b { font-size: 14.5px; line-height: 1.15; }
+.action small { font-size: 11.5px; line-height: 1.2; }
+.contenu { padding-top: 6px; }
+
+/* liste : bandeau du filtre ouvert depuis l'accueil */
+.info-filtre { display: flex; align-items: center; justify-content: space-between; gap: 10px; background: var(--carte); border: 1px solid var(--bord); border-radius: 16px; padding: 8px 8px 8px 14px; margin-bottom: 10px; font-size: 13px; -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); }
+.info-filtre b { color: var(--accent-texte); }
+.info-filtre button { flex: none; width: 32px; height: 32px; border-radius: 50%; border: 1px solid var(--bord); background: var(--champ); color: var(--texte); font-size: 15px; }

@@ -363,6 +363,7 @@ $("#btn-annuler-edition").addEventListener("click", () => { finEdition(); allerA
 
 /* ═════════════ Liste, recherche, filtres ═════════════ */
 let filtre = "a_etiqueter", filtreDate = "";
+function ouvrirListe(f, date = "") { filtre = f; filtreDate = date; $("#recherche").value = ""; allerA("colis"); }
 const normaliser = s => String(s ?? "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")
   .replace(/(\d)\s*[x×*]\s*(\d)/g, "$1x$2").trim();
 function cle(c) {
@@ -438,6 +439,9 @@ function rendreListe() {
     (!mots.length || (k => mots.every(m => k.includes(m)))(cle(c))));
   res.sort((a, b) => t(b.etiquete_le || b.cree_le) - t(a.etiquete_le || a.cree_le)); // derniers pointés (ou notés) en haut
   res0 = res;
+  const ib = $("#info-filtre"), titreFiltre = filtreDate ? (filtreDate === jour(maintenant()) ? "Pointés aujourd'hui" : "Le " + filtreDate) : filtre === "tous" ? "Tous les colis" : "";
+  ib.hidden = !titreFiltre;
+  if (titreFiltre) ib.innerHTML = `<span><b>${esc(titreFiltre)}</b> · ${totaux(res0)}</span><button type="button" data-fin-filtre aria-label="Fermer">✕</button>`;
 
   const el = $("#liste");
   if (!res.length) {
@@ -468,9 +472,10 @@ function rendreListe() {
 }
 
 $("#recherche").addEventListener("input", rendreListe);
+$("#info-filtre").addEventListener("click", e => { if (e.target.closest("[data-fin-filtre]")) { filtre = "a_etiqueter"; filtreDate = ""; rendreListe(); } });
 $("#filtres").addEventListener("click", e => {
   const b = e.target.closest("[data-filtre]"); if (!b) return;
-  filtre = b.dataset.filtre; rendreListe();
+  filtre = b.dataset.filtre; filtreDate = ""; rendreListe();
 });
 $("#btn-file-pc").addEventListener("click", () => ouvrirPC(filePCTous()));
 let ignorerClic = 0;
@@ -649,7 +654,14 @@ $("#acc-alerte").addEventListener("click", () => { allerA("reglages"); $("#pli-s
 $("#acc-noter").addEventListener("click", () => allerA("nouveau"));
 $("#acc-pointer").addEventListener("click", () => ouvrirPC(filePCTous()));
 $("#acc-photo").addEventListener("click", () => ouvrirPhoto("retrouver"));
-$("#acc-colis").addEventListener("click", () => allerA("colis"));
+$("#acc-colis").addEventListener("click", () => ouvrirListe("tous"));
+$$("[data-ouvre]").forEach(b => b.addEventListener("click", () => {
+  const k = b.dataset.ouvre;
+  if (k === "attente") ouvrirListe("a_etiqueter");
+  else if (k === "pointes") ouvrirListe("a_sortir");
+  else if (k === "auj") ouvrirListe("a_sortir", jour(maintenant()));
+  else ouvrirListe("tous");
+}));
 function ouvrirPC(ids) { filePC = ids; posPC = 0; rendrePC(); montrer("#pc"); }
 
 function rendrePC() {
@@ -1592,7 +1604,15 @@ function appliquerTheme() {
   const m = document.querySelector('meta[name="theme-color"]'); if (m) m.content = sombre ? "#1A100B" : "#F6EDE3";
 }
 matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => { if (reglages.mode === "auto") appliquerTheme(); });
+/* Décor (propre à cet appareil) : fond flou ou net, feuilles qui tombent */
+const DECO = (() => { try { return { feuilles: true, flou: true, ...JSON.parse(localStorage.getItem("colis_deco") || "{}") }; } catch (e) { return { feuilles: true, flou: true }; } })();
+function appliquerDeco() {
+  document.documentElement.style.setProperty("--fond-img", `url("fond-automne${DECO.flou ? "" : "-net"}.jpg?v=210")`);
+  if (window.FEUILLES) FEUILLES.regler(DECO.feuilles);
+}
+function changerDeco(patch) { Object.assign(DECO, patch); try { localStorage.setItem("colis_deco", JSON.stringify(DECO)); } catch (e) { /* tant pis */ } appliquerDeco(); }
 function majUIapparence() {
+  $("#c-feuilles").checked = !!DECO.feuilles; $("#c-flou").checked = !!DECO.flou;
   $$("#theme-mode [data-mode]").forEach(b => b.setAttribute("aria-pressed", b.dataset.mode === reglages.mode));
   $("#c-anim").checked = !!reglages.anim;
   const tint = mix(reglages.c_princ, "#ffffff", 0.84);
@@ -1874,3 +1894,7 @@ $("#btn-maj").addEventListener("click", async () => {
   }, { passive: false });
   ["gesturestart", "gesturechange", "gestureend"].forEach(n => document.addEventListener(n, e => e.preventDefault()));
 })();
+
+$("#c-feuilles").addEventListener("change", e => changerDeco({ feuilles: e.target.checked }));
+$("#c-flou").addEventListener("change", e => changerDeco({ flou: e.target.checked }));
+appliquerDeco();

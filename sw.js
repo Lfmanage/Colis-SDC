@@ -1,5 +1,5 @@
 // Service worker : l'appli s'ouvre même sans réseau.
-const VERSION = "colis-v2.0.1";
+const VERSION = "colis-v2.0.2";
 const LIBS = "colis-libs"; // bibliothèques externes (lecteur de photo…) : gardées d'une version à l'autre
 const SHELL = ["./", "index.html", "style.css", "app.js", "lecture.js", "config.js",
   "manifest.webmanifest", "icons/icon-192.png", "icons/apple-touch-icon.png", "fond-automne.jpg"];
@@ -26,7 +26,7 @@ self.addEventListener("fetch", e => {
   }
   // le reste : réseau d'abord, cache en secours (les mises à jour arrivent tout de suite)
   e.respondWith(
-    fetch(req).then(res => {
+    fetch(req, { cache: "no-cache" }).then(res => {
       if (res && (res.ok || res.type === "opaque")) {
         const copy = res.clone();
         caches.open(VERSION).then(c => c.put(req, copy));

@@ -345,9 +345,9 @@ pre.lu { white-space: pre-wrap; word-break: break-word; font-size: 11.5px; line-
 /* ═════════ Design 2.0 : verre dépoli sur bois d'automne flouté ═════════ */
 html { background: #1A100B; }
 body { background: transparent; }
-body::before { content: ""; position: fixed; inset: 0; z-index: -2; background: url("fond-automne.jpg?v=201") center / cover no-repeat; transform: scale(1.05); }
+body::before { content: ""; position: fixed; inset: 0; z-index: -2; background: url("fond-automne.jpg?v=202") center / cover no-repeat; transform: scale(1.05); }
 body::after { content: ""; position: fixed; inset: 0; z-index: -1; background: var(--voile, rgba(18, 10, 6, .5)); pointer-events: none; }
-.login { background: var(--voile, rgba(18, 10, 6, .5)), url("fond-automne.jpg?v=201") center / cover no-repeat; }
+.login { background: var(--voile, rgba(18, 10, 6, .5)), url("fond-automne.jpg?v=202") center / cover no-repeat; }
 
 /* verre */
 .carte, .rangee, .stat, .pli, .tuile, .action, .feuille-panneau, .onglets, .recherche input, .fermer {
@@ -418,3 +418,6 @@ html[style*="color-scheme: light"] .titre, html[style*="color-scheme: light"] .s
 /* pas de zoom au double appui (iPhone) */
 html, body, button, a, input, label, summary, .onglets, .onglets * { touch-action: manipulation; }
 .onglets, .photo-geant, .action, .tuile { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+
+.version-acc { text-align: center; margin: 12px 0 0; }
+.version-acc .lien { color: var(--texte-doux); font-size: 12.5px; font-weight: 500; text-decoration: underline; }

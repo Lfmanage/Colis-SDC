@@ -1848,7 +1848,20 @@ formVierge();
 allerA("accueil");
 rendreCalepin();
 initSynchro();
-if ("serviceWorker" in navigator) addEventListener("load", () => navigator.serviceWorker.register("sw.js").catch(() => {}));
+if ("serviceWorker" in navigator) {
+  const avait = !!navigator.serviceWorker.controller;
+  addEventListener("load", () => navigator.serviceWorker.register("sw.js").catch(() => {}));
+  // une nouvelle version prend la main : on recharge une fois, sans avoir à rouvrir l'appli
+  navigator.serviceWorker.addEventListener("controllerchange", () => { if (avait && !window.__rechargee) { window.__rechargee = true; location.reload(); } });
+}
+// Bouton « Mettre à jour » : vide le cache de l'appli (tes colis ne sont pas touchés) et recharge
+$("#btn-maj").addEventListener("click", async () => {
+  try {
+    if ("serviceWorker" in navigator) (await navigator.serviceWorker.getRegistrations()).forEach(r => r.unregister());
+    if (window.caches) (await caches.keys()).filter(k => k !== "colis-libs").forEach(k => caches.delete(k));
+  } catch (e) { /* tant pis */ }
+  location.reload();
+});
 })();
 
 // Anti-zoom au double appui (iPhone) : on bloque le 2e appui rapproché, sans gêner les clics

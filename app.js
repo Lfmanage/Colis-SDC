@@ -1850,3 +1850,14 @@ rendreCalepin();
 initSynchro();
 if ("serviceWorker" in navigator) addEventListener("load", () => navigator.serviceWorker.register("sw.js").catch(() => {}));
 })();
+
+// Anti-zoom au double appui (iPhone) : on bloque le 2e appui rapproché, sans gêner les clics
+(function () {
+  let dernier = 0;
+  document.addEventListener("touchend", e => {
+    const t = Date.now();
+    if (t - dernier < 350 && !e.target.closest("input, textarea")) e.preventDefault();
+    dernier = t;
+  }, { passive: false });
+  ["gesturestart", "gesturechange", "gestureend"].forEach(n => document.addEventListener(n, e => e.preventDefault()));
+})();

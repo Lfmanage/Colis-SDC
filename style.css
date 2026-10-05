@@ -345,9 +345,9 @@ pre.lu { white-space: pre-wrap; word-break: break-word; font-size: 11.5px; line-
 /* ═════════ Design 2.0 : verre dépoli sur bois d'automne flouté ═════════ */
 html { background: #1A100B; }
 body { background: transparent; }
-body::before { content: ""; position: fixed; inset: 0; z-index: -2; background: url("fond-automne.jpg?v=200") center / cover no-repeat; transform: scale(1.05); }
+body::before { content: ""; position: fixed; inset: 0; z-index: -2; background: url("fond-automne.jpg?v=201") center / cover no-repeat; transform: scale(1.05); }
 body::after { content: ""; position: fixed; inset: 0; z-index: -1; background: var(--voile, rgba(18, 10, 6, .5)); pointer-events: none; }
-.login { background: var(--voile, rgba(18, 10, 6, .5)), url("fond-automne.jpg?v=200") center / cover no-repeat; }
+.login { background: var(--voile, rgba(18, 10, 6, .5)), url("fond-automne.jpg?v=201") center / cover no-repeat; }
 
 /* verre */
 .carte, .rangee, .stat, .pli, .tuile, .action, .feuille-panneau, .onglets, .recherche input, .fermer {
@@ -374,28 +374,28 @@ html[style*="color-scheme: light"] .titre, html[style*="color-scheme: light"] .s
 .contenu { padding-bottom: calc(var(--bas) + 110px); }
 
 /* accueil : le bouton photo est le héros */
-.photo-geant { width: 100%; display: grid; justify-items: center; gap: 6px; text-align: center; padding: 30px 18px 26px; margin: 2px 0 14px; border-radius: 34px;
+.photo-geant { width: 100%; display: grid; justify-items: center; gap: 6px; text-align: center; padding: 14px 16px 16px; margin: 0 0 10px; border-radius: 28px;
   border: 1px solid rgba(255, 255, 255, .3); color: var(--sur-accent, #fff);
   background: radial-gradient(130% 150% at 18% 0%, color-mix(in srgb, var(--accent) 86%, #fff 14%), color-mix(in srgb, var(--accent) 62%, #000));
   box-shadow: 0 20px 44px color-mix(in srgb, var(--accent) 48%, transparent), inset 0 1px 0 rgba(255, 255, 255, .38); transition: transform .12s; }
 .photo-geant:active { transform: scale(.98); }
-.photo-halo { width: 96px; height: 96px; border-radius: 50%; display: grid; place-items: center; background: rgba(255, 255, 255, .2);
-  box-shadow: 0 0 0 10px rgba(255, 255, 255, .09), 0 0 0 22px rgba(255, 255, 255, .05); margin: 10px 0 14px; }
-.photo-halo svg { width: 48px; height: 48px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
-.photo-geant b { font: 700 26px/1.12 var(--titre); }
-.photo-geant small { font-size: 14.5px; opacity: .88; }
+.photo-halo { width: 54px; height: 54px; border-radius: 50%; display: grid; place-items: center; background: rgba(255, 255, 255, .2);
+  box-shadow: 0 0 0 6px rgba(255, 255, 255, .09); margin: 2px 0 4px; }
+.photo-halo svg { width: 28px; height: 28px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.photo-geant b { font: 700 21px/1.12 var(--titre); }
+.photo-geant small { font-size: 13.5px; opacity: .88; }
 
-.tuiles { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px; }
-.tuile { background: var(--carte); border: 1px solid var(--bord); border-radius: 24px; padding: 12px 15px; }
+.tuiles { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 10px; }
+.tuile { background: var(--carte); border: 1px solid var(--bord); border-radius: 22px; padding: 9px 14px; }
 .tuile span { display: block; font-size: 12.5px; font-weight: 600; color: var(--texte-doux); }
 .tuile b { display: block; font: 700 30px/1.15 var(--titre); color: var(--chiffre); margin-top: 1px; }
-.tuile-grande { grid-column: 1 / -1; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 20px; }
+.tuile-grande { grid-column: 1 / -1; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 18px; }
 .tuile-grande span { font-size: 15px; color: var(--texte); }
-.tuile-grande b { font-size: 50px; line-height: 1; margin: 0; }
+.tuile-grande b { font-size: 42px; line-height: 1; margin: 0; }
 
-.acc-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-.action { display: grid; justify-items: start; gap: 2px; text-align: left; background: var(--carte); border: 1px solid var(--bord); border-radius: 24px; padding: 14px 15px; color: var(--texte); }
-.action .rond { width: 42px; height: 42px; border-radius: 14px; background: var(--accent-doux); display: grid; place-items: center; margin-bottom: 8px; }
+.acc-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.action { display: grid; justify-items: start; gap: 2px; text-align: left; background: var(--carte); border: 1px solid var(--bord); border-radius: 22px; padding: 11px 14px; color: var(--texte); }
+.action .rond { width: 36px; height: 36px; border-radius: 12px; background: var(--accent-doux); display: grid; place-items: center; margin-bottom: 5px; }
 .action .rond svg { width: 22px; height: 22px; fill: none; stroke: var(--accent-texte); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 .action b { font-weight: 700; font-size: 16px; }
 .action small { color: var(--texte-doux); font-size: 12.5px; }
@@ -414,3 +414,7 @@ html[style*="color-scheme: light"] .titre, html[style*="color-scheme: light"] .s
 .btn { border-radius: 18px; }
 .puce, .filtres button, .mini-btn { background: color-mix(in srgb, var(--carte) 85%, transparent); }
 .version { color: var(--texte-doux); }
+
+/* pas de zoom au double appui (iPhone) */
+html, body, button, a, input, label, summary, .onglets, .onglets * { touch-action: manipulation; }
+.onglets, .photo-geant, .action, .tuile { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }

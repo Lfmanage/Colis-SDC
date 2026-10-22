@@ -181,7 +181,7 @@ function ajusterAccueil() {
   if (!v || v.hidden || !nav) return;
   v.style.height = "";
   const dispo = nav.getBoundingClientRect().top - v.getBoundingClientRect().top - 10;
-  if (dispo > 300) v.style.height = Math.round(dispo) + "px";
+  if (dispo > 300) v.style.height = Math.round(dispo) + "px"; // les tuiles remplissent l'écran
 }
 addEventListener("resize", ajusterAccueil);
 addEventListener("orientationchange", () => setTimeout(ajusterAccueil, 250));
@@ -206,7 +206,7 @@ function fermerFeuilles() { // la barre du bas reste visible au-dessus des écra
   if (!$("#pc").hidden) { try { garderPC(); } catch {} }
   ["#pc", "#fiche", "#etq", "#introuvable"].forEach(s => { if (!$(s).hidden) cacher(s); });
 }
-$$(".onglets button").forEach(b => b.addEventListener("click", () => { fermerFeuilles(); allerA(b.dataset.vue); }));
+$$(".onglets button").forEach(b => b.addEventListener("click", () => { fermerFeuilles(); if (b.dataset.action === "photo") return ouvrirPhoto("retrouver"); allerA(b.dataset.vue); }));
 
 /* Feuilles */
 let ficheId = null;
@@ -1259,26 +1259,23 @@ function proposerCreation(numero, numeroComplet, r, champs) {
   const lotsLus = spec && spec.lots && spec.lots.length > 1 ? spec.lots : null; // plusieurs longueurs lues sur l'étiquette
   const champ = (id, lab, val, attr = "") => `<label class="champ"><span>${lab}</span><input id="${id}" ${attr} value="${esc(val)}"></label>`;
   $("#intro-corps").innerHTML = `
-    <p>${numeroComplet ? `Le n° <b>${esc(numero)}</b> n'existe pas dans tes données.` : "Le n° n'a pas pu être lu sur la photo : tape-le ci-dessous."}</p>
-    <div class="lecture${verifie ? "" : " attention"}"><b>${verifie ? "✔ Section, pièces et longueur vérifiées (volume)" : "⚠ Lecture incertaine"}</b>
-      <p>${verifie ? "Vérifie le lieu et le choix, puis appuie sur « Créer l'étiquette »." : "Compare avec l'étiquette et corrige si besoin."}</p>
-      ${lotsLus ? `<p><b>Plusieurs longueurs :</b> ${esc(lotsLus.map(l => `${np(l.pieces)} × ${nf(l.longueur, 2)} m`).join(" + "))}</p>` : ""}</div>
-    ${champ("intro-numero", "N° d'étiquette", numeroComplet ? numero : "", 'inputmode="numeric" class="gros-chiffre" placeholder="200-000-1"')}
-    <span class="etiquette-champ">Section (mm)</span>
-    <div class="section">
-      <label class="champ"><input id="intro-ep" inputmode="numeric" placeholder="75" value="${esc(v.ep)}"><small>épaisseur</small></label><span class="fois">×</span>
-      <label class="champ"><input id="intro-larg" inputmode="numeric" placeholder="110" value="${esc(v.larg)}"><small>largeur</small></label>
+    <div class="lecture intro-bandeau${verifie ? "" : " attention"}"><b>${verifie ? "✔ Vérifié par le volume" : "⚠ Lecture incertaine : compare"}</b>${numeroComplet ? "" : " · n° non lu, tape-le"}
+      ${lotsLus ? `<br><b>Plusieurs longueurs :</b> ${esc(lotsLus.map(l => `${np(l.pieces)} × ${nf(l.longueur, 2)} m`).join(" + "))}` : ""}</div>
+    <div class="intro-grille">
+      <label class="champ intro-num"><span>N° d'étiquette</span><input id="intro-numero" inputmode="numeric" class="gros-chiffre" placeholder="200-000-1" value="${esc(numeroComplet ? numero : "")}"></label>
+      <label class="champ"><span>Choix</span><input id="intro-choix" inputmode="numeric" value="${esc(champs.choix || DEF.choix)}"></label>
+      <div class="champ intro-sec"><span>Section (mm)</span><div class="intro-sec-l"><input id="intro-ep" inputmode="numeric" placeholder="ép." value="${esc(v.ep)}"><i>×</i><input id="intro-larg" inputmode="numeric" placeholder="larg." value="${esc(v.larg)}"></div></div>
+      <label class="champ"><span>Pièces</span><input id="intro-pieces" inputmode="numeric" value="${esc(v.pieces)}"></label>
+      <label class="champ"><span>Longueur (m)</span><input id="intro-long" inputmode="decimal" value="${esc(v.lo === "" ? "" : nf(v.lo, 2))}"></label>
     </div>
-    <div class="ligne-2">${champ("intro-pieces", "Pièces", v.pieces, 'inputmode="numeric"')}${champ("intro-long", "Longueur (m)", v.lo === "" ? "" : nf(v.lo, 2), 'inputmode="decimal"')}</div>
-    ${champ("intro-choix", "Choix", champs.choix || DEF.choix, 'inputmode="numeric"')}
     <p class="alerte" id="intro-erreur" hidden></p>
-    <div class="actions"><button type="button" class="btn btn-principal" id="intro-creer">Créer l'étiquette</button><button type="button" class="btn btn-secondaire" data-fermer>Fermer</button></div>`;
+    <div class="intro-actions"><button type="button" class="btn btn-secondaire" data-fermer>Fermer</button><button type="button" class="btn btn-principal" id="intro-creer">Créer l'étiquette</button></div>`;
   montrer("#introuvable");
   $("#intro-creer").onclick = () => {
     const erreur = m => { const e = $("#intro-erreur"); e.textContent = m; e.hidden = false; };
     const n = formatNumero($("#intro-numero").value);
     if (n.replace(/\D/g, "").length < 7) return erreur("Tape le n° complet de l'étiquette (ex. 203-522-1).");
-    const dejaLa = doublon(n); if (dejaLa) { cacher("#introuvable"); ouvrirFiche(dejaLa.id); toast("Ce n° existe déjà : voici le colis"); return; }
+    const dejaLa = doublon(n); if (dejaLa) return erreur(`Le n° ${n} existe déjà (${dejaLa.epaisseur} × ${dejaLa.largeur}).`);
     const ep = num($("#intro-ep").value), larg = num($("#intro-larg").value), pieces = Math.round(num($("#intro-pieces").value) || 0), lo = num($("#intro-long").value);
     if (!ep || !larg || !pieces || !lo) return erreur("Renseigne la section, les pièces et la longueur.");
     let dateIso = maintenant();
@@ -1287,7 +1284,7 @@ function proposerCreation(numero, numeroComplet, r, champs) {
       choix: $("#intro-choix").value.trim() || DEF.choix, essence: champs.essence || "", nature: DEF.nature, options, ref_client: "", observation: "Créé d'après une photo d'étiquette",
       statut: "a_sortir", cree_le: dateIso, etiquete_le: dateIso, supprime: false };
     if (lotsLus && pieces === lotsLus[0].pieces && lo === lotsLus[0].longueur) c.autres = lotsLus.slice(1).map(l => ({ pieces: l.pieces, longueur: l.longueur }));
-    enregistrer(c); cacher("#introuvable"); ouvrirFiche(c.id); toast("Étiquette créée");
+    enregistrer(c); cacher("#introuvable"); allerA(vueActive); toast(`✔ Étiquette ${n} créée`);
   };
 }
 function calculerVerifs(lec, c) {
@@ -1657,17 +1654,23 @@ const PRINC = [["Indigo", "#5B4FBF"], ["Terracotta", "#D4917F"], ["Pêche", "#DD
   ["Menthe", "#8CC4B8"], ["Ciel", "#8DB8D9"], ["Bleu", "#5F7DB9"], ["Lavande", "#A199CE"], ["Bordeaux", "#843C4E"], ["Gris", "#9DA0AA"]];
 const PALETTES = {
   princ: PRINC,
+  fond: [["Lavande", "#F4F2F8"], ["Blanc", "#FFFFFF"], ["Crème", "#F8F3EA"], ["Gris perle", "#EEF0F3"], ["Menthe", "#EAF5F0"], ["Ciel", "#EAF2FA"], ["Rose", "#FBEFF1"], ["Sable", "#EFE6D8"],
+    ["Ardoise", "#2B2F3A"], ["Nuit", "#14161D"], ["Forêt", "#16241D"], ["Indigo nuit", "#1B1838"], ["Noir", "#000000"]],
+  carte: [["Blanc", "#FFFFFF"], ["Lavande", "#F7F5FD"], ["Crème", "#FFFBF3"], ["Gris", "#F3F4F6"], ["Menthe", "#F2FAF6"], ["Ardoise", "#343946"], ["Nuit", "#1F222B"], ["Indigo nuit", "#26224A"], ["Noir", "#111111"]],
+  nav: [["Blanc", "#FFFFFF"], ["Lavande", "#EFECFA"], ["Crème", "#FBF6EC"], ["Gris", "#EEF0F3"], ["Indigo", "#5B4FBF"], ["Bordeaux", "#843C4E"], ["Forêt", "#2F5D46"], ["Ardoise", "#2B2F3A"], ["Noir", "#111111"]],
+  texte: [["Encre", "#1E1B2E"], ["Noir", "#000000"], ["Brun", "#2A1B14"], ["Bleu nuit", "#1B2A44"], ["Gris", "#4A4F5C"], ["Blanc", "#FFFFFF"], ["Crème", "#FBF4EE"]],
   chiffre: [["Ambre", "#F0B04A"], ["Turquoise", "#1F8A8A"], ["Cuivre foncé", "#B4682F"], ["Bordeaux", "#843C4E"], ["Indigo", "#5B4FBF"], ["Vert", "#3F7F5B"], ["Bleu", "#2F6DA3"], ["Brique", "#C0533D"], ["Or foncé", "#8C6D1F"],
     ["Ardoise", "#5A6B7B"], ["Noir", "#26201F"], ["Violet", "#7A4E9A"], ["Framboise", "#B23B6B"], ["Olive", "#6B7F3A"]]
 };
-const CLES_REGLAGES = ["mode", "anim", "c_princ", "c_fond", "c_nav", "c_chiffre"];
-const REGLAGES_DEFAUT = { mode: "clair", anim: true, c_princ: "#5B4FBF", c_fond: "#F4F2F8", c_nav: "auto", c_chiffre: "#5B4FBF" };
+const CLES_REGLAGES = ["mode", "anim", "c_princ", "c_fond", "c_carte", "c_nav", "c_texte", "c_chiffre"];
+const REGLAGES_DEFAUT = { mode: "clair", anim: true, c_princ: "#5B4FBF", c_fond: "auto", c_carte: "auto", c_nav: "auto", c_texte: "auto", c_chiffre: "#5B4FBF" };
 const anciens = lire(K.reglages, {});
 let reglages = { ...REGLAGES_DEFAUT, maj: anciens.maj || null, attente: !!anciens.attente };
 CLES_REGLAGES.forEach(k => { if (anciens[k] !== undefined) reglages[k] = anciens[k]; }); // les anciens réglages (vert, or, forêt…) sont abandonnés
-const THEME_V = 4; // v2.4.4 : design Poka (clair, indigo)
-if (anciens.tv !== THEME_V) {
-  Object.assign(reglages, { mode: REGLAGES_DEFAUT.mode, c_princ: REGLAGES_DEFAUT.c_princ, c_fond: REGLAGES_DEFAUT.c_fond, c_nav: REGLAGES_DEFAUT.c_nav, c_chiffre: REGLAGES_DEFAUT.c_chiffre, maj: maintenant(), attente: true });
+const THEME_V = 5; // v2.4.6 : toutes les couleurs réglables
+if (anciens.tv === 4) { Object.assign(reglages, { c_fond: "auto", c_carte: "auto", c_nav: "auto", c_texte: "auto" }); reglages.tv = THEME_V; ecrire(K.reglages, reglages); }
+else if (anciens.tv !== THEME_V) {
+  Object.assign(reglages, { mode: REGLAGES_DEFAUT.mode, c_princ: REGLAGES_DEFAUT.c_princ, c_carte: "auto", c_texte: "auto", c_fond: REGLAGES_DEFAUT.c_fond, c_nav: REGLAGES_DEFAUT.c_nav, c_chiffre: REGLAGES_DEFAUT.c_chiffre, maj: maintenant(), attente: true });
   reglages.tv = THEME_V; ecrire(K.reglages, reglages);
 }
 reglages.tv = THEME_V;
@@ -1706,9 +1709,16 @@ function appliquerTheme() {
   set("--nav-texte", sombre ? "rgba(255,255,255,.72)" : "#6B6880");
   set("--nav-actif", sombre ? "#FFFFFF" : mix(ac, "#000000", clarte(ac) > 0.5 ? 0.45 : 0.1));
   set("--nav-pastille", sombre ? "rgba(255,255,255,.2)" : mix(ac, W, 0.86));
+  // couleurs choisies à la main (Réglages → Apparence) : elles passent devant le thème
+  const perso = v => v && v !== "auto";
+  if (perso(r.c_fond)) { const f = r.c_fond, fs = clarte(f) < 0.45; set("--fond", f); set("--fond-haut", mix(f, fs ? W : "#000000", 0.05)); set("--voile", "transparent"); }
+  if (perso(r.c_carte)) { const c = r.c_carte; set("--carte", c); set("--panneau", c); set("--champ", clarte(c) < 0.45 ? mix(c, W, 0.08) : mix(c, W, 0.5)); }
+  if (perso(r.c_texte)) { const t = r.c_texte; set("--texte", t); set("--texte-doux", mix(t, clarte(t) < 0.5 ? W : "#000000", 0.38)); set("--nav-texte", mix(t, clarte(t) < 0.5 ? W : "#000000", 0.38)); }
+  if (perso(r.c_nav)) { const n = r.c_nav, ns = clarte(n) < 0.45; set("--barre", n); set("--nav-texte", ns ? "rgba(255,255,255,.72)" : mix(n, "#000000", 0.55)); set("--nav-actif", ns ? W : ac); set("--nav-pastille", ns ? "rgba(255,255,255,.18)" : mix(ac, n, 0.82)); }
+  document.documentElement.classList.toggle("fond-perso", perso(r.c_fond));
   document.documentElement.style.colorScheme = sombre ? "dark" : "light";
   document.body.classList.toggle("sans-anim", !r.anim);
-  const m = document.querySelector('meta[name="theme-color"]'); if (m) m.content = sombre ? "#1A100B" : "#F4F2F8";
+  const m = document.querySelector('meta[name="theme-color"]'); if (m) m.content = perso(r.c_fond) ? r.c_fond : sombre ? "#1A100B" : "#F4F2F8";
 }
 matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => { if (reglages.mode === "auto") appliquerTheme(); });
 /* Décor (propre à cet appareil) : fond flou ou net, quantité de feuilles qui tombent */
@@ -1719,7 +1729,7 @@ const DECO = (() => {
 })();
 function appliquerDeco() {
   const html = document.documentElement;
-  html.style.setProperty("--fond-img", `url("fond-automne${DECO.flou ? "" : "-net"}.jpg?v=244")`);
+  html.style.setProperty("--fond-img", `url("fond-automne${DECO.flou ? "" : "-net"}.jpg?v=246")`);
   html.classList.toggle("fond-net", !DECO.flou);
   if (window.FEUILLES) FEUILLES.regler(DECO.feuilles);
 }
@@ -1731,12 +1741,18 @@ function majUIapparence() {
   $$("#theme-mode [data-mode]").forEach(b => b.setAttribute("aria-pressed", b.dataset.mode === reglages.mode));
   $("#c-anim").checked = !!reglages.anim;
   const tint = mix(reglages.c_princ, "#ffffff", 0.84);
-  const pal = (id, cle, liste, nombre) => {
-    $(id).innerHTML = liste.map(([nom, val]) => `<button type="button" class="pastille" data-cle="${cle}" data-val="${val}" title="${esc(nom)}" aria-label="${esc(nom)}" aria-pressed="${String(reglages[cle]).toLowerCase() === val.toLowerCase()}" style="background:${val === "auto" ? tint : val}"></button>`).join("");
-    $(nombre).textContent = `${liste.length} couleurs`;
+  const pal = (id, cle, liste, auto) => {
+    const cur = String(reglages[cle] || "auto").toLowerCase(), connue = liste.some(([, v]) => v.toLowerCase() === cur);
+    $(id).innerHTML = (auto ? `<button type="button" class="pastille pastille-auto" data-cle="${cle}" data-val="auto" title="Automatique" aria-pressed="${cur === "auto"}">A</button>` : "")
+      + liste.map(([nom, val]) => `<button type="button" class="pastille" data-cle="${cle}" data-val="${val}" title="${esc(nom)}" aria-label="${esc(nom)}" aria-pressed="${cur === val.toLowerCase()}" style="background:${val}"></button>`).join("")
+      + `<label class="pastille pastille-libre" title="Couleur au choix" aria-pressed="${cur !== "auto" && !connue}" style="${cur !== "auto" && !connue ? `background:${cur}` : ""}"><input type="color" data-cle="${cle}" value="${cur.startsWith("#") ? cur : "#5b4fbf"}"></label>`;
   };
-  pal("#pal-princ", "c_princ", PALETTES.princ, "#n-princ");
-  pal("#pal-chiffre", "c_chiffre", PALETTES.chiffre, "#n-chiffre");
+  pal("#pal-princ", "c_princ", PALETTES.princ, false);
+  pal("#pal-fond", "c_fond", PALETTES.fond, true);
+  pal("#pal-carte", "c_carte", PALETTES.carte, true);
+  pal("#pal-nav", "c_nav", PALETTES.nav, true);
+  pal("#pal-texte", "c_texte", PALETTES.texte, true);
+  pal("#pal-chiffre", "c_chiffre", PALETTES.chiffre, false);
 }
 let minuteurReglages;
 function changerReglages(patch) {
@@ -1745,9 +1761,13 @@ function changerReglages(patch) {
   clearTimeout(minuteurReglages); minuteurReglages = setTimeout(synchroniser, 800);
 }
 $("#pli-apparence").addEventListener("click", e => {
-  const p = e.target.closest(".pastille"); if (p) { changerReglages({ [p.dataset.cle]: p.dataset.val }); return; }
+  if (e.target.closest(".pastille-libre")) return; // le sélecteur de couleur s'ouvre
+  if (e.target.closest("#c-reinit")) { changerReglages({ c_princ: "#5B4FBF", c_fond: "auto", c_carte: "auto", c_nav: "auto", c_texte: "auto", c_chiffre: "#5B4FBF" }); return; }
+  const p = e.target.closest("button.pastille"); if (p) { changerReglages({ [p.dataset.cle]: p.dataset.val }); return; }
   const m = e.target.closest("[data-mode]"); if (m) changerReglages({ mode: m.dataset.mode });
 });
+$("#pli-apparence").addEventListener("input", e => { const c = e.target.closest('input[type="color"][data-cle]'); if (c) { reglages[c.dataset.cle] = c.value; appliquerTheme(); } });
+$("#pli-apparence").addEventListener("change", e => { const c = e.target.closest('input[type="color"][data-cle]'); if (c) changerReglages({ [c.dataset.cle]: c.value }); });
 $("#c-anim").addEventListener("change", e => changerReglages({ anim: e.target.checked }));
 const valeursReglages = () => Object.fromEntries(CLES_REGLAGES.map(k => [k, reglages[k]]));
 async function syncReglages() {

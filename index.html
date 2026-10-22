@@ -15,7 +15,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=244">
+<link rel="stylesheet" href="style.css?v=246">
 </head>
 <body>
 <canvas id="feuilles-arriere" class="feuilles-canvas" aria-hidden="true"></canvas>
@@ -45,7 +45,7 @@
   <section id="vue-accueil" class="vue">
     <button type="button" class="btn btn-pc" id="acc-alerte" hidden></button>
 
-    <button type="button" class="photo-geant btn-photo" id="acc-photo">
+    <button type="button" class="photo-geant btn-photo" id="acc-photo" hidden>
       <span class="photo-halo"><svg viewBox="0 0 24 24"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.8"/></svg></span>
       <span class="photo-texte"><b>Photographier l'étiquette</b><small>Retrouve un colis ou crée-le d'un geste</small></span>
     </button>
@@ -62,7 +62,7 @@
       <button type="button" class="action" id="acc-pointer" hidden><i class="rond"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></svg></i><b id="acc-pointer-t">Pointer</b><small id="acc-pointer-s"></small></button>
       <button type="button" class="action" id="acc-colis"><i class="rond"><svg viewBox="0 0 24 24"><path d="M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01"/></svg></i><b>Liste des colis</b><small id="acc-colis-s"></small></button>
     </div>
-    <p class="version-acc"><button type="button" class="lien" id="btn-maj">v2.4.4 · Mettre à jour l'appli</button></p>
+    <p class="version-acc"><button type="button" class="lien" id="btn-maj">v2.4.6 · Mettre à jour l'appli</button></p>
   </section>
 
   <section id="vue-nouveau" class="vue" hidden>
@@ -204,8 +204,14 @@
           </div>
           <p class="note-stats" id="deco-etat"></p>
         </div>
-        <div class="bloc-couleurs"><div class="bloc-tete">Couleurs principales <em id="n-princ"></em></div><div class="pastilles" id="pal-princ"></div></div>
-        <div class="bloc-couleurs"><div class="bloc-tete">Couleur des chiffres <em id="n-chiffre"></em></div><div class="pastilles" id="pal-chiffre"></div></div>
+        <p class="note-stats">A = automatique (suit le thème) · 🌈 = n'importe quelle couleur</p>
+        <div class="bloc-couleurs"><div class="bloc-tete">Couleur principale <em>boutons, onglet actif</em></div><div class="pastilles" id="pal-princ"></div></div>
+        <div class="bloc-couleurs"><div class="bloc-tete">Fond de l'appli</div><div class="pastilles" id="pal-fond"></div></div>
+        <div class="bloc-couleurs"><div class="bloc-tete">Cartes et fenêtres</div><div class="pastilles" id="pal-carte"></div></div>
+        <div class="bloc-couleurs"><div class="bloc-tete">Barre du bas</div><div class="pastilles" id="pal-nav"></div></div>
+        <div class="bloc-couleurs"><div class="bloc-tete">Texte</div><div class="pastilles" id="pal-texte"></div></div>
+        <div class="bloc-couleurs"><div class="bloc-tete">Chiffres</div><div class="pastilles" id="pal-chiffre"></div></div>
+        <button type="button" class="btn btn-secondaire" id="c-reinit">Remettre les couleurs d'origine</button>
       </div>
     </details>
     <details class="pli" id="pli-supabase">
@@ -236,7 +242,7 @@
         <input type="file" id="restaurer-input" accept=".json,application/json" hidden>
       </div>
     </details>
-    <p class="version">Colis SDC · v2.4.4</p>
+    <p class="version">Colis SDC · v2.4.6</p>
   </section>
 </main>
 
@@ -245,6 +251,8 @@
 <nav class="onglets">
   <button type="button" data-vue="accueil" class="actif">
     <i class="ico"><svg viewBox="0 0 24 24"><path d="M3 11l9-8 9 8M5 10v10h5v-6h4v6h5V10"/></svg></i><span>Accueil</span></button>
+  <button type="button" data-action="photo" class="onglet-photo" aria-label="Appareil photo">
+    <i class="ico"><svg viewBox="0 0 24 24"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg></i><span>Photo</span></button>
   <button type="button" data-vue="colis">
     <i class="ico"><svg viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="4" rx="1"/><rect x="3" y="10" width="18" height="4" rx="1"/><rect x="3" y="14" width="18" height="4" rx="1"/></svg></i><span>Colis</span></button>
   <button type="button" data-vue="stats">
@@ -284,7 +292,7 @@
   <div class="feuille-fond" data-fermer></div>
   <div class="feuille-panneau" role="dialog" aria-modal="true" aria-labelledby="intro-titre">
     <div class="feuille-tete">
-      <h2 class="titre" id="intro-titre">Étiquette introuvable</h2>
+      <h2 class="titre" id="intro-titre">Nouvelle étiquette</h2>
       <button type="button" class="fermer" data-fermer aria-label="Fermer">×</button>
     </div>
     <div id="intro-corps"></div>
@@ -312,10 +320,10 @@
 <!-- Zone imprimée (copie d'étiquette) -->
 <div id="impression" aria-hidden="true"></div>
 
-<script src="config.js?v=244"></script>
+<script src="config.js?v=246"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
-<script src="lecture.js?v=244"></script>
-<script src="feuilles.js?v=244"></script>
-<script src="app.js?v=244"></script>
+<script src="lecture.js?v=246"></script>
+<script src="feuilles.js?v=246"></script>
+<script src="app.js?v=246"></script>
 </body>
 </html>

@@ -63,3 +63,12 @@ Réglages → Apparence : thème **Auto / Clair / Sombre**, animations, **couleu
 - Thème clair par défaut : fond lavande, cartes blanches, accent indigo (le thème sombre « automne » reste dans Réglages → Apparence).
 - Barre du bas comme Poka : plate, blanche, collée en bas, pastille ronde derrière l'onglet actif.
 - Bouton « + » rond (nouveau colis) sur Colis et Stats.
+
+## v2.4.5
+- Onglet « Photo » (appareil photo direct) entre Accueil et Colis.
+- « Créer l'étiquette » : la fiche ne s'ouvre plus, juste un message de confirmation.
+- Feuille « Nouvelle étiquette » compacte : tout tient sur un écran.
+
+## v2.4.6
+- Accueil : plus de gros bouton photo (il est dans la barre du bas) ; les tuiles prennent la place.
+- Réglages → Apparence : couleur principale, fond, cartes, barre du bas, texte, chiffres. Pastilles toutes prêtes, « A » = automatique, 🌈 = n'importe quelle couleur. Bouton « Remettre les couleurs d'origine ».

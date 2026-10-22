@@ -344,9 +344,9 @@ pre.lu { white-space: pre-wrap; word-break: break-word; font-size: 11.5px; line-
 /* ═════════ Design 2.0 : verre dépoli sur bois d'automne flouté ═════════ */
 html { background: #1A100B; }
 body { background: transparent; }
-body::before { content: ""; position: fixed; inset: 0; z-index: -3; background: var(--fond-img, url("fond-automne.jpg?v=244")) center / cover no-repeat; transform: scale(1.05); }
+body::before { content: ""; position: fixed; inset: 0; z-index: -3; background: var(--fond-img, url("fond-automne.jpg?v=246")) center / cover no-repeat; transform: scale(1.05); }
 body::after { content: ""; position: fixed; inset: 0; z-index: -2; background: var(--voile, rgba(18, 10, 6, .5)); pointer-events: none; }
-.login { background: var(--voile, rgba(18, 10, 6, .5)), url("fond-automne.jpg?v=244") center / cover no-repeat; }
+.login { background: var(--voile, rgba(18, 10, 6, .5)), url("fond-automne.jpg?v=246") center / cover no-repeat; }
 
 /* verre */
 .carte, .stat, .pli, .tuile, .action, .feuille-panneau, .onglets, .recherche input, .fermer {
@@ -566,7 +566,7 @@ body.sur-accueil .contenu { padding-bottom: 0; }
 #vue-nouveau #btn-generer { padding: 11px 16px; }
 #vue-nouveau .actions { margin-top: 0; }
 
-/* ───── v2.4.4 : design Poka (thème clair) ───── */
+/* ───── v2.4.6 : design Poka (thème clair) ───── */
 html.poka body { background: linear-gradient(180deg, #ECE8F7 0, #F4F2F8 300px, #F7F6FA 100%) fixed, #F4F2F8; }
 html.poka body::before, html.poka body::after, html.poka .feuilles-canvas { display: none; }
 html.poka .entete { background: color-mix(in srgb, #F2EFF8 90%, transparent); }
@@ -591,3 +591,43 @@ html.poka body.sur-accueil .contenu { padding-bottom: 0; }
 html:not(.poka) .fab { bottom: calc(var(--bas) + 96px); }
 body:has(.feuille:not([hidden])) .fab { display: none; }
 html.poka .photo-geant, html.poka .tuile-plus { background: linear-gradient(135deg, #7A6FE0, #5B4FBF); }
+
+/* ───── v2.4.6 : onglet Photo + feuille « nouvelle étiquette » sur une seule page ───── */
+.onglets { grid-template-columns: repeat(5, 1fr) !important; }
+#introuvable .feuille-tete { margin-bottom: 6px; }
+#introuvable .feuille-tete .titre { font-size: 22px; }
+.intro-bandeau { padding: 8px 12px !important; margin: 0 0 10px !important; font-size: 13.5px; border-radius: 14px; }
+.intro-grille { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px 10px; }
+.intro-grille .champ { margin: 0; }
+.intro-grille .champ > span { font-size: 12.5px; margin-bottom: 3px; }
+.intro-grille input { padding: 8px 10px !important; font-size: 17px !important; border-radius: 12px !important; text-align: center; }
+.intro-num { grid-column: span 2; }
+.intro-num input { text-align: left; font-size: 20px !important; }
+.intro-sec { grid-column: 1 / -1; }
+.intro-sec-l { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 8px; }
+.intro-sec-l i { font-style: normal; color: var(--texte-doux); font-size: 18px; }
+.intro-sec-l input { width: 100%; border: 1.5px solid var(--bord); background: var(--champ); color: var(--texte); outline: none; font: 600 20px var(--titre) !important; }
+.intro-sec-l input:focus { border-color: var(--accent); }
+.intro-grille .champ:nth-child(4) { grid-column: span 1; }
+.intro-grille .champ:nth-child(5) { grid-column: span 2; }
+#intro-erreur { margin: 8px 0 0; }
+.intro-actions { display: grid; grid-template-columns: 1fr 2fr; gap: 10px; margin-top: 12px; }
+.intro-actions .btn { margin: 0; padding: 12px 10px; }
+
+/* ───── v2.4.6 : accueil sans gros bouton photo, toutes les couleurs réglables ───── */
+#vue-accueil .tuiles .tuile { min-height: 74px; }
+html.poka body, html.fond-perso body { background: linear-gradient(180deg, var(--fond-haut) 0, var(--fond) 300px) fixed, var(--fond); }
+html.fond-perso body::before, html.fond-perso body::after, html.fond-perso .feuilles-canvas { display: none; }
+html.poka .entete, html.fond-perso .entete { background: color-mix(in srgb, var(--fond-haut) 90%, transparent); }
+html.poka .carte, html.poka .tuile:not(.tuile-plus) { background: var(--carte); }
+html.poka .onglets, html.fond-perso .onglets { background: var(--barre); }
+html.poka .onglets button.actif { color: var(--nav-actif); }
+html.poka .titre { color: var(--texte); }
+html.poka .photo-geant, html.poka .tuile-plus { background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 78%, #fff), var(--accent)); }
+.pastille-auto { background: var(--carte); color: var(--texte); font: 700 14px var(--police); }
+.pastille-libre { display: inline-block; cursor: pointer; overflow: hidden; background: conic-gradient(#f44, #fd4, #4d4, #4df, #44f, #f4f, #f44); }
+.pastille-libre input { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; border: 0; padding: 0; }
+#c-reinit { width: 100%; margin-top: 6px; }
+#vue-accueil .tuiles { flex: 0 1 auto; grid-auto-rows: minmax(84px, 128px); }
+#vue-accueil .tuiles .tuile b { font-size: clamp(30px, 5vh, 46px); }
+#vue-accueil .tuiles .tuile span { font-size: clamp(14px, 2vh, 17px); }

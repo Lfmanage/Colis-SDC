@@ -56,3 +56,5 @@ Réglages → Apparence : thème **Auto / Clair / Sombre**, animations, **couleu
 - Pointage plus compact : section + 📷 + Pointer en haut, essence en gros boutons (S, D, Autre), options sans légende, récap plus petit, Pointer / Photo / Corriger / Copie en bas.
 ## v2.4.2
 - Calepin : essence et choix du bois sur une seule ligne de boutons ; options en grille de boutons égaux (même grille au pointage). Tout tient sur un écran, « Ajouter au calepin » visible.
+## v2.4.3
+- Calepin resserré d'environ 25 % : titre « Colis » retiré, champs plus bas, « + Autre longueur » à côté du volume, boutons plus fins. Tout tient sur un écran avec « Ajouter au calepin ».

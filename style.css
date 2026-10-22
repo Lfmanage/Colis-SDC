@@ -344,9 +344,9 @@ pre.lu { white-space: pre-wrap; word-break: break-word; font-size: 11.5px; line-
 /* ═════════ Design 2.0 : verre dépoli sur bois d'automne flouté ═════════ */
 html { background: #1A100B; }
 body { background: transparent; }
-body::before { content: ""; position: fixed; inset: 0; z-index: -3; background: var(--fond-img, url("fond-automne.jpg?v=242")) center / cover no-repeat; transform: scale(1.05); }
+body::before { content: ""; position: fixed; inset: 0; z-index: -3; background: var(--fond-img, url("fond-automne.jpg?v=243")) center / cover no-repeat; transform: scale(1.05); }
 body::after { content: ""; position: fixed; inset: 0; z-index: -2; background: var(--voile, rgba(18, 10, 6, .5)); pointer-events: none; }
-.login { background: var(--voile, rgba(18, 10, 6, .5)), url("fond-automne.jpg?v=242") center / cover no-repeat; }
+.login { background: var(--voile, rgba(18, 10, 6, .5)), url("fond-automne.jpg?v=243") center / cover no-repeat; }
 
 /* verre */
 .carte, .stat, .pli, .tuile, .action, .feuille-panneau, .onglets, .recherche input, .fermer {
@@ -544,3 +544,24 @@ body.sur-accueil .contenu { padding-bottom: 0; }
 .seg-options .puce:last-child:nth-child(4n + 3) { grid-column: span 2; }
 .seg-grid .puce[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--sur-accent, #fff); }
 #pc-options .puce { padding: 0 2px; font-size: 16px; }
+
+/* ───── v2.4.3 : calepin resserré (~20 %) pour tenir sur un écran ───── */
+#vue-nouveau .carte { padding: 10px 12px; margin-bottom: 10px; }
+#vue-nouveau .sous-titre { display: none; }
+#vue-nouveau .etiquette-champ, #vue-nouveau .champ > span { font-size: 13px; margin-bottom: 3px; }
+#vue-nouveau .champ { margin-bottom: 7px; }
+#vue-nouveau .champ input { padding: 7px 11px; font-size: 16px; border-radius: 12px; }
+#vue-nouveau .section { margin-bottom: 2px; gap: 6px; }
+#vue-nouveau .section input { font-size: 21px; padding: 5px 8px; }
+#vue-nouveau .section small { display: none; }
+#vue-nouveau .fois { padding-top: 6px; font-size: 19px; }
+#vue-nouveau .ligne-2 { gap: 8px; }
+.cal-ligne-vol { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 0 0 8px; }
+.cal-ligne-vol .volume { margin: 0; }
+#vue-nouveau .ajout-longueur { width: auto; margin: 0; padding: 5px 10px; border-radius: 10px; font-size: 13px; }
+#vue-nouveau .cal-choix { margin: 2px 0 8px; gap: 8px; }
+#vue-nouveau .seg-grid { gap: 4px; }
+#vue-nouveau .seg-grid .puce { height: 36px; font-size: 15px; border-radius: 10px; }
+#vue-nouveau .seg-options { margin-bottom: 4px; }
+#vue-nouveau #btn-generer { padding: 11px 16px; }
+#vue-nouveau .actions { margin-top: 0; }

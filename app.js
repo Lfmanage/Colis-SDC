@@ -743,7 +743,7 @@ function rendrePC() {
       <div class="pc-essences" id="pc-essences">${essencesConnues().map(x => `<button type="button" data-ess="${esc(x)}" aria-pressed="${x === essenceVal.toUpperCase()}">${esc(x)}</button>`).join("")}<button type="button" data-ess-autre aria-pressed="${!!essenceVal && !essencesConnues().includes(essenceVal.toUpperCase())}">Autre</button></div>
       <label class="champ pc-essence-autre" ${essenceVal && !essencesConnues().includes(essenceVal.toUpperCase()) ? "" : "hidden"}><span>Autre essence</span><input id="pc-essence" class="majuscules" autocapitalize="characters" placeholder="S" value="${esc(essenceVal)}"></label>
       <span class="etiquette-champ">Options</span>
-      <div class="puces" id="pc-options">${Object.entries(OPTIONS).map(([k, lib]) =>
+      <div class="seg-grid seg-options" id="pc-options">${Object.entries(OPTIONS).map(([k, lib]) =>
         `<button type="button" class="puce" data-popt="${esc(k)}" aria-pressed="${pcOptions.has(k)}">${esc(k)} <small>${esc(lib)}</small></button>`).join("")}</div>
       <details class="details">
         <summary><span>Plus de détails</span></summary>
@@ -1717,7 +1717,7 @@ const DECO = (() => {
 })();
 function appliquerDeco() {
   const html = document.documentElement;
-  html.style.setProperty("--fond-img", `url("fond-automne${DECO.flou ? "" : "-net"}.jpg?v=241")`);
+  html.style.setProperty("--fond-img", `url("fond-automne${DECO.flou ? "" : "-net"}.jpg?v=242")`);
   html.classList.toggle("fond-net", !DECO.flou);
   if (window.FEUILLES) FEUILLES.regler(DECO.feuilles);
 }

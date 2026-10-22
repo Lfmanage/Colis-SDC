@@ -54,3 +54,5 @@ Réglages → Apparence : thème **Auto / Clair / Sombre**, animations, **couleu
 ## v2.4.1
 - Barre du bas visible partout, même sur le pointage et les fiches ; toucher un onglet ferme l'écran ouvert.
 - Pointage plus compact : section + 📷 + Pointer en haut, essence en gros boutons (S, D, Autre), options sans légende, récap plus petit, Pointer / Photo / Corriger / Copie en bas.
+## v2.4.2
+- Calepin : essence et choix du bois sur une seule ligne de boutons ; options en grille de boutons égaux (même grille au pointage). Tout tient sur un écran, « Ajouter au calepin » visible.

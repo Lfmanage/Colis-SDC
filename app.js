@@ -197,6 +197,7 @@ function allerA(vue) {
   if (vue === "accueil") rendreAccueil();
   window.scrollTo(0, 0);
   if (vue === "accueil") ajusterAccueil();
+  const fab = $("#fab"); if (fab) fab.hidden = vue !== "colis" && vue !== "stats";
 }
 function majTitre() {
   $("#entete-titre").textContent = { accueil: "Accueil", nouveau: editionId ? "Modifier le colis" : "Calepin", colis: "Colis", stats: "Statistiques", reglages: "Réglages" }[vueActive];
@@ -698,6 +699,7 @@ function rendreAccueil() {
 }
 $("#acc-alerte").addEventListener("click", () => { allerA("reglages"); $("#pli-supabase").open = true; });
 $("#acc-plus").addEventListener("click", () => allerA("nouveau"));
+$("#fab").addEventListener("click", () => { fermerFeuilles(); allerA("nouveau"); });
 $("#acc-pointer").addEventListener("click", () => ouvrirPC(filePCTous()));
 $("#acc-photo").addEventListener("click", () => ouvrirPhoto("retrouver"));
 $("#acc-colis").addEventListener("click", () => ouvrirListe("tous"));
@@ -1659,13 +1661,13 @@ const PALETTES = {
     ["Ardoise", "#5A6B7B"], ["Noir", "#26201F"], ["Violet", "#7A4E9A"], ["Framboise", "#B23B6B"], ["Olive", "#6B7F3A"]]
 };
 const CLES_REGLAGES = ["mode", "anim", "c_princ", "c_fond", "c_nav", "c_chiffre"];
-const REGLAGES_DEFAUT = { mode: "sombre", anim: true, c_princ: "#843C4E", c_fond: "#EEF2F7", c_nav: "auto", c_chiffre: "#F0B04A" };
+const REGLAGES_DEFAUT = { mode: "clair", anim: true, c_princ: "#5B4FBF", c_fond: "#F4F2F8", c_nav: "auto", c_chiffre: "#5B4FBF" };
 const anciens = lire(K.reglages, {});
 let reglages = { ...REGLAGES_DEFAUT, maj: anciens.maj || null, attente: !!anciens.attente };
 CLES_REGLAGES.forEach(k => { if (anciens[k] !== undefined) reglages[k] = anciens[k]; }); // les anciens réglages (vert, or, forêt…) sont abandonnés
-const THEME_V = 3; // nouvelle palette : on garde la couleur principale choisie, le reste est remplacé
+const THEME_V = 4; // v2.4.4 : design Poka (clair, indigo)
 if (anciens.tv !== THEME_V) {
-  Object.assign(reglages, { mode: REGLAGES_DEFAUT.mode, c_fond: REGLAGES_DEFAUT.c_fond, c_nav: REGLAGES_DEFAUT.c_nav, c_chiffre: REGLAGES_DEFAUT.c_chiffre, maj: maintenant(), attente: true });
+  Object.assign(reglages, { mode: REGLAGES_DEFAUT.mode, c_princ: REGLAGES_DEFAUT.c_princ, c_fond: REGLAGES_DEFAUT.c_fond, c_nav: REGLAGES_DEFAUT.c_nav, c_chiffre: REGLAGES_DEFAUT.c_chiffre, maj: maintenant(), attente: true });
   reglages.tv = THEME_V; ecrire(K.reglages, reglages);
 }
 reglages.tv = THEME_V;
@@ -1692,21 +1694,21 @@ function appliquerTheme() {
     set("--chiffre", clarte(r.c_chiffre) < 0.45 ? mix(r.c_chiffre, W, 0.5) : r.c_chiffre);
     set("--voile", "linear-gradient(180deg, rgba(18,10,6,.58) 0%, rgba(18,10,6,.38) 38%, rgba(18,10,6,.66) 100%)");
     set("--barre", "rgba(24,15,11,.66)");
-  } else {
-    set("--fond", "#F6EDE3"); set("--fond-haut", "#F1E4D6"); set("--carte", "rgba(255,250,245,.80)"); set("--champ", "rgba(255,255,255,.92)"); set("--panneau", "rgba(255,251,247,.96)");
-    set("--texte", "#2A1B14"); set("--texte-doux", "#6E5A4E"); set("--bord", "rgba(60,36,20,.14)"); set("--ombre", "0 8px 26px rgba(40,20,8,.14)");
-    set("--hero1", mix(ac, W, 0.7)); set("--hero2", mix(ac, W, 0.87));
-    set("--chiffre", mix(r.c_chiffre, "#000000", 0.32));
-    set("--voile", "linear-gradient(180deg, rgba(255,243,230,.62) 0%, rgba(255,243,230,.48) 40%, rgba(255,243,230,.66) 100%)");
-    set("--barre", "rgba(255,249,242,.80)");
+  } else { // design Poka : fond lavande clair, cartes blanches, accent indigo
+    set("--fond", "#F4F2F8"); set("--fond-haut", "#ECE8F7"); set("--carte", "#FFFFFF"); set("--champ", "#FFFFFF"); set("--panneau", "#FFFFFF");
+    set("--texte", "#1E1B2E"); set("--texte-doux", "#6B6880"); set("--bord", "rgba(30,27,46,.08)"); set("--ombre", "0 2px 12px rgba(40,30,90,.06)");
+    set("--hero1", mix(ac, W, 0.84)); set("--hero2", mix(ac, W, 0.93));
+    set("--chiffre", clarte(r.c_chiffre) > 0.5 ? mix(r.c_chiffre, "#000000", 0.35) : r.c_chiffre);
+    set("--voile", "transparent"); set("--barre", "#FFFFFF");
   }
+  document.documentElement.classList.toggle("poka", !sombre);
   set("--btn-hero1", mix(ac, "#000000", 0.12)); set("--btn-hero2", mix(ac, "#000000", 0.46));
-  set("--nav-texte", sombre ? "rgba(255,255,255,.72)" : "#6E5A4E");
+  set("--nav-texte", sombre ? "rgba(255,255,255,.72)" : "#6B6880");
   set("--nav-actif", sombre ? "#FFFFFF" : mix(ac, "#000000", clarte(ac) > 0.5 ? 0.45 : 0.1));
-  set("--nav-pastille", sombre ? "rgba(255,255,255,.2)" : mix(ac, W, 0.8));
+  set("--nav-pastille", sombre ? "rgba(255,255,255,.2)" : mix(ac, W, 0.86));
   document.documentElement.style.colorScheme = sombre ? "dark" : "light";
   document.body.classList.toggle("sans-anim", !r.anim);
-  const m = document.querySelector('meta[name="theme-color"]'); if (m) m.content = sombre ? "#1A100B" : "#F6EDE3";
+  const m = document.querySelector('meta[name="theme-color"]'); if (m) m.content = sombre ? "#1A100B" : "#F4F2F8";
 }
 matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => { if (reglages.mode === "auto") appliquerTheme(); });
 /* Décor (propre à cet appareil) : fond flou ou net, quantité de feuilles qui tombent */
@@ -1717,7 +1719,7 @@ const DECO = (() => {
 })();
 function appliquerDeco() {
   const html = document.documentElement;
-  html.style.setProperty("--fond-img", `url("fond-automne${DECO.flou ? "" : "-net"}.jpg?v=243")`);
+  html.style.setProperty("--fond-img", `url("fond-automne${DECO.flou ? "" : "-net"}.jpg?v=244")`);
   html.classList.toggle("fond-net", !DECO.flou);
   if (window.FEUILLES) FEUILLES.regler(DECO.feuilles);
 }

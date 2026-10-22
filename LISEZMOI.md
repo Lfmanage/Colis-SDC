@@ -58,3 +58,8 @@ Réglages → Apparence : thème **Auto / Clair / Sombre**, animations, **couleu
 - Calepin : essence et choix du bois sur une seule ligne de boutons ; options en grille de boutons égaux (même grille au pointage). Tout tient sur un écran, « Ajouter au calepin » visible.
 ## v2.4.3
 - Calepin resserré d'environ 25 % : titre « Colis » retiré, champs plus bas, « + Autre longueur » à côté du volume, boutons plus fins. Tout tient sur un écran avec « Ajouter au calepin ».
+
+## v2.4.4 — design Poka
+- Thème clair par défaut : fond lavande, cartes blanches, accent indigo (le thème sombre « automne » reste dans Réglages → Apparence).
+- Barre du bas comme Poka : plate, blanche, collée en bas, pastille ronde derrière l'onglet actif.
+- Bouton « + » rond (nouveau colis) sur Colis et Stats.

@@ -181,7 +181,7 @@ function ajusterAccueil() {
   if (!v || v.hidden || !nav) return;
   v.style.height = "";
   const dispo = nav.getBoundingClientRect().top - v.getBoundingClientRect().top - 10;
-  if (dispo > 300) v.style.height = Math.round(dispo) + "px"; // les tuiles remplissent l'écran
+  // hauteur naturelle (v2.4.7)
 }
 addEventListener("resize", ajusterAccueil);
 addEventListener("orientationchange", () => setTimeout(ajusterAccueil, 250));
@@ -691,6 +691,9 @@ function rendreAccueil() {
   $("#acc-pointes").textContent = np(pointes.length);
   $("#acc-vol").textContent = nf(pointes.filter(c => c.etiquete_le && jour(c.etiquete_le) === auj).reduce((s, c) => s + (volume(c) || 0), 0), 1);
   $("#acc-colis-s").textContent = `${np(tous.length)} colis en tout`;
+  const der = pointes.filter(c => c.etiquete_le).sort((x, y) => t(y.etiquete_le) - t(x.etiquete_le)).slice(0, 4);
+  $("#acc-derniers").hidden = !der.length;
+  $("#acc-derniers-l").innerHTML = der.map(c => `<button type="button" class="dernier" data-id="${esc(c.id)}"><b>${esc(String(c.epaisseur))} × ${esc(String(c.largeur))}</b><span>${np(c.pieces)} p. · ${nf(c.longueur, 2)} m${c.numero ? " · " + esc(c.numero) : ""}</span><em>${nf(volume(c) || 0, 2)} m³</em></button>`).join("");
   let msg = "";
   if (!configure) msg = ""; // Supabase viendra plus tard : on n'affiche rien tant qu'il n'est pas relié
   else if (!session) msg = "Connecte-toi pour sauvegarder tes colis en ligne.";
@@ -703,6 +706,7 @@ $("#fab").addEventListener("click", () => { fermerFeuilles(); allerA("nouveau");
 $("#acc-pointer").addEventListener("click", () => ouvrirPC(filePCTous()));
 $("#acc-photo").addEventListener("click", () => ouvrirPhoto("retrouver"));
 $("#acc-colis").addEventListener("click", () => ouvrirListe("tous"));
+$("#acc-derniers-l").addEventListener("click", e => { const d = e.target.closest(".dernier"); if (d) ouvrirFiche(d.dataset.id); });
 $$("[data-ouvre]").forEach(b => b.addEventListener("click", () => {
   const k = b.dataset.ouvre;
   if (k === "attente") { // « En attente de pointage » → directement l'écran de pointage
@@ -1667,7 +1671,7 @@ const REGLAGES_DEFAUT = { mode: "clair", anim: true, c_princ: "#5B4FBF", c_fond:
 const anciens = lire(K.reglages, {});
 let reglages = { ...REGLAGES_DEFAUT, maj: anciens.maj || null, attente: !!anciens.attente };
 CLES_REGLAGES.forEach(k => { if (anciens[k] !== undefined) reglages[k] = anciens[k]; }); // les anciens réglages (vert, or, forêt…) sont abandonnés
-const THEME_V = 5; // v2.4.6 : toutes les couleurs réglables
+const THEME_V = 5; // v2.4.7 : toutes les couleurs réglables
 if (anciens.tv === 4) { Object.assign(reglages, { c_fond: "auto", c_carte: "auto", c_nav: "auto", c_texte: "auto" }); reglages.tv = THEME_V; ecrire(K.reglages, reglages); }
 else if (anciens.tv !== THEME_V) {
   Object.assign(reglages, { mode: REGLAGES_DEFAUT.mode, c_princ: REGLAGES_DEFAUT.c_princ, c_carte: "auto", c_texte: "auto", c_fond: REGLAGES_DEFAUT.c_fond, c_nav: REGLAGES_DEFAUT.c_nav, c_chiffre: REGLAGES_DEFAUT.c_chiffre, maj: maintenant(), attente: true });
@@ -1729,7 +1733,7 @@ const DECO = (() => {
 })();
 function appliquerDeco() {
   const html = document.documentElement;
-  html.style.setProperty("--fond-img", `url("fond-automne${DECO.flou ? "" : "-net"}.jpg?v=246")`);
+  html.style.setProperty("--fond-img", `url("fond-automne${DECO.flou ? "" : "-net"}.jpg?v=247")`);
   html.classList.toggle("fond-net", !DECO.flou);
   if (window.FEUILLES) FEUILLES.regler(DECO.feuilles);
 }

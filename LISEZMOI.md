@@ -72,3 +72,6 @@ Réglages → Apparence : thème **Auto / Clair / Sombre**, animations, **couleu
 ## v2.4.6
 - Accueil : plus de gros bouton photo (il est dans la barre du bas) ; les tuiles prennent la place.
 - Réglages → Apparence : couleur principale, fond, cartes, barre du bas, texte, chiffres. Pastilles toutes prêtes, « A » = automatique, 🌈 = n'importe quelle couleur. Bouton « Remettre les couleurs d'origine ».
+
+## v2.4.7
+- Accueil refait façon Poka : carte « En attente », 3 chiffres côte à côte, bouton « Nouveau colis », liste, 4 derniers pointés (touche = fiche).

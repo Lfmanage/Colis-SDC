@@ -23,7 +23,7 @@ window.COLIS_CONFIG = {
   OPTIONS: { TR: "Fongi. coloré (PT)", TA: "", TI: "", PR: "", CR: "Cœur refendu", S: "", "MI-BOIS": "" },
 
   // Code essence imprimé sur l'étiquette pour chaque lettre du terminal (ton étiquette montre « SE » pour S)
-  ESSENCE_ETIQUETTE: { S: "SE" },
+  ESSENCE_ETIQUETTE: { S: "SE", D: "D" },
 
   // Lecture de l'étiquette par photo (false = boutons photo masqués)
   PHOTO: true,

@@ -66,8 +66,10 @@
     else if ((m = T.match(/(?:^|\D)(\d{6})(?!\d)/))) numero = m[1]; // 6 chiffres lus, suffixe non lu
 
     let choix = "", essence = "", essenceCode = "", lieu = "";
-    if ((m = T.match(/(?:^|\D)(\d{2})[ \t]*([A-Z]{1,2})[ \t]+([A-Z][0-9TIL|OB]{1,2})(?![A-Z0-9])/))) {
-      choix = /^[0-4]\d$/.test(m[1]) ? m[1] : ""; essenceCode = m[2]; essence = (essenceInverse && essenceInverse[m[2]]) || "";
+    if ((m = T.match(/(?:^|\D)(\d{2})[ \t]*([A-Z0]{1,2})[ \t]+([A-Z][0-9TIL|OB]{1,2})(?![A-Z0-9])/))) {
+      m[2] = m[2].replace(/0/g, "D"); // « D » lu « 0 » : l'essence est toujours une lettre
+      choix = /^[0-4]\d$/.test(m[1]) ? m[1] : ""; essenceCode = m[2] === "ZZ" ? "" : m[2];
+      essence = m[2] === "ZZ" ? "" : (essenceInverse && essenceInverse[m[2]]) || (m[2].length === 1 ? m[2] : "");
       lieu = m[3][0] + m[3].slice(1).replace(/[TIL|]/g, "1").replace(/O/g, "0").replace(/B/g, "8");
     }
 
@@ -87,7 +89,7 @@
     const T = N(texte);
     const nombres = (re, f) => [...T.matchAll(re)].map(f).filter(Boolean);
     const vols = nombres(/(?:^|\D)(\d{1,3})[.,]\s?(\d{3})(?!\d)/g, m => +(m[1] + "." + m[2]));
-    const sections = nombres(/(?:^|\D)(\d{2,3})\s*[X*]\s*(\d{2,3})(?!\d)/g, m => [+m[1], +m[2]]);
+    const sections = nombres(/(?:^|\D)(\d{2,3})\s*[X*]\s*(\d{2,4})(?!\d)/g, m => +m[1] <= +m[2] ? [+m[1], +m[2]] : null);
     const codes = nombres(/(?:^|\D)(\d{1,4})\s*\/\s*(\d{3,4})(?!\d)/g, m => [+m[1], +m[2] / 100]);
     const pieces = [...new Set([...codes.map(c => c[0]), ...nombres(/(?:^|\D)(\d{1,4})\s*P(?![A-Z])/g, m => +m[1])])].filter(p => p > 0);
     const longueurs = [...new Set([...codes.map(c => c[1]), ...nombres(/(?:^|\D)(\d{1,2})\s?[.,]\s?(\d{2})\s*M(?![A-Z0-9])/g, m => +(m[1] + "." + m[2]))])].filter(x => x >= 0.5 && x <= 13);
@@ -101,10 +103,10 @@
         if (ok(epaisseur / 1000 * largeur / 1000 * total, v)) return { epaisseur, largeur, pieces: lotsLus[0].pieces, longueur: lotsLus[0].longueur, lots: lotsLus, volume: v };
       for (const v of vols) { // section illisible : l'aire e × l se déduit du volume
         const aire = v * 1e6 / total;
-        if (!(aire >= 300 && aire <= 100000 && Math.abs(aire - Math.round(aire)) < aire * 0.004)) continue;
+        if (!(aire >= 300 && aire <= 200000 && Math.abs(aire - Math.round(aire)) < 0.6 + aire * 0.0004)) continue;
         const A = Math.round(aire), largeurs = nombres(/[X*]\s*(\d{2,3})(?!\d)/g, m => +m[1]), epaisseurs = nombres(/(?:^|\D)(\d{2,3})\s*[X*]/g, m => +m[1]);
-        for (const la of largeurs) { const e = A / la; if (e >= 10 && e <= 400 && Math.abs(e - Math.round(e)) < 0.01) return { epaisseur: Math.round(e), largeur: la, pieces: lotsLus[0].pieces, longueur: lotsLus[0].longueur, lots: lotsLus, volume: v }; }
-        for (const e of epaisseurs) { const la = A / e; if (la >= 10 && la <= 400 && Math.abs(la - Math.round(la)) < 0.01) return { epaisseur: e, largeur: Math.round(la), pieces: lotsLus[0].pieces, longueur: lotsLus[0].longueur, lots: lotsLus, volume: v }; }
+        for (const la of largeurs) { const e = A / la; if (e >= 10 && e <= la && Math.abs(e - Math.round(e)) < 0.01) return { epaisseur: Math.round(e), largeur: la, pieces: lotsLus[0].pieces, longueur: lotsLus[0].longueur, lots: lotsLus, volume: v }; }
+        for (const e of epaisseurs) { const la = A / e; if (la >= e && la <= 1500 && Math.abs(la - Math.round(la)) < 0.01) return { epaisseur: e, largeur: Math.round(la), pieces: lotsLus[0].pieces, longueur: lotsLus[0].longueur, lots: lotsLus, volume: v }; }
         return { pieces: lotsLus[0].pieces, longueur: lotsLus[0].longueur, lots: lotsLus, aire: A, volume: v, partiel: true };
       }
     }
@@ -115,11 +117,11 @@
     const dejaCode = codes.filter(c => c[1] >= 0.5 && c[1] <= 13);
     for (const [p, lo] of [...dejaCode, ...pieces.flatMap(p => longueurs.map(lo => [p, lo]))]) for (const v of vols) {
       const aire = v * 1e6 / (p * lo);
-      if (!(p > 0 && aire >= 300 && aire <= 100000 && Math.abs(aire - Math.round(aire)) < aire * 0.004)) continue;
+      if (!(p > 0 && aire >= 300 && aire <= 200000 && Math.abs(aire - Math.round(aire)) < 0.6 + aire * 0.0004)) continue;
       const A = Math.round(aire);
-      const largeurs = nombres(/[X*]\s*(\d{2,3})(?!\d)/g, m => +m[1]), epaisseurs = nombres(/(?:^|\D)(\d{2,3})\s*[X*]/g, m => +m[1]);
-      for (const la of largeurs) { const e = A / la; if (e >= 10 && e <= 400 && Math.abs(e - Math.round(e)) < 0.01) return { epaisseur: Math.round(e), largeur: la, pieces: p, longueur: lo, volume: v }; }
-      for (const e of epaisseurs) { const la = A / e; if (la >= 10 && la <= 400 && Math.abs(la - Math.round(la)) < 0.01) return { epaisseur: e, largeur: Math.round(la), pieces: p, longueur: lo, volume: v }; }
+      const largeurs = nombres(/[X*]\s*(\d{2,4})(?!\d)/g, m => +m[1]), epaisseurs = nombres(/(?:^|\D)(\d{2,3})\s*[X*]/g, m => +m[1]);
+      for (const la of largeurs) { const e = A / la; if (e >= 10 && e <= la && Math.abs(e - Math.round(e)) < 0.01) return { epaisseur: Math.round(e), largeur: la, pieces: p, longueur: lo, volume: v }; }
+      for (const e of epaisseurs) { const la = A / e; if (la >= e && la <= 1500 && Math.abs(la - Math.round(la)) < 0.01) return { epaisseur: e, largeur: Math.round(la), pieces: p, longueur: lo, volume: v }; }
       return { pieces: p, longueur: lo, aire: A, volume: v, partiel: true };
     }
     // 3. une valeur manque : on la calcule avec la section lue et le volume
@@ -161,14 +163,16 @@
     0x181, 0x0C1, 0x1C0, 0x091, 0x190, 0x0D0, 0x085, 0x184, 0x0C4, 0x0A8, 0x0A2, 0x08A, 0x02A];
   const ETOILE39 = 0x094;
   const CAR39 = new Map(CODES39.map((c, i) => [c, ALPHABET39[i]])); CAR39.set(ETOILE39, "*");
+  const inverse9 = c => { let r = 0; for (let i = 0; i < 9; i++) r = (r << 1) | ((c >> i) & 1); return r; };
+  const CAR39R = new Map([...CAR39].map(([c, ch]) => [inverse9(c), ch])); // un caractère lu de droite à gauche
 
-  function car39(runs, i) { // 9 éléments (barre, espace, …) → caractère, ou null
+  function car39(runs, i, table) { // 9 éléments (barre, espace, …) → caractère, ou null
     if (i + 9 > runs.length) return null;
     const w = runs.slice(i, i + 9), tri = [...w].sort((a, b) => a - b);
     if (tri[6] < tri[5] * 1.3 || tri[8] > tri[0] * 7) return null;
     const seuil = (tri[5] + tri[6]) / 2;
     let code = 0; for (const x of w) code = (code << 1) | (x > seuil ? 1 : 0);
-    return CAR39.get(code) || null;
+    return (table || CAR39).get(code) || null;
   }
   function ligne39(px, n, fac, div) { // une ligne de pixels gris → texte du code-barres, ou null
     const R = Math.max(8, Math.floor(n / div)), cum = new Float64Array(n + 1);
@@ -188,10 +192,12 @@
       let j = i + 10, txt = "";
       while (j + 9 <= runs.length) {
         const c = car39(runs, j);
-        if (!c) break;
         if (c === "*") return txt.length >= 3 ? { t: txt, xs: pos[i], xe: j + 9 < pos.length ? pos[j + 9] : n } : null;
+        if (!c || txt.length >= 9) break;
         txt += c; j += 10;
       }
+      // fin floue (dernier caractère illisible) : nos codes ont toujours 9 chiffres, cela suffit ; la longueur est complétée
+      if (/^\d{9}/.test(txt)) { const f = pos[i + 100] !== undefined ? pos[i + 100] : pos[Math.min(j, pos.length - 1)]; return { t: txt.slice(0, 9), xs: pos[i], xe: pos[i] + (f - pos[i]) * 11 / 10 }; }
     }
     return null;
   }
@@ -207,7 +213,10 @@
       if (!(best && n >= 2)) return null;
       const r = lus.get(best), xs = r.map(o => o.xs).sort((a, b) => a - b), xe = r.map(o => o.xe).sort((a, b) => a - b);
       const med = a => a[a.length >> 1], ys = r.map(o => o.y);
-      return { code: best, x0: med(xs), x1: med(xe), y0: Math.min(...ys), y1: Math.max(...ys), deg: r[0].deg, retourne: r[0].retourne };
+      const x0 = med(xs), x1 = med(xe), y0 = Math.min(...ys), y1 = Math.max(...ys), deg = r[0].deg, retourne = r[0].retourne;
+      const th = deg * Math.PI / 180, c = Math.cos(th), s = Math.sin(th), long = (x1 - x0) / c, ym = (y0 + y1) / 2;
+      const rep = retourne ? { ox: x1, oy: ym + (x1 - x0) * Math.tan(th), ux: -c, uy: -s } : { ox: x0, oy: ym, ux: c, uy: s };
+      return { code: best, x0, x1, y0, y1, deg, retourne, long, ...rep };
     };
     for (const deg of angles) {
       const pente = Math.tan(deg * Math.PI / 180);
@@ -228,10 +237,208 @@
           });
         }
         if (n >= 3) return resultat();
-        if (Date.now() > fin) return resultat();
+        if (Date.now() > fin) return resultat() || codeBarresLocalise(gris, L, H, 2500);
       }
     }
-    return resultat();
+    return resultat() || codeBarresLocalise(gris, L, H, Math.max(1500, fin - Date.now() + 2500));
+  }
+  // Repérage : les barres donnent des contours forts et tous parallèles. On découpe l'image en blocs, on garde ceux
+  // dont les contours vont tous dans le même sens, on les regroupe, puis on lit chaque groupe à la loupe
+  // (échantillons tous les 1/3 de pixel, moyennés le long des barres) : marche penché à n'importe quel angle et sur un petit code.
+  function codeBarresLocalise(gris, L, H, budgetMs) {
+    const fin = Date.now() + (budgetMs || 3000);
+    const lh = L >> 1, hh = H >> 1, d = new Float32Array(lh * hh);
+    for (let y = 0; y < hh; y++) for (let x = 0; x < lh; x++) { const i = 2 * y * L + 2 * x; d[y * lh + x] = (gris[i] + gris[i + 1] + gris[i + L] + gris[i + L + 1]) / 4; }
+    const B = 8, bl = Math.floor(lh / B), bh = Math.floor(hh / B), nb = bl * bh;
+    const Sxx = new Float32Array(nb), Syy = new Float32Array(nb), Sxy = new Float32Array(nb);
+    for (let y = 1; y < bh * B - 1; y++) for (let x = 1; x < bl * B - 1; x++) {
+      const i = y * lh + x;
+      const gx = d[i - lh + 1] + 2 * d[i + 1] + d[i + lh + 1] - d[i - lh - 1] - 2 * d[i - 1] - d[i + lh - 1];
+      const gy = d[i + lh - 1] + 2 * d[i + lh] + d[i + lh + 1] - d[i - lh - 1] - 2 * d[i - lh] - d[i - lh + 1];
+      const b = Math.floor(y / B) * bl + Math.floor(x / B);
+      Sxx[b] += gx * gx; Syy[b] += gy * gy; Sxy[b] += gx * gy;
+    }
+    const E = new Float32Array(nb), coh = new Float32Array(nb), ang = new Float32Array(nb);
+    for (let b = 0; b < nb; b++) {
+      E[b] = Sxx[b] + Syy[b];
+      coh[b] = E[b] > 0 ? Math.sqrt((Sxx[b] - Syy[b]) ** 2 + 4 * Sxy[b] ** 2) / E[b] : 0;
+      ang[b] = 0.5 * Math.atan2(2 * Sxy[b], Sxx[b] - Syy[b]); // direction des contours = perpendiculaire aux barres
+    }
+    const tri = Array.from(E).sort((a, b) => a - b), seuilE = tri[Math.floor(nb * 0.97)] * 0.12;
+    const cand = new Uint8Array(nb); for (let b = 0; b < nb; b++) cand[b] = E[b] > seuilE && coh[b] > 0.72 ? 1 : 0;
+    // regroupement des blocs voisins de même direction
+    const vu = new Int32Array(nb).fill(-1), groupes = [];
+    const ecart = (a, b) => { let x = Math.abs(a - b) % Math.PI; return Math.min(x, Math.PI - x); };
+    for (let b0 = 0; b0 < nb; b0++) {
+      if (!cand[b0] || vu[b0] >= 0) continue;
+      const pile = [b0], membres = []; vu[b0] = groupes.length;
+      while (pile.length) {
+        const b = pile.pop(); membres.push(b);
+        const bx = b % bl, by = (b / bl) | 0;
+        for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+          const x = bx + dx, y = by + dy; if (x < 0 || y < 0 || x >= bl || y >= bh) continue;
+          const v = y * bl + x; if (cand[v] && vu[v] < 0 && ecart(ang[v], ang[b0]) < 0.25) { vu[v] = groupes.length; pile.push(v); }
+        }
+      }
+      if (membres.length >= 5) groupes.push(membres);
+    }
+    const lit = (x, y) => {
+      if (x < 0 || y < 0 || x >= L - 1 || y >= H - 1) return 255;
+      const xi = x | 0, yi = y | 0, fx = x - xi, fy = y - yi, i = yi * L + xi;
+      return (gris[i] * (1 - fx) + gris[i + 1] * fx) * (1 - fy) + (gris[i + L] * (1 - fx) + gris[i + L + 1] * fx) * fy;
+    };
+    const infos = groupes.map(m => {
+      let c2 = 0, s2 = 0, cx = 0, cy = 0, poids = 0;
+      for (const b of m) { c2 += Math.cos(2 * ang[b]) * E[b]; s2 += Math.sin(2 * ang[b]) * E[b]; cx += (b % bl + 0.5) * E[b]; cy += (((b / bl) | 0) + 0.5) * E[b]; poids += E[b]; }
+      const a = 0.5 * Math.atan2(s2, c2), ux = Math.cos(a), uy = Math.sin(a);
+      cx = cx / poids * B * 2; cy = cy / poids * B * 2;
+      let t0 = Infinity, t1 = -Infinity, s0 = Infinity, s1 = -Infinity;
+      for (const b of m) { const x = (b % bl + 0.5) * B * 2 - cx, y = (((b / bl) | 0) + 0.5) * B * 2 - cy, t = x * ux + y * uy, s = -x * uy + y * ux; t0 = Math.min(t0, t); t1 = Math.max(t1, t); s0 = Math.min(s0, s); s1 = Math.max(s1, s); }
+      const score = m.reduce((z, b) => z + coh[b], 0) * Math.min(4, (t1 - t0 + 2 * B) / (s1 - s0 + 2 * B));
+      return { ux, uy, cx, cy, t0: t0 - B * 2, t1: t1 + B * 2, s0: s0 - B, s1: s1 + B, score };
+    }).sort((a, b) => b.score - a.score).slice(0, 6);
+    for (const g of infos) {
+      const r = lireGroupe(g, lit, fin);
+      if (r) return r;
+      if (Date.now() > fin) break;
+    }
+    return null;
+  }
+  // ───── Lecture d'un groupe repéré : chaque caractère est voté sur de nombreuses lignes ─────
+  // Une ligne peut casser au milieu (barre floue) : on garde les caractères lus depuis le début ET ceux lus depuis la fin,
+  // et chaque position des 9 chiffres est décidée à la majorité.
+  function runsSeuil(px, n, fac, div) {
+    const R = Math.max(8, Math.floor(n / div)), cum = new Float64Array(n + 1);
+    for (let x = 0; x < n; x++) cum[x + 1] = cum[x] + px[x];
+    const runs = [], noir = [], pos = []; let prec = null, lg = 0;
+    for (let x = 0; x < n; x++) {
+      const a = Math.max(0, x - R), b = Math.min(n, x + R + 1), d = px[x] < (cum[b] - cum[a]) / (b - a) * fac;
+      if (d === prec) lg++; else { if (prec !== null) { runs.push(lg); noir.push(prec); } prec = d; lg = 1; pos.push(x); }
+    }
+    runs.push(lg); noir.push(prec);
+    return { runs, noir, pos };
+  }
+  function runsExtremes(px, n) {
+    let lo = 255, hi = 0; for (let k = 0; k < n; k++) { if (px[k] < lo) lo = px[k]; if (px[k] > hi) hi = px[k]; }
+    const delta = Math.max(6, (hi - lo) * 0.1), ext = [];
+    let dir = 0, ki = 0, vi = px[0];
+    for (let k = 1; k < n; k++) {
+      const v = px[k];
+      if (dir >= 0) { if (v > vi) { vi = v; ki = k; } else if (vi - v > delta) { ext.push([ki, vi, false]); dir = -1; vi = v; ki = k; } }
+      if (dir < 0) { if (v < vi) { vi = v; ki = k; } else if (v - vi > delta) { ext.push([ki, vi, true]); dir = 1; vi = v; ki = k; } }
+    }
+    if (ext.length < 12) return null;
+    const bords = [];
+    for (let e = 0; e + 1 < ext.length; e++) {
+      const [ka, va] = ext[e], [kb, vb] = ext[e + 1], mi = (va + vb) / 2; let p = (ka + kb) / 2;
+      for (let k = ka; k < kb; k++) { const a = px[k], b = px[k + 1]; if ((a - mi) * (b - mi) <= 0 && a !== b) { p = k + (mi - a) / (b - a); break; } }
+      bords.push(p);
+    }
+    const runs = [bords[0]], noir = [ext[0][2]], pos = [0];
+    for (let e = 0; e + 1 < bords.length; e++) { runs.push(bords[e + 1] - bords[e]); noir.push(ext[e + 1][2]); pos.push(bords[e]); }
+    runs.push(n - bords[bords.length - 1]); noir.push(ext[ext.length - 1][2]); pos.push(bords[bords.length - 1]);
+    return { runs, noir, pos };
+  }
+  function partiel(R, table) { // départ « * » puis jusqu'à 9 chiffres (ou moins si la ligne casse)
+    if (!R) return null;
+    const { runs, noir, pos } = R;
+    for (let i = 0; i + 9 <= runs.length; i++) {
+      if (!noir[i] || car39(runs, i, table) !== "*") continue;
+      const larg = runs.slice(i, i + 9).reduce((s, x) => s + x, 0);
+      if (i > 0 && runs[i - 1] < larg * 0.5) continue;
+      const car = []; let j = i + 10;
+      while (j + 9 <= runs.length && car.length < 9) { const c = car39(runs, j, table); if (!c || c === "*") break; car.push(c); j += 10; }
+      if (car.length >= 2 && car.every(c => /\d/.test(c))) return { car, debut: pos[i], pasCar: i + 10 < pos.length ? pos[i + 10] - pos[i] : larg * 16 / 15 };
+    }
+    return null;
+  }
+  function lireGroupe(g, lit, fin) {
+    const PAS = 1 / 3, marge = (g.t1 - g.t0) * 0.25 + 24, ta = g.t0 - marge, n = Math.min(6000, Math.floor((g.t1 + marge - ta) / PAS));
+    const hs = []; for (let s = g.s0 + 4; s <= g.s1 - 4; s += 1) hs.push(s);
+    if (hs.length < 3) return null;
+    // angle affiné : le profil moyen le plus net (barres bien alignées)
+    let ux = g.ux, uy = g.uy, net0 = -1;
+    const a0 = Math.atan2(g.uy, g.ux);
+    for (const dDeg of [0, -0.6, 0.6, -1.2, 1.2, -1.8, 1.8, -2.5, 2.5, -3.5, 3.5]) {
+      const a = a0 + dDeg * Math.PI / 180, cx = Math.cos(a), cy = Math.sin(a), p = new Float32Array(n);
+      for (let k = 0; k < n; k++) { const t = ta + k * PAS; let v = 0; for (let h = 0; h < hs.length; h += 2) v += lit(g.cx + t * cx - hs[h] * cy, g.cy + t * cy + hs[h] * cx); p[k] = v; }
+      let net = 0; for (let k = 3; k < n; k++) net += (p[k] - p[k - 3]) ** 2;
+      if (net > net0) { net0 = net; ux = cx; uy = cy; }
+    }
+    const profil = (sa, sb) => {
+      const p = new Float32Array(n), inv = new Float32Array(n);
+      for (let k = 0; k < n; k++) { const t = ta + k * PAS; let v = 0, m = 0; for (let s = sa; s <= sb; s += 1) { v += lit(g.cx + t * ux - s * uy, g.cy + t * uy + s * ux); m++; } p[k] = v / m; inv[n - 1 - k] = p[k]; }
+      return [p, inv];
+    };
+    const vote = () => ({ pos: Array.from({ length: 9 }, () => new Map()), debuts: [], fins: [], pasCar: [] });
+    const V = [vote(), vote()]; // 0 : étiquette à l'endroit ; 1 : à l'envers
+    const ajouter = (v, r, cote, versT) => {
+      if (!r) return;
+      r.car.forEach((c, q) => { const k = cote === "debut" ? q : 8 - q; v.pos[k].set(c, (v.pos[k].get(c) || 0) + 1); });
+      (cote === "debut" ? v.debuts : v.fins).push(versT(r.debut)); v.pasCar.push(r.pasCar * PAS);
+    };
+    const complet = v => {
+      let code = "";
+      for (const m of v.pos) {
+        const t = [...m].sort((a, b) => b[1] - a[1]);
+        if (!t.length || t[0][1] < 2 || (t[1] && t[0][1] < 2 * t[1][1])) return null;
+        code += t[0][0];
+      }
+      return code;
+    };
+    const med = a => { const s = [...a].sort((x, y) => x - y); return s[s.length >> 1]; };
+    const h = hs.length, bandes = [[hs[0], hs[h - 1]], [hs[0], hs[h >> 1]], [hs[h >> 1], hs[h - 1]], [hs[h >> 2], hs[(3 * h) >> 2]]];
+    for (let s = g.s0 + 2; s <= g.s1 - 2; s += 1.5) bandes.push([s - 2, s + 2]);
+    for (const [sa, sb] of bandes) {
+      const [p, inv] = profil(sa, sb), dir = k => ta + k * PAS, rev = k => ta + (n - 1 - k) * PAS;
+      for (const meth of [q => runsExtremes(q, n), q => runsSeuil(q, n, 0.9, 12), q => runsSeuil(q, n, 0.85, 20)]) {
+        const R = meth(p), Ri = meth(inv);
+        ajouter(V[0], partiel(R, CAR39), "debut", dir); ajouter(V[0], partiel(Ri, CAR39R), "fin", rev);
+        ajouter(V[1], partiel(Ri, CAR39), "debut", rev); ajouter(V[1], partiel(R, CAR39R), "fin", dir);
+      }
+      for (const envers of [0, 1]) {
+        const code = complet(V[envers]); if (!code) continue;
+        const v = V[envers], L = med(v.pasCar) * 11 - med(v.pasCar) / 16, sens = envers ? -1 : 1;
+        const ts = v.debuts.length ? med(v.debuts) : med(v.fins) - sens * L, te = v.fins.length ? med(v.fins) : ts + sens * L;
+        const sm = (g.s0 + g.s1) / 2, pt = t => [g.cx + t * ux - sm * uy, g.cy + t * uy + sm * ux];
+        const [ox, oy] = pt(ts), [ex, ey] = pt(te), dx = envers ? -ux : ux, dy = envers ? -uy : uy;
+        const deg = Math.round(Math.atan2(dy, dx) * 180 / Math.PI);
+        return { code, ox, oy, ux: dx, uy: dy, long: Math.abs(te - ts), deg, retourne: Math.abs(deg) > 90,
+          x0: Math.min(ox, ex), x1: Math.max(ox, ex), y0: Math.min(oy, ey), y1: Math.max(oy, ey), localise: true };
+      }
+      if (Date.now() > fin) break;
+    }
+    return null;
+  }
+  // L'angle estimé à la lecture est approximatif (jusqu'à 4° d'écart) et la perspective déforme la hauteur de l'étiquette.
+  // On regarde les barres : elles sont les plus nettes quand la ligne de lecture leur est bien perpendiculaire ;
+  // leur hauteur mesurée (0,20 × la longueur du code) donne l'échelle verticale ; leur milieu donne le vrai centre.
+  function affinerRepere(gris, L, H, pos) {
+    if (!pos) return pos;
+    const bw = pos.long, a0 = Math.atan2(pos.uy, pos.ux);
+    const profil = (a, s, n) => {
+      const ux = Math.cos(a), uy = Math.sin(a), px = -uy, py = ux, out = new Float32Array(n);
+      for (let k = 0; k < n; k++) {
+        const t = (0.05 + 0.9 * k / (n - 1)) * bw, x = Math.round(pos.ox + t * ux + s * px), y = Math.round(pos.oy + t * uy + s * py);
+        out[k] = gris[Math.min(H - 1, Math.max(0, y)) * L + Math.min(L - 1, Math.max(0, x))];
+      }
+      return out;
+    };
+    const energie = p => { let e = 0; for (let k = 1; k < p.length; k++) e += Math.abs(p[k] - p[k - 1]); return e / (p.length - 1); };
+    let meilleur = -1, a = a0;
+    for (let d = -4; d <= 4.001; d += 0.5) {
+      const ar = a0 + d * Math.PI / 180;
+      const e = energie(profil(ar, -0.06 * bw, 300)) + energie(profil(ar, 0, 300)) + energie(profil(ar, 0.06 * bw, 300));
+      if (e > meilleur) { meilleur = e; a = ar; }
+    }
+    const pas = Math.max(1, bw / 200), n = Math.floor(0.9 * bw / pas), es = [], ss = [];
+    for (let k = 0; k < n; k++) { const s = -0.45 * bw + k * pas; ss.push(s); es.push(energie(profil(a, s, 300))); }
+    let k0 = 0; for (let k = 1; k < n; k++) if (es[k] > es[k0]) k0 = k;
+    const seuil = 0.45 * es[k0]; let i = k0, j = k0;
+    while (i > 0 && es[i - 1] > seuil) i--;
+    while (j < n - 1 && es[j + 1] > seuil) j++;
+    const h = (ss[j] - ss[i]) / bw, c = (ss[i] + ss[j]) / 2, ux = Math.cos(a), uy = Math.sin(a);
+    return { ...pos, ox: pos.ox - c * uy, oy: pos.oy + c * ux, ux, uy, fy: Math.min(1.15, Math.max(0.75, h / 0.2)) };
   }
   // Fabrication d'un code-barres Code 39 (pour la copie imprimée) : liste de barres [position, largeur] en « modules »
   function encoder39(texte) {
@@ -294,21 +501,24 @@
   // ───── Lecture zone par zone : chaque info est lue à sa place, calée sur le code-barres ─────
   // u, v en « largeurs de code-barres » : origine = bord gauche du code-barres, à mi-hauteur.
   const ZONES = [
-    { nom: "section",  u0: -0.40, u1: 1.15, v0: -1.30, v1: -0.95, liste: "0123456789xX ", motif: /^\d{2,3}\s*[xX]\s*\d{2,3}$/ },
-    { nom: "pieces",   u0: -0.60, u1: 0.05, v0: -0.88, v1: -0.66, liste: "0123456789P ", motif: /^\d{1,4}\s*P?$/ },
-    { nom: "longueur", u0: 0.10,  u1: 0.72, v0: -1.00, v1: -0.62, liste: "0123456789,.", motif: /^\d{1,2}[,.]\d{2}$/ },
-    { nom: "lieu",     u0: -0.82, u1: 0.32, v0: -0.63, v1: -0.34, liste: "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ ", motif: /^\d{2}\s*[A-Z]{1,2}\s+[A-Z][0-9TIL]{1,2}$/ },
-    { nom: "volume",   u0: 0.52,  u1: 1.22, v0: -0.56, v1: -0.33, liste: "0123456789,.m ", motif: /^\d{1,3}[,.]\d{3}/ },
-    { nom: "options",  u0: -0.78, u1: 0.02, v0: -0.33, v1: -0.13, liste: "ABCDEFGHIJKLMNOPQRSTUVWXYZ- ", motif: /^[A-Z -]*$/ },
-    { nom: "code",     u0: -1.08, u1: -0.06, v0: 0.08, v1: 0.27, liste: "0123456789/ ", motif: /^\d{1,4}\/\d{3,4}(?:\s+\d{1,4}\/\d{3,4})*$/ },
-    { nom: "date",     u0: -0.62, u1: 0.38, v0: 0.22, v1: 0.42, liste: "0123456789. ", motif: /^\d{2}\.\d{2}\.\d{2}\s*\d{4}$/ }
+    { nom: "section",  ech: 200, u0: -0.30, u1: 1.20, v0: -1.25, v1: -0.80, liste: "0123456789xX ", motif: /^\d{2,3}\s*[xX]\s*\d{2,4}$/ },
+    { nom: "pieces",   ech: 330, u0: -0.65, u1: 0.08, v0: -0.90, v1: -0.62, liste: "0123456789P ", motif: /^\d{1,4}\s*P?$/ },
+    { nom: "longueur", ech: 200, u0: 0.05,  u1: 0.82, v0: -1.00, v1: -0.60, liste: "0123456789,.", motif: /^\d{1,2}[,.]\d{2}$/ },
+    { nom: "lieu",     ech: 260, u0: -0.85, u1: 0.40, v0: -0.64, v1: -0.32, liste: "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ ", motif: /^\d{0,2}\s*[A-Z0]{1,2}\s+[A-Z][0-9TIL]{1,2}$/ },
+    { nom: "volume",   ech: 400, u0: 0.50,  u1: 1.30, v0: -0.58, v1: -0.28, liste: "0123456789,.m ", motif: /^\d{1,3}[,.]\d{3}/ },
+    { nom: "options",  ech: 560, u0: -0.80, u1: 0.02, v0: -0.33, v1: -0.13, liste: "ABCDEFGHIJKLMNOPQRSTUVWXYZ- ", motif: /^[A-Z -]*$/ },
+    { nom: "code",     ech: 520, u0: -1.15, u1: -0.06, v0: 0.05, v1: 0.28, liste: "0123456789/ ", motif: /^\d{1,4}\/\d{3,4}(?:\s+\d{1,4}\/\d{3,4})*$/ },
+    { nom: "date",     ech: 500, u0: -0.65, u1: 0.45, v0: 0.20, v1: 0.44, liste: "0123456789. ", motif: /^\d{1,2}\.\d{2}\.\d{2}\s*\d{4}$/ }
   ];
   function texteDepuisZones(z) { // assemble ce qui a été lu dans chaque zone, avec les repères attendus par lireSpec/lireChamps
     const L = [];
     if (z.section) L.push(z.section);
     if (z.pieces) L.push(z.pieces.replace(/\s*P?$/, "") + " P");
     if (z.longueur) L.push(z.longueur + " m");
-    if (z.lieu) L.push(z.lieu);
+    if (z.lieu) { // choix lu en entier → tel quel ; sinon le lieu est gardé, avec un choix et une essence « inconnus »
+      const m = /^(\d{2})\s*[A-Z0]{1,2}\s+\S+$/.exec(z.lieu);
+      L.push(m ? z.lieu : "99 ZZ " + z.lieu.split(/\s+/).pop());
+    }
     if (z.volume) L.push(z.volume.replace(/\s*m.*$/i, "") + " m3");
     if (z.code) L.push(z.code);
     if (z.date) L.push(z.date.replace(/(\d{2}\.\d{2}\.\d{2})\s*(\d{4})/, "$1 $2"));
@@ -334,7 +544,7 @@
   // combinaison section × pièces × longueur retombe sur le volume, et c'est elle qui est retenue.
   function fusionner(c) {
     const tas = (liste, f) => { const m = new Map(); for (const t of liste || []) { const k = f(String(t)); if (k != null) m.set(k, (m.get(k) || 0) + 1); } return m; };
-    const secs = tas(c.section, t => { const m = /(\d{2,3})\s*[xX*]\s*(\d{2,3})/.exec(t); return m ? m[1] + "x" + m[2] : null; });
+    const secs = tas(c.section, t => { const m = /(\d{2,3})\s*[xX*×]\s*(\d{2,4})/.exec(t); return m ? m[1] + "x" + m[2] : null; });
     const vols = tas(c.volume, t => { const m = /(\d{1,3})[,.](\d{3})(?!\d)/.exec(t); return m ? +(m[1] + "." + m[2]) : null; });
     const pcs = tas(c.pieces, t => { const m = /^\s*(\d{1,4})\s*P?\s*$/i.exec(t); return m ? +m[1] : null; });
     const los = tas(c.longueur, t => { const m = /(\d{1,2})[,.](\d{2})(?!\d)/.exec(t); return m ? +(m[1] + "." + m[2]) : null; });
@@ -361,11 +571,25 @@
     let meilleur = null;
     for (const [s, ns] of secs) for (const [p, np] of pcs) for (const [lo, nl] of los) for (const [v, nv] of vols) {
       const [e, la] = s.split("x").map(Number);
-      if (lo < 0.5 || lo > 13 || Math.abs(e / 1000 * la / 1000 * p * lo - v) >= 0.0015) continue;
+      if (e > la || lo < 0.5 || lo > 13 || Math.abs(e / 1000 * la / 1000 * p * lo - v) >= 0.0015) continue;
       const appui = ns + np + nl + nv + (codes.get(p + "/" + Math.round(lo * 100)) || 0) * 2;
       if (!meilleur || appui > meilleur.appui) meilleur = { epaisseur: e, largeur: la, pieces: p, longueur: lo, volume: v, appui };
     }
     return meilleur;
+  }
+  // Lecture « en vrac » d'une étiquette : chaque morceau de texte est rangé selon sa forme
+  // (section, pièces, longueur, volume, code pièces/longueur, lieu). Marche quelle que soit la disposition de l'étiquette.
+  function candidatsDepuisTexte(texte) {
+    const T = String(texte || "").toUpperCase().replace(/[|]/g, "1").replace(/(\d)\s+([,.])\s*(\d)/g, "$1$2$3");
+    const c = { section: [], pieces: [], longueur: [], volume: [], code: [], lieu: [] };
+    const tous = (re, f) => { let m; re.lastIndex = 0; while ((m = re.exec(T))) f(m); };
+    tous(/(?:^|[^\d])(\d{2,3})\s*[X×*]\s*(\d{2,4})(?!\d)/g, m => c.section.push(m[1] + " x " + m[2]));
+    tous(/(?:^|[^\d,.])(\d{1,4})\s*P\b/g, m => c.pieces.push(m[1] + " P"));
+    tous(/(?:^|[^\d,.])(\d{1,2})[,.](\d{2})(?![\d])/g, m => c.longueur.push(m[1] + "," + m[2]));
+    tous(/(?:^|[^\d,.])(\d{1,3})[,.](\d{3})(?![\d])/g, m => c.volume.push(m[1] + "," + m[2] + " m3"));
+    tous(/(?:^|[^\d])(\d{1,4})\s*\/\s*(\d{3,4})(?!\d)/g, m => c.code.push(m[1] + "/" + m[2]));
+    tous(/(?:^|[^\d])(\d{2})\s*([A-Z0]{1,2})\s+([A-Z][0-9TIL]{1,2})(?![A-Z0-9])/g, m => c.lieu.push(`${m[1]} ${m[2].replace(/0/g, "D")} ${m[3]}`));
+    return c;
   }
   // Valeur la plus souvent lue parmi des lectures qui ont la bonne forme (ex. le lieu « 20 SE D16 »)
   function majoritaire(liste) {
@@ -374,6 +598,6 @@
     return best;
   }
 
-  const API = { lotsDe, memesLots, fusionner, majoritaire, encoder39, texteCodeBarres, ZONES, texteDepuisZones, optionsDepuisZone, motsDepuis, optionsPresDuNumero, verifier, trouver, lireChamps, lireSpec, correspondance,  codeBarresPos, numeroDepuisCode };
+  const API = { affinerRepere, candidatsDepuisTexte, lotsDe, memesLots, fusionner, majoritaire, encoder39, texteCodeBarres, ZONES, texteDepuisZones, optionsDepuisZone, motsDepuis, optionsPresDuNumero, verifier, trouver, lireChamps, lireSpec, correspondance,  codeBarresPos, numeroDepuisCode };
   if (typeof module !== "undefined" && module.exports) module.exports = API; else racine.Lecture = API;
 })(typeof window !== "undefined" ? window : this);

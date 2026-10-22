@@ -6,7 +6,8 @@ const DEF = Object.assign({ essence: "", choix: "20", nature: "G", options: [] }
 const OPTIONS = CFG.OPTIONS || { TR: "Fongi. coloré", CR: "Cœur refendu" };
 const K = { reglages: "colis.reglages.v1", data: "colis.donnees.v1", attente: "colis.attente.v1", tire: "colis.tire.v1", suppr: "colis.suppressions.v1", projet: "colis.projet.v1", sauvegarde: "colis.sauvegarde.v1", synchro: "colis.synchroOk.v1" };
 const STOCK = "STOCK"; // un colis « du stock » n'a pas de commande : sa commande vaut STOCK
-const cdeTxt = c => c.commande === STOCK ? "Stock" : "Cde " + (c.commande || "–");
+const cdeTxt = c => c.commande === STOCK ? "Stock" : c.commande ? "Cde " + c.commande : "";
+const quel = d => section(d) + (cdeTxt(d) ? ", " + cdeTxt(d) : "") + (d.lieu ? ", lieu " + d.lieu : ""); // pour dire de quel colis on parle
 const STATUTS = { a_etiqueter: "En attente de pointage", a_sortir: "Pointé ✅" }; // « a_sortir » = pointé (nom interne)
 const STATUT_COURT = { a_etiqueter: "En attente", a_sortir: "Pointé ✅" };
 const COLONNES = ["id","numero","commande","lieu","epaisseur","largeur","longueur","pieces","autres","choix","essence","nature",
@@ -331,7 +332,7 @@ function valider(v) {
   }
   if (v.autres.some(l => !l.pieces || !l.longueur)) return "Complète ou retire la ligne « autre longueur » (il faut les pièces et la longueur).";
   const d = doublon(v.numero, editionId);
-  if (d) return `Le n° ${v.numero} est déjà utilisé (commande ${d.commande || "–"}, ${section(d)}).`;
+  if (d) return `Le n° ${v.numero} est déjà utilisé (${quel(d)}).`;
   return null;
 }
 
@@ -342,7 +343,7 @@ function majLive() {
   $("#resume-details").textContent = r.join(", ");
   const d = doublon(v.numero, editionId), al = $("#alerte-numero");
   if (d) {
-    al.innerHTML = `Ce n° existe déjà : ${esc(section(d))}, commande ${esc(d.commande || "–")}. <button type="button" class="lien" data-ouvrir="${d.id}">Voir le colis</button>`;
+    al.innerHTML = `Ce n° existe déjà : ${esc(quel(d))}. <button type="button" class="lien" data-ouvrir="${d.id}">Voir le colis</button>`;
     al.hidden = false;
   } else al.hidden = true;
   $("#form-erreur").hidden = true;
@@ -391,7 +392,7 @@ function commencerEdition(id) {
   $("#edition-ref").textContent = c.numero ? "n° " + c.numero : section(c);
   $("#bandeau-edition").hidden = false;
   $("#btn-generer").textContent = "Enregistrer les modifications";
-  $("#carte-numero").hidden = false; $("#carte-commande").hidden = false; $("#bloc-plus").hidden = false;
+  $("#carte-numero").hidden = false; $("#bloc-plus").hidden = false; // commande et lieu : plus utilisés
   cacher("#fiche"); allerA("nouveau");
 }
 function finEdition() {
@@ -419,10 +420,10 @@ function detailHtml(c) {
   const attente = c.statut === "a_etiqueter";
   const info = (lab, val, large) => val ? `<div class="info${large ? " large" : ""}"><span>${lab}</span><b>${esc(val)}</b></div>` : "";
   const btn = (act, txt, cl = "") => `<button type="button" class="mini-btn${cl ? " " + cl : ""}" data-action="${act}">${txt}</button>`;
-  const cde = c.commande === STOCK ? info("Type", "Stock") : info("Commande", c.commande || (attente ? "" : "–"));
+  const cde = c.commande === STOCK ? info("Type", "Stock") : info("Commande", c.commande);
   return `<div class="detail">
     <div class="grille-infos">
-      ${cde}${info("Lieu", c.lieu || (attente ? "" : "–"))}${info("Essence", c.essence)}${info("Choix", c.choix)}${info("Nature", c.nature)}${info("Options", (c.options || []).join(" "))}
+      ${cde}${info("Lieu", c.lieu)}${info("Essence", c.essence)}${info("Choix", c.choix)}${info("Nature", c.nature)}${info("Options", (c.options || []).join(" "))}
       ${info("Référence client", c.ref_client, true)}${info("Observation", c.observation, true)}
     </div>
     <ul class="chrono">
@@ -437,11 +438,11 @@ function detailHtml(c) {
 }
 function ligne(c) {
   const vol = volume(c), attente = c.statut === "a_etiqueter";
-  const meta = attente ? "À pointer au PC" : `${esc(cdeTxt(c))}${c.lieu ? " · " + esc(c.lieu) : ""}`;
+  const meta = attente ? "À pointer au PC" : [cdeTxt(c), c.lieu && "lieu " + c.lieu].filter(Boolean).map(esc).join(" · ");
   return `<div class="swipe" data-id="${c.id}" data-statut="${c.statut}"><div class="swipe-fond" aria-hidden="true"><span class="sw-pointer">✅ Pointer</span><span class="sw-suppr">Supprimer 🗑</span></div>
   <article class="colis st-${c.statut}${ouverts.has(c.id) ? " ouvert" : ""}" data-id="${c.id}" tabindex="0">
     <div class="colis-haut">
-      ${c.numero ? `<span class="num">${esc(c.numero)}</span>` : `<span class="num vide">En attente du n°</span>`}
+      ${c.numero ? `<span class="num">${esc(c.numero)}</span>` : `<span class="num vide">${attente ? "À pointer" : "Sans n°"}</span>`}
       <span class="colis-droite"><span class="statut ${c.statut}">${STATUT_COURT[c.statut]}</span>${attente ? `<button type="button" class="action-rapide" data-action="pointer">Pointer</button>` : ""}<i class="caret"></i></span>
     </div>
     <div class="colis-ligne"><span><b>${esc(section(c))}</b> &nbsp;${esc(resumeLots(c))}</span>${vol ? `<span class="vol">${nf(vol, 3)} m³</span>` : ""}</div>
@@ -590,7 +591,7 @@ function assignerNumero(id, val) {
   val = formatNumero(val);
   if (!val) return "Tape le n° imprimé sur l'étiquette.";
   const d = doublon(val, id);
-  if (d) return `Le n° ${val} est déjà utilisé (commande ${d.commande || "–"}, ${section(d)}).`;
+  if (d) return `Le n° ${val} est déjà utilisé (${quel(d)}).`;
   const c = { ...parId(id), numero: val };
   if (c.statut === "a_etiqueter") { c.statut = "a_sortir"; c.etiquete_le = maintenant(); }
   enregistrer(c);
@@ -620,7 +621,7 @@ function rendreFiche() {
     <p class="fiche-section" style="margin-top:8px">${esc(section(c))}</p>
     <p class="fiche-sous">${esc(phraseLots(c))}${vol ? `, ${nf(vol, 3)} m³` : ""}</p>
     <div class="grille-infos">
-      ${info(c.commande === STOCK ? "Type" : "Commande", c.commande === STOCK ? "Stock" : (c.commande || "–"))}${info("Lieu de stock", c.lieu || "–")}
+      ${info(c.commande === STOCK ? "Type" : "Commande", c.commande === STOCK ? "Stock" : c.commande)}${info("Lieu de stock", c.lieu)}
       ${info("Essence", c.essence)}${info("Choix", c.choix)}${info("Nature", c.nature)}
       ${info("Options", (c.options || []).join(" "))}
       ${info("Référence client", c.ref_client, true)}${info("Observation", c.observation, true)}
@@ -668,8 +669,8 @@ $("#fiche-corps").addEventListener("click", e => {
   if (b.dataset.f === "numero") validerNumeroFiche(); else actionColis(b.dataset.f, ficheId);
 });
 
-/* ═════════════ Pointage au PC : commande, lieu, options, n° ═════════════ */
-let filePC = [], posPC = 0, pcOptions = new Set(), pcType = "cde";
+/* ═════════════ Pointage au PC : essence, options (n° et lieu viennent de la photo) ═════════════ */
+let filePC = [], posPC = 0, pcOptions = new Set();
 const lectures = {}; // ce que la photo de l'étiquette a lu, par colis
 const filePCTous = () => actifs().filter(c => c.statut === "a_etiqueter").sort((a, b) => t(a.cree_le) - t(b.cree_le)).map(c => c.id);
 const PC = id => $("#pc-" + id);
@@ -716,9 +717,7 @@ function rendrePC() {
   const c = parId(filePC[posPC]); if (!c) { cacher("#pc"); return; }
   const lec = lectures[c.id];
   pcOptions = new Set(c.options || []);
-  const brut = c.commande || "", lieu = c.lieu || (lec && lec.lieu) || "", ref = c.ref_client || "";
-  pcType = brut === STOCK ? "stock" : "cde";
-  const commande = brut === STOCK ? "" : brut;
+  const ref = c.ref_client || "";
   const essenceVal = c.essence || (lec && lec.essence) || "";
   const essencesHtml = essencesConnues().map(x => `<button type="button" class="puce" data-ess="${esc(x)}" aria-pressed="${x === essenceVal.toUpperCase()}">${esc(x)}</button>`).join("");
   const plusieurs = filePC.length > 1;
@@ -734,17 +733,9 @@ function rendrePC() {
         <p class="fiche-section" style="font-size:34px">${esc(section(c))}</p>
         <p class="fiche-sous">${esc(phraseLots(c))}</p>
       </div>
-      <button type="button" class="btn btn-principal btn-pointer-haut" data-p="valider">${c.numero ? "Enregistrer" : "Pointer"}</button>
+      <button type="button" class="btn btn-principal btn-pointer-haut" data-p="valider">${c.statut === "a_etiqueter" ? "Pointer" : "Enregistrer"}</button>
     </div>
     <div class="carte carte-or">
-      <div class="segment" id="pc-type">
-        <button type="button" data-type="cde" aria-pressed="true">Commande</button>
-        <button type="button" data-type="stock" aria-pressed="false">Stock</button>
-      </div>
-      <div class="ligne-2" id="pc-ligne">
-        <label class="champ" id="pc-champ-commande"><span>N° commande</span><input id="pc-commande" inputmode="numeric" placeholder="34114" value="${esc(commande)}"></label>
-        <label class="champ"><span id="pc-lieu-lab">Lieu de stock</span><input id="pc-lieu" class="majuscules" inputmode="none" placeholder="G7" autocapitalize="characters" value="${esc(lieu)}"></label>
-      </div>
       <label class="champ"><span>Essence</span><input id="pc-essence" class="majuscules" autocapitalize="characters" placeholder="S" value="${esc(essenceVal)}"></label>
       ${essencesHtml ? `<div class="puces" id="pc-essences">${essencesHtml}</div>` : ""}
       <span class="etiquette-champ">Options</span>
@@ -766,18 +757,14 @@ function rendrePC() {
       ${cell("Nature", "nature")}${cell("Lieu de stock", "lieu")}
       ${cell("Options", "options", "plein")}${cell("Référence client", "ref", "plein")}
     </div>
-    <div class="saisie-numero">
-      <label class="champ"><span>N° imprimé par le PC</span><input id="pc-numero" inputmode="numeric" class="gros-chiffre" placeholder="200-000-1" enterkeyhint="done" value="${esc(c.numero || (lec && lec.numero) || "")}"></label>
-      <button type="button" class="btn btn-principal" data-p="valider" style="margin-top:28px">${c.numero ? "Enregistrer" : "Pointer"}</button>
-    </div>
+    <button type="button" class="btn btn-principal" data-p="valider">${c.statut === "a_etiqueter" ? "Pointer" : "Enregistrer"}</button>
     <p class="alerte" id="pc-alerte" hidden></p>
     <div class="actions" style="margin-top:6px">
       <button type="button" class="btn btn-principal btn-photo" data-p="photo">📷 Photo de l'étiquette</button>
       <button type="button" class="btn btn-secondaire" data-p="modifier">✏️ Corriger la note (section, pièces, longueur)</button>
       <button type="button" class="btn btn-secondaire" data-p="imprimer">Copie de l'étiquette (imprimer)</button>
     </div>`;
-  appliquerTypePC(); majTerminal();
-  if (matchMedia("(pointer: fine)").matches) PC(pcType === "stock" ? (lieu ? "numero" : "lieu") : (commande && lieu ? "numero" : commande ? "lieu" : "commande")).focus();
+  majTerminal();
 }
 function essencesConnues() {
   const n = {};
@@ -789,23 +776,17 @@ function majChipsEssence() {
   const v = PC("essence").value.trim().toUpperCase();
   $$("#pc-essences [data-ess]").forEach(b => b.setAttribute("aria-pressed", b.dataset.ess === v));
 }
-function appliquerTypePC() {
-  const stock = pcType === "stock";
-  $$("#pc-type [data-type]").forEach(b => b.setAttribute("aria-pressed", b.dataset.type === pcType));
-  $("#pc-champ-commande").hidden = stock;
-  $("#pc-ligne").classList.toggle("une-colonne", stock);
-}
 function champsPC() {
-  return { commande: pcType === "stock" ? STOCK : PC("commande").value.trim(), lieu: PC("lieu").value.trim().toUpperCase(), options: [...pcOptions],
+  return { options: [...pcOptions], // commande et lieu ne se tapent plus : le lieu vient de la photo de l'étiquette
     ref_client: PC("ref").value.trim(), essence: PC("essence").value.trim().toUpperCase(),
     choix: PC("choix").value.trim(), nature: PC("nature").value.trim().toUpperCase() };
 }
 function majTerminal() {
-  const c = parId(filePC[posPC]); if (!c || !PC("commande")) return;
+  const c = parId(filePC[posPC]); if (!c || !PC("essence")) return;
   const ch = champsPC();
   const set = (id, v) => { const el = $("#t-" + id); if (!el) return; const ok = v !== "" && v != null; el.textContent = ok ? v : "—"; el.classList.toggle("vide", !ok); };
   set("epaisseur", c.epaisseur); set("largeur", c.largeur); set("pieces", lotsDe(c).map(l => np(l.pieces)).join(" + ")); set("longueur", lotsDe(c).map(l => longueurCourte(l.longueur)).join(" + "));
-  set("essence", ch.essence); set("choix", ch.choix); set("nature", ch.nature); set("lieu", ch.lieu);
+  set("essence", ch.essence); set("choix", ch.choix); set("nature", ch.nature); set("lieu", c.lieu || (lectures[c.id] && lectures[c.id].lieu) || "");
   set("options", ch.options.join("  ")); set("ref", ch.ref_client);
 }
 function sauverChampsPC(extra = {}) {
@@ -814,31 +795,27 @@ function sauverChampsPC(extra = {}) {
   return c;
 }
 let avertiNumero = "";
-function validerNumeroPC() {
+function validerNumeroPC() { // « Pointer » : le n° et le lieu viennent de la photo de l'étiquette (rien à taper)
   const a = $("#pc-alerte"), erreur = m => { a.textContent = m; a.hidden = false; a.scrollIntoView({ block: "center", behavior: "smooth" }); };
   const ch = champsPC();
-  if (pcType === "stock" ? !ch.lieu : (!ch.commande || !ch.lieu)) return erreur(pcType === "stock" ? "Choisis le lieu de stockage." : "Renseigne la commande et le lieu de stock (feuille de commande).");
   if (!ch.essence) return erreur("Choisis l'essence du bois (S, D…).");
-  const numero = formatNumero(PC("numero").value);
-  if (numero.replace(/\D/g, "").length < 7 && avertiNumero !== numero) {
-    avertiNumero = numero;
-    return erreur(`N° incomplet : il manque le chiffre après le dernier tiret (ex. ${numero || "203-482"}-1). Complète-le, ou appuie encore pour confirmer.`);
+  const id = filePC[posPC], lec = lectures[id], c0 = parId(id), extra = {};
+  const numero = (lec && lec.numero) || c0.numero || "";
+  if (numero) {
+    const dbl = doublon(numero, id);
+    if (dbl) return erreur(`Le n° ${numero} lu sur l'étiquette est déjà pointé (${quel(dbl)}). Reprends la photo de la bonne étiquette.`);
+    extra.numero = numero;
   }
-  if (!numero) return erreur("Tape le n° imprimé sur l'étiquette.");
-  const id = filePC[posPC], dbl = doublon(numero, id);
-  if (dbl) return erreur(`Le n° ${numero} est déjà utilisé (commande ${dbl.commande || "–"}, ${section(dbl)}).`);
-  const lec = lectures[id], extra = { numero };
-  if (parId(id).statut === "a_etiqueter") { extra.statut = "a_sortir"; extra.etiquete_le = (lec && lec.dateIso) || maintenant(); }
+  if (lec && lec.lieu && !c0.lieu) extra.lieu = lec.lieu;
+  if (c0.statut === "a_etiqueter") { extra.statut = "a_sortir"; extra.etiquete_le = (lec && lec.dateIso) || maintenant(); }
   sauverChampsPC(extra);
   delete lectures[id];
   if (posPC < filePC.length - 1) { posPC++; rendrePC(); toast("Pointé, colis suivant"); }
   else if (filePC.length > 1) { cacher("#pc"); toast("Tous les colis du calepin sont pointés"); }
   else { cacher("#pc"); toast("Colis pointé"); }
 }
-const garderPC = () => { if (PC("lieu") && (PC("lieu").value.trim() || (pcType !== "stock" && PC("commande").value.trim()))) sauverChampsPC(); };
+const garderPC = () => { if (PC("essence")) sauverChampsPC(); };
 $("#pc-corps").addEventListener("click", e => {
-  const ty = e.target.closest("[data-type]");
-  if (ty) { pcType = ty.dataset.type; appliquerTypePC(); majTerminal(); return; }
   const es = e.target.closest("[data-ess]");
   if (es) { PC("essence").value = es.dataset.ess; majChipsEssence(); majTerminal(); return; }
   const o = e.target.closest("[data-popt]");
@@ -864,12 +841,7 @@ $("#pc-corps").addEventListener("click", e => {
 $("#pc-corps").addEventListener("input", e => {
   majTerminal();
   if (e.target.id === "pc-essence") majChipsEssence();
-  if (e.target.id === "pc-numero") {
-    const d = doublon(e.target.value.replace(/\s/g, ""), filePC[posPC]), al = $("#pc-alerte");
-    al.hidden = !d; if (d) al.textContent = `Ce n° existe déjà : ${section(d)}, commande ${d.commande || "–"}.`;
-  }
 });
-$("#pc-corps").addEventListener("keydown", e => { if (e.key === "Enter" && e.target.id === "pc-numero") validerNumeroPC(); });
 
 /* ═════════════ Photo de l'étiquette ═════════════ */
 const ESSENCE_INVERSE = Object.fromEntries(Object.entries(CFG.ESSENCE_ETIQUETTE || {}).map(([k, v]) => [v, k]));
@@ -994,8 +966,9 @@ async function preparerImage(fichier) {
   // 1. code-barres : image entière en haute résolution (lignes de lecture aussi penchées) + sa position
   const kb = Math.min(1, 3000 / Math.max(W, H)), lb = Math.round(W * kb), hb = Math.round(H * kb);
   const [, cb] = dessiner(img, lb, hb);
-  const p = Lecture.codeBarresPos(gris(cb, lb, hb), lb, hb, 5000);
-  const pos = p ? { ...p, x0: p.x0 / kb, x1: p.x1 / kb, y0: p.y0 / kb, y1: p.y1 / kb } : null;
+  const gb = gris(cb, lb, hb), p0 = Lecture.codeBarresPos(gb, lb, hb, 5000);
+  const p = p0 ? Lecture.affinerRepere(gb, lb, hb, p0) : null; // angle, centre et perspective mesurés sur les barres
+  const pos = p ? { ...p, ox: p.ox / kb, oy: p.oy / kb, long: p.long / kb } : null;
   // 2. en secours : image entière en noir et blanc local, et étiquette recadrée
   let complet = null;
   const entier = () => (complet ||= versNoirBlanc(img, 0, 0, W, H, 1800, [0.82, 0.9]));
@@ -1003,33 +976,103 @@ async function preparerImage(fichier) {
   const recadre = () => z ? versNoirBlanc(img, z.x, z.y, z.w, z.h, 2400, [0.85])[0] : null;
   return { img, code: p ? p.code : null, pos, entier, recadre };
 }
-// Découpe une zone de l'étiquette, redressée d'après le code-barres, et la passe en noir et blanc net
-const PX_PAR_CODE = 520; // largeur du code-barres une fois redressé, en pixels
-// La ligne des longueurs (« 3/450 28/400 ») est souvent lue avec un chiffre ou un tiret en trop : on ne garde que les codes pièces/longueur
+// La ligne des longueurs (« 3/450 28/400 ») est souvent lue avec un chiffre ou un tiret en trop : on ne garde que les morceaux « pièces/longueur »
 const nettoyerZone = (nom, t) => { if (nom !== "code") return t; const m = String(t).match(/\d{1,4}\s*\/\s*\d{3,4}/g); return m ? m.map(x => x.replace(/\s+/g, "")).join(" ") : t; };
+// Nettoyage d'une zone en noir et blanc : on retire ce qui n'est pas le texte visé (bord de l'étiquette, fond,
+// morceaux des lignes voisines) en gardant virgules, barres et points collés aux chiffres.
+function composantes(noir, l, h) { // repère chaque tache noire (8 voisins) : { lab, boites[], n }
+  const lab = new Int32Array(l * h), boites = [null], pile = new Int32Array(l * h);
+  let n = 0;
+  for (let p0 = 0; p0 < l * h; p0++) {
+    if (!noir[p0] || lab[p0]) continue;
+    n++; let sp = 0, x0 = l, x1 = 0, y0 = h, y1 = 0, aire = 0; pile[sp++] = p0; lab[p0] = n;
+    while (sp) {
+      const p = pile[--sp], x = p % l, y = (p / l) | 0; aire++;
+      if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y;
+      for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+        const xx = x + dx, yy = y + dy; if (xx < 0 || yy < 0 || xx >= l || yy >= h) continue;
+        const q = yy * l + xx; if (noir[q] && !lab[q]) { lab[q] = n; pile[sp++] = q; }
+      }
+    }
+    boites.push({ x0, x1: x1 + 1, y0, y1: y1 + 1, aire });
+  }
+  return { lab, boites, n };
+}
+function nettoyerTaches(noir, l, h) {
+  let { lab, boites, n } = composantes(noir, l, h);
+  if (!n) return;
+  const efface = k => { for (let p = 0; p < l * h; p++) if (lab[p] === k) noir[p] = 0; };
+  const bord = new Set();
+  for (let x = 0; x < l; x++) { bord.add(lab[x]); bord.add(lab[(h - 1) * l + x]); }
+  for (let y = 0; y < h; y++) { bord.add(lab[y * l]); bord.add(lab[y * l + l - 1]); }
+  bord.delete(0);
+  for (const k of bord) {
+    const b = boites[k], bh = b.y1 - b.y0, bw = b.x1 - b.x0;
+    if (b.aire > 0.02 * l * h || bw > 0.5 * l || ((b.y0 === 0 || b.y1 === h) && bh < 0.45 * h)) efface(k);
+  }
+  ({ lab, boites, n } = composantes(noir, l, h));
+  if (!n) return;
+  const hs = boites.slice(1).map(b => b.y1 - b.y0).sort((x, y) => x - y), ref = hs[hs.length - Math.min(3, hs.length)];
+  const grands = []; for (let k = 1; k <= n; k++) if (boites[k].y1 - boites[k].y0 >= 0.5 * ref) grands.push(k);
+  if (!grands.length) return;
+  const haut = Math.min(...grands.map(k => boites[k].y0)), bas = Math.max(...grands.map(k => boites[k].y1));
+  const petits = new Set();
+  for (let k = 1; k <= n; k++) {
+    const b = boites[k]; if (b.y1 - b.y0 >= 0.5 * ref) continue;
+    const dans = b.y0 >= haut - 0.2 * ref && b.y1 <= bas + 0.45 * ref;
+    const ecart = Math.min(...grands.map(g => Math.max(0, boites[g].x0 - b.x1, b.x0 - boites[g].x1)));
+    if (!dans || ecart > 0.5 * ref) petits.add(k);
+  }
+  if (petits.size) for (let p = 0; p < l * h; p++) if (petits.has(lab[p])) noir[p] = 0;
+}
+// Découpe une zone de l'étiquette, redressée d'après le code-barres, et la passe en noir et blanc net
 function zoneCalee(img, pos, zone) {
-  const bw = pos.x1 - pos.x0, th = pos.deg * Math.PI / 180;
-  let e1 = [Math.cos(th), Math.sin(th)], e2 = [-Math.sin(th), Math.cos(th)];
-  let O = [pos.x0, (pos.y0 + pos.y1) / 2];
-  if (pos.retourne) { O = [pos.x1, O[1] + bw * Math.tan(th)]; e1 = [-e1[0], -e1[1]]; e2 = [-e2[0], -e2[1]]; } // étiquette à l'envers
-  const S = PX_PAR_CODE, k = S / bw, l = Math.round((zone.u1 - zone.u0) * S), h = Math.round((zone.v1 - zone.v0) * S);
+  const bw = pos.long, ux = pos.ux, uy = pos.uy, fy = pos.fy || 1;       // axe u le long du code-barres, v perpendiculaire
+  const e1 = [ux, uy], e2 = [-uy, ux], O = [pos.ox, pos.oy];
+  const S = zone.ech || 360, v0 = zone.v0 * fy, v1 = zone.v1 * fy, k = S / bw;
+  const l = Math.round((zone.u1 - zone.u0) * S), h = Math.round((v1 - v0) * S);
   const cv = document.createElement("canvas"); cv.width = l; cv.height = h;
   const ctx = cv.getContext("2d", { willReadFrequently: true });
   ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, l, h); ctx.imageSmoothingQuality = "high";
   ctx.setTransform(k * e1[0], k * e2[0], k * e1[1], k * e2[1],
-    -k * (O[0] * e1[0] + O[1] * e1[1]) - S * zone.u0, -k * (O[0] * e2[0] + O[1] * e2[1]) - S * zone.v0);
+    -k * (O[0] * e1[0] + O[1] * e1[1]) - S * zone.u0, -k * (O[0] * e2[0] + O[1] * e2[1]) - S * v0);
   ctx.drawImage(img, 0, 0);
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   const g = gris(ctx, l, h), tri = Uint8Array.from(g).sort();
-  const bas = tri[Math.floor(g.length * 0.01)], haut = tri[Math.floor(g.length * 0.99)], e = 255 / Math.max(1, haut - bas);
-  if (haut - bas < 45) { const v = versCanvas(new Uint8Array((l + 50) * (h + 50)).fill(255), l + 50, h + 50); v.vide = true; return v; } // zone sans contraste = rien d'imprimé
+  const bas = tri[Math.floor(g.length * 0.01)], haut = tri[Math.floor(g.length * 0.99)], e = 255 / Math.max(1, haut - bas), M = 25, L2 = l + 2 * M;
+  const vide = () => { const v = versCanvas(new Uint8Array(L2 * (h + 2 * M)).fill(255), L2, h + 2 * M); v.vide = true; return v; };
+  if (haut - bas < 45) return vide(); // zone sans contraste = rien d'imprimé
   for (let i = 0; i < g.length; i++) g[i] = Math.max(0, Math.min(255, (g[i] - bas) * e));
-  const s = otsu(g), M = 25, out = new Uint8Array((l + 2 * M) * (h + 2 * M)).fill(255);
-  let noirs = 0;
-  for (let y = 0; y < h; y++) for (let x = 0; x < l; x++) { const b = g[y * l + x] > s ? 255 : 0; out[(y + M) * (l + 2 * M) + x + M] = b; if (!b) noirs++; }
-  const res = versCanvas(out, l + 2 * M, h + 2 * M);
-  if (noirs < l * h * 0.002) res.vide = true;
+  const s = otsu(g), noir = new Uint8Array(l * h);
+  for (let i = 0; i < g.length; i++) noir[i] = g[i] > s ? 0 : 1;
+  nettoyerTaches(noir, l, h);
+  let noirs = 0; const out = new Uint8Array(L2 * (h + 2 * M)).fill(255);
+  for (let y = 0; y < h; y++) for (let x = 0; x < l; x++) if (noir[y * l + x]) { out[(y + M) * L2 + x + M] = 0; noirs++; }
+  if (noirs < l * h * 0.002) return vide();
+  const res = versCanvas(out, L2, h + 2 * M);
+  const bs = composantes(noir, l, h).boites.slice(1), hmax = Math.max(...bs.map(b => b.y1 - b.y0));
+  res.glyphes = bs.filter(b => b.y1 - b.y0 >= 0.5 * hmax).sort((p, q) => p.x0 - q.x0).map(b => ({ x0: b.x0 + M, x1: b.x1 + M, y0: b.y0 + M, y1: b.y1 + M }));
   return res;
+}
+// Lecture caractère par caractère (la lettre, puis chaque chiffre) : résiste aux chiffres collés (« D11 » lu « DI »)
+async function lireGlyphes(worker, cv) {
+  const g = cv.glyphes; if (!g || g.length < 2 || g.length > 4) return null;
+  let txt = "";
+  for (let i = 0; i < g.length; i++) {
+    const b = g[i], hb = b.y1 - b.y0, k = 60 / hb, pad = 18, w = Math.round((b.x1 - b.x0) * k) + 2 * pad, h = Math.round(hb * k) + 2 * pad;
+    const c = document.createElement("canvas"); c.width = w; c.height = h;
+    const x = c.getContext("2d"); x.fillStyle = "#fff"; x.fillRect(0, 0, w, h); x.imageSmoothingQuality = "high";
+    x.drawImage(cv, b.x0, b.y0, b.x1 - b.x0, hb, pad, pad, w - 2 * pad, h - 2 * pad);
+    let t = "";
+    for (const psm of ["8", "13"]) { // « un mot » ou « une ligne » : le mode « un seul caractère » ne reconnaît pas toujours la lettre
+      await worker.setParameters({ tessedit_pageseg_mode: psm, tessedit_char_whitelist: i === 0 ? "ABCDEFGHIJKLMNOPQRSTUVWXYZ" : "0123456789" });
+      t = (await worker.recognize(c)).data.text.replace(/\s/g, "");
+      if (t) break;
+    }
+    if (!t) return null;
+    txt += t[0];
+  }
+  return txt;
 }
 let workerOCR = null;
 function obtenirWorker() {
@@ -1039,86 +1082,106 @@ function prechauffer() { // dès qu'on ouvre le pointage : le lecteur se téléc
   if (CFG.PHOTO === false || !navigator.onLine || (navigator.connection && navigator.connection.saveData)) return;
   obtenirWorker().catch(() => {});
 }
-async function lireTexteEtiquette(prep) { // lit les zones de l'étiquette (repérées grâce au code-barres), sinon la photo entière
-    etatLecture("Chargement du lecteur (la première fois, ça peut être long)…");
-    const worker = await obtenirWorker();
-    let texte = "", optionsLues = null, zones = null;
-    if (prep.pos) {
-      zones = {};
-      let n = 0;
-      for (const zone of Lecture.ZONES) {
-        etatLecture(`Lecture de l'étiquette… ${Math.round(++n / Lecture.ZONES.length * 100)} %`);
-        let lu = null;
-        // on garde la première lecture qui a la forme attendue ; sinon on décale un peu la zone (photo en biais)
-        essais: for (const dv of [0, 0.07, -0.07]) {
-          const cv = zoneCalee(prep.img, prep.pos, { ...zone, v0: zone.v0 + dv, v1: zone.v1 + dv });
-          for (const psm of dv ? ["7"] : ["7", "8", "6"]) {
-            let t = "";
-            if (!cv.vide) {
-              await worker.setParameters({ tessedit_pageseg_mode: psm, tessedit_char_whitelist: zone.liste });
-              t = nettoyerZone(zone.nom, (await worker.recognize(cv)).data.text.replace(/\s+/g, " ").trim());
-            }
-            if (zone.motif.test(t)) { lu = t; break essais; }
-            if (lu === null && t) lu = { brut: t };
-          }
-          if (zone.nom === "options") break; // pas de décalage pour les options (on risquerait de lire le n° ou le lieu)
+async function lireTexteEtiquette(prep) { // lit les zones de l'étiquette (repérées grâce au code-barres), sinon l'étiquette entière
+  etatLecture("Chargement du lecteur (la première fois, ça peut être long)…");
+  const worker = await obtenirWorker();
+  let texte = "", optionsLues = null, zones = null;
+  const ocr = async (cv, psm, liste, nom) => { await worker.setParameters({ tessedit_pageseg_mode: psm, tessedit_char_whitelist: liste }); return nettoyerZone(nom, (await worker.recognize(cv)).data.text.replace(/\s+/g, " ").trim()); };
+  const decale = (zone, dv) => zoneCalee(prep.img, prep.pos, { ...zone, v0: zone.v0 + dv, v1: zone.v1 + dv });
+  if (prep.pos) {
+    zones = {};
+    let n = 0;
+    for (const zone of Lecture.ZONES) {
+      etatLecture(`Lecture de l'étiquette… ${Math.round(++n / Lecture.ZONES.length * 100)} %`);
+      if (zone.nom === "options") { // photo de biais : la ligne des options n'est pas toujours à la même hauteur
+        let trouve = "";
+        for (const dv of [0, -0.045, 0.045, -0.09]) {
+          const cv = decale(zone, dv); if (cv.vide) continue;
+          const t = await ocr(cv, "7", zone.liste), o = Lecture.optionsDepuisZone(t);
+          if (o && o.length && (dv === 0 || !(o.length === 1 && o[0] === "S"))) { trouve = t; break; } // « S » seul : seulement à la bonne hauteur (sinon c'est le « SE » de l'essence)
         }
-        zones[zone.nom] = lu && lu.brut !== undefined ? null : lu;
-        if (lu && lu.brut !== undefined) texte += "\n" + lu.brut; // lecture imparfaite : gardée pour les déductions
+        zones.options = trouve; continue;
       }
-      // Lieu : la partie chiffres est relue avec des chiffres seulement (« G7 » lu « GI », « D11 » lu « DT1 »)
-      const lieuLu = (zones.lieu || "").split(" ").pop();
-      if (lieuLu && /^[A-Z]/.test(lieuLu) && lieuLu.length >= 2) {
-        const cv = zoneCalee(prep.img, prep.pos, { u0: -0.22, u1: 0.36, v0: -0.63, v1: -0.34 });
-        if (!cv.vide) {
-          await worker.setParameters({ tessedit_pageseg_mode: "8", tessedit_char_whitelist: "0123456789" });
-          const chiffres = (await worker.recognize(cv)).data.text.replace(/\D/g, "");
-          const n = lieuLu.length - 1;
-          if (chiffres.length >= n) zones.lieu = zones.lieu.replace(/\S+$/, lieuLu[0] + chiffres.slice(-n));
+      let lu = null;
+      // on garde la première lecture qui a la forme attendue ; sinon on décale un peu la zone (photo en biais)
+      essais: for (const dv of [0, 0.07, -0.07]) {
+        const cv = decale(zone, dv);
+        for (const psm of dv ? ["7"] : ["7", "8", "6"]) {
+          const t = cv.vide ? "" : await ocr(cv, psm, zone.liste, zone.nom);
+          if (zone.motif.test(t) && (t || cv.vide)) { lu = t; break essais; }
+          if (lu === null && t) lu = { brut: t };
+          if (cv.vide) break;
         }
       }
-      texte = Lecture.texteDepuisZones(zones) + texte;
-      const s1 = Lecture.lireSpec(texte);
-      if (!(s1 && s1.epaisseur != null)) { // pas confirmé par le volume : on relit chaque zone en la décalant un peu (photo de biais, chiffres coupés)
-        const cand = { section: [], pieces: [], longueur: [], volume: [], code: [], lieu: [] };
-        for (const k of Object.keys(cand)) if (zones[k]) cand[k].push(zones[k]);
-        const ZONES_REPETEES = ["section", "pieces", "longueur", "volume", "code", "lieu"];
-        let fus = null, n = 0;
-        etatLecture("Lecture plus précise…");
-        for (const dv of [-0.045, 0.045, -0.09, 0.09, -0.135, 0.135]) {
-          for (const nom of ZONES_REPETEES) {
-            const zone = Lecture.ZONES.find(z => z.nom === nom), cv = zoneCalee(prep.img, prep.pos, { ...zone, v0: zone.v0 + dv, v1: zone.v1 + dv });
-            if (cv.vide) continue;
-            await worker.setParameters({ tessedit_pageseg_mode: "7", tessedit_char_whitelist: zone.liste });
-            const t = nettoyerZone(nom, (await worker.recognize(cv)).data.text.replace(/\s+/g, " ").trim());
-            if (zone.motif.test(t) || (nom === "volume" && /\d[,.]\d{3}/.test(t)) || (nom === "pieces" && /^\d{1,4}/.test(t))) cand[nom].push(t);
-          }
-          etatLecture(`Lecture plus précise… ${Math.round(++n / 6 * 100)} %`);
-          fus = Lecture.fusionner(cand);
-          if (fus) break; // une combinaison confirmée par le volume : inutile d'insister
-        }
-        const lieuChoisi = Lecture.majoritaire(cand.lieu.filter(t => Lecture.ZONES.find(z => z.nom === "lieu").motif.test(t)));
-        // les valeurs retenues passent en tête du texte : c'est ce que lisent ensuite la vérification et le formulaire
-        texte = (fus ? `${fus.epaisseur} x ${fus.largeur}\n${fus.pieces} P\n${nf(fus.longueur, 2)} m\n${nf(fus.volume, 3)} m3\n${(fus.lots || [fus]).map(l => l.pieces + "/" + Math.round(l.longueur * 100)).join(" ")}\n` : "") + (lieuChoisi ? lieuChoisi + "\n" : "") + texte;
-        if (fus) { zones.section = `${fus.epaisseur} x ${fus.largeur}`; zones.pieces = `${fus.pieces} P`; zones.longueur = nf(fus.longueur, 2); zones.volume = `${nf(fus.volume, 3)} m3`; }
-        if (lieuChoisi) zones.lieu = lieuChoisi;
-      }
-      optionsLues = zones.options !== undefined ? Lecture.optionsDepuisZone(zones.options) : null;
-      await worker.setParameters({ tessedit_char_whitelist: "" });
+      zones[zone.nom] = lu && lu.brut !== undefined ? null : lu;
+      if (lu && lu.brut !== undefined) texte += "\n" + lu.brut; // lecture imparfaite : gardée pour les déductions
     }
-    if (!Lecture.lireSpec(texte)) { // pas de code-barres, ou zones pas assez sûres : lecture de la photo entière
-      const motsPasses = [];
-      const lire = async (image, psm) => {
-        await worker.setParameters({ tessedit_pageseg_mode: psm });
-        const d = (await worker.recognize(image)).data; texte += "\n" + d.text;
-        return d;
-      };
+    if (!zones.lieu) { // lieu introuvable : quelques décalages de plus avant d'abandonner
+      const zl = Lecture.ZONES.find(z => z.nom === "lieu"), votes = [];
+      for (const dv of [0.045, -0.045, 0.09, -0.09]) {
+        const cv = decale(zl, dv); if (cv.vide) continue;
+        const t = await ocr(cv, "7", zl.liste);
+        if (zl.motif.test(t)) { votes.push(t); if (votes.length >= 2 && votes[0] === votes[1]) break; }
+      }
+      zones.lieu = Lecture.majoritaire(votes) || null;
+    }
+    // Lieu : relu seul, caractère par caractère (« D11 » est souvent lu « DI » ou « D183 » quand on lit toute la ligne d'un coup)
+    {
+      const cv = zoneCalee(prep.img, prep.pos, { u0: -0.22, u1: 0.36, v0: -0.63, v1: -0.34, ech: 260 });
+      if (!cv.vide) {
+        const t = await lireGlyphes(worker, cv);
+        if (t && /^[A-Z][0-9]{1,3}$/.test(t)) zones.lieu = (zones.lieu && /\S\s+\S+$/.test(zones.lieu) ? zones.lieu.replace(/\S+$/, "") : "") + t;
+      }
+    }
+    texte = Lecture.texteDepuisZones(zones) + texte;
+    const s1 = Lecture.lireSpec(texte);
+    if (!(s1 && s1.epaisseur != null)) { // pas confirmé par le volume : on relit chaque zone en la décalant un peu (photo de biais, chiffres coupés)
+      const cand = { section: [], pieces: [], longueur: [], volume: [], code: [], lieu: [] };
+      for (const k of Object.keys(cand)) if (zones[k]) cand[k].push(zones[k]);
+      let fus = null, k = 0;
+      etatLecture("Lecture plus précise…");
+      for (const dv of [-0.045, 0.045, -0.09, 0.09, -0.135, 0.135]) {
+        for (const nom of Object.keys(cand)) {
+          const zone = Lecture.ZONES.find(z => z.nom === nom), cv = decale(zone, dv);
+          if (cv.vide) continue;
+          const t = await ocr(cv, "7", zone.liste, nom);
+          if (zone.motif.test(t) || (nom === "volume" && /\d[,.]\d{3}/.test(t)) || (nom === "pieces" && /^\d{1,4}/.test(t))) cand[nom].push(t);
+        }
+        etatLecture(`Lecture plus précise… ${Math.round(++k / 6 * 100)} %`);
+        fus = Lecture.fusionner(cand);
+        if (fus) break; // une combinaison confirmée par le volume : inutile d'insister
+      }
+      const lieuChoisi = zones.lieu || Lecture.majoritaire(cand.lieu.filter(t => Lecture.ZONES.find(z => z.nom === "lieu").motif.test(t)));
+      // les valeurs retenues passent en tête du texte : c'est ce que lisent ensuite la vérification et le formulaire
+      texte = (fus ? `${fus.epaisseur} x ${fus.largeur}\n${fus.pieces} P\n${nf(fus.longueur, 2)} m\n${nf(fus.volume, 3)} m3\n${(fus.lots || [fus]).map(l => l.pieces + "/" + Math.round(l.longueur * 100)).join(" ")}\n` : "") + texte;
+      if (fus) { zones.section = `${fus.epaisseur} x ${fus.largeur}`; zones.pieces = `${fus.pieces} P`; zones.longueur = nf(fus.longueur, 2); zones.volume = `${nf(fus.volume, 3)} m3`; }
+      if (lieuChoisi && !zones.lieu) { zones.lieu = lieuChoisi; texte = Lecture.texteDepuisZones({ lieu: lieuChoisi }) + "\n" + texte; }
+    }
+    optionsLues = zones.options !== undefined ? Lecture.optionsDepuisZone(zones.options) : null;
+    await worker.setParameters({ tessedit_char_whitelist: "" });
+  }
+  const sOK = Lecture.lireSpec(texte);
+  if (!(sOK && sOK.epaisseur != null)) { // pas de code-barres, ou zones pas assez sûres : on lit l'étiquette en entier
+    const motsPasses = [];
+    const lire = async (image, psm) => {
+      await worker.setParameters({ tessedit_pageseg_mode: psm, tessedit_char_whitelist: "" });
+      const d = (await worker.recognize(image)).data; texte += "\n" + d.text;
+      return d;
+    };
+    const confirme = () => { const s = Lecture.lireSpec(texte); return s && s.epaisseur != null; };
+    etatLecture("Lecture de l'étiquette…");
+    const cv0 = prep.recadre(); // l'étiquette recadrée d'abord : plus petite, plus rapide, plus lisible
+    if (cv0) { motsPasses.push(Lecture.motsDepuis(await lire(cv0, "6"))); if (!confirme()) motsPasses.push(Lecture.motsDepuis(await lire(cv0, "11"))); }
+    if (!confirme()) { // l'étiquette n'a pas été repérée ou reste illisible : toute la photo
       etatLecture("Lecture de la photo entière…");
       const [a1, a2] = prep.entier();
-      motsPasses.push(Lecture.motsDepuis(await lire(a1, "11")), Lecture.motsDepuis(await lire(a2, "6")));
-      if (!Lecture.lireSpec(texte)) { const cv = prep.recadre(); if (cv) { await lire(cv, "6"); await lire(cv, "11"); } }
-      if (optionsLues === null) optionsLues = Lecture.optionsPresDuNumero(motsPasses);
+      motsPasses.push(Lecture.motsDepuis(await lire(a1, "11")));
+      if (!confirme()) motsPasses.push(Lecture.motsDepuis(await lire(a2, "6")));
     }
+    if (optionsLues === null) optionsLues = Lecture.optionsPresDuNumero(motsPasses);
+    const fus2 = Lecture.fusionner(Lecture.candidatsDepuisTexte(texte)); // morceaux lus en vrac : on garde la combinaison que le volume confirme
+    if (fus2) texte = `${fus2.epaisseur} x ${fus2.largeur}\n${fus2.pieces} P\n${nf(fus2.longueur, 2)} m\n${nf(fus2.volume, 3)} m3\n${(fus2.lots || [fus2]).map(l => l.pieces + "/" + Math.round(l.longueur * 100)).join(" ")}\n` + texte;
+  }
   return { texte, optionsLues, zones };
 }
 let photoCible = null; // colis affiché au pointage quand la photo est prise depuis cet écran
@@ -1199,18 +1262,10 @@ function proposerCreation(numero, numeroComplet, r, champs) {
       <label class="champ"><input id="intro-larg" inputmode="numeric" placeholder="110" value="${esc(v.larg)}"><small>largeur</small></label>
     </div>
     <div class="ligne-2">${champ("intro-pieces", "Pièces", v.pieces, 'inputmode="numeric"')}${champ("intro-long", "Longueur (m)", v.lo === "" ? "" : nf(v.lo, 2), 'inputmode="decimal"')}</div>
-    <div class="segment" id="intro-type"><button type="button" data-itype="cde" aria-pressed="true">Commande</button><button type="button" data-itype="stock" aria-pressed="false">Stock</button></div>
-    <div id="intro-bloc-cde">${champ("intro-commande", "N° de commande <i>facultatif</i>", "", 'inputmode="numeric" placeholder="34114"')}</div>
-    <div class="ligne-2">${champ("intro-lieu", "Lieu de stock", champs.lieu || "", 'class="majuscules" inputmode="none" autocapitalize="characters" placeholder="G7"')}${champ("intro-choix", "Choix", champs.choix || DEF.choix, 'inputmode="numeric"')}</div>
+    ${champ("intro-choix", "Choix", champs.choix || DEF.choix, 'inputmode="numeric"')}
     <p class="alerte" id="intro-erreur" hidden></p>
     <div class="actions"><button type="button" class="btn btn-principal" id="intro-creer">Créer l'étiquette</button><button type="button" class="btn btn-secondaire" data-fermer>Fermer</button></div>`;
   montrer("#introuvable");
-  let typeIntro = "cde";
-  $$("#intro-type [data-itype]").forEach(b => b.onclick = () => {
-    typeIntro = b.dataset.itype;
-    $$("#intro-type [data-itype]").forEach(x => x.setAttribute("aria-pressed", x.dataset.itype === typeIntro));
-    $("#intro-bloc-cde").hidden = typeIntro === "stock";
-  });
   $("#intro-creer").onclick = () => {
     const erreur = m => { const e = $("#intro-erreur"); e.textContent = m; e.hidden = false; };
     const n = formatNumero($("#intro-numero").value);
@@ -1220,7 +1275,7 @@ function proposerCreation(numero, numeroComplet, r, champs) {
     if (!ep || !larg || !pieces || !lo) return erreur("Renseigne la section, les pièces et la longueur.");
     let dateIso = maintenant();
     if (champs.date) { const d = new Date(champs.date.an, champs.date.mois - 1, champs.date.jour, champs.date.h, champs.date.min); if (!isNaN(d) && d.getTime() <= Date.now() + 2 * 3600e3) dateIso = d.toISOString(); }
-    const c = { id: nouvelId(), numero: n, commande: typeIntro === "stock" ? STOCK : $("#intro-commande").value.trim(), lieu: $("#intro-lieu").value.trim().toUpperCase(), epaisseur: ep, largeur: larg, longueur: lo, pieces,
+    const c = { id: nouvelId(), numero: n, commande: "", lieu: champs.lieu || "", epaisseur: ep, largeur: larg, longueur: lo, pieces,
       choix: $("#intro-choix").value.trim() || DEF.choix, essence: champs.essence || "", nature: DEF.nature, options, ref_client: "", observation: "Créé d'après une photo d'étiquette",
       statut: "a_sortir", cree_le: dateIso, etiquete_le: dateIso, supprime: false };
     if (lotsLus && pieces === lotsLus[0].pieces && lo === lotsLus[0].longueur) c.autres = lotsLus.slice(1).map(l => ({ pieces: l.pieces, longueur: l.longueur }));
@@ -1261,7 +1316,7 @@ function traiterLecture(texte, cible, code, optionsLues, zones) {
   if (!colis) { toast(`Aucun colis en attente ne correspond${numero ? " (lu : n° " + numero + ")" : ""}. Ouvre le colis dans « Pointer » puis reprends la photo depuis cet écran.`); return; }
   if (numero) {
     const d = doublon(numero, colis.id);
-    if (d) { toast(`Le n° ${numero} est déjà pointé : ${section(d)}, ${cdeTxt(d)}.`); return; }
+    if (d) { toast(`Le n° ${numero} est déjà pointé : ${quel(d)}.`); return; }
   }
   let dateIso = null;
   if (champs.date) {
@@ -1307,7 +1362,7 @@ function bandeauLecture(lec, c) {
   const lignes = [["Section", v.section], ["Pièces", v.pieces], ["Longueur", v.longueur], ["Volume", v.volume]];
   const txt = x => `${x.epaisseur} × ${x.largeur}, ${np(x.pieces)} pièces de ${nf(x.longueur, 2)} m`;
   return `<div class="lecture${tout ? "" : " attention"}"><b>📷 Lu sur l'étiquette</b>
-    <p>${lec.numero ? "n° <b>" + esc(lec.numero) + "</b>" + (lec.parCode ? " (code-barres ✔)" : "") + (lec.numero.replace(/\D/g, "").length < 7 ? " (fin du n° non lue : ajoute-la)" : "") : "n° non lu : tape-le ci-dessous"}${lec.lieu ? ", lieu " + esc(lec.lieu) : ""}${lec.dateIso ? ", imprimée le " + esc(dh(lec.dateIso)) : ""}</p>
+    <p>${lec.numero ? "n° <b>" + esc(lec.numero) + "</b>" + (lec.parCode ? " (code-barres ✔)" : "") + (lec.numero.replace(/\D/g, "").length < 7 ? " (fin du n° non lue)" : "") : "n° non lu : tape-le ci-dessous"}${lec.lieu ? ", lieu " + esc(lec.lieu) : ""}${lec.dateIso ? ", imprimée le " + esc(dh(lec.dateIso)) : ""}</p>
     ${lec.corrige && lec.avant ? `<p class="ecart"><b>✔ Corrigé d'après l'étiquette :</b> ${(() => { const noms = { epaisseur: "épaisseur", largeur: "largeur", pieces: "pièces", longueur: "longueur" }; const av = { ...c, ...lec.avant };
       const multiAvant = lec.avant.autres && lec.avant.autres.length, multiApres = plusieursLongueurs(c);
       const parties = CHAMPS_NOTE.filter(k => k !== "autres" && !(multiAvant || multiApres) && lec.avant[k] !== c[k]).map(k => `${noms[k]} ${k === "longueur" ? nf(lec.avant[k], 2) : np(lec.avant[k])} → <b>${k === "longueur" ? nf(c[k], 2) : np(c[k])}</b>`);
@@ -1656,7 +1711,7 @@ const DECO = (() => {
 })();
 function appliquerDeco() {
   const html = document.documentElement;
-  html.style.setProperty("--fond-img", `url("fond-automne${DECO.flou ? "" : "-net"}.jpg?v=233")`);
+  html.style.setProperty("--fond-img", `url("fond-automne${DECO.flou ? "" : "-net"}.jpg?v=240")`);
   html.classList.toggle("fond-net", !DECO.flou);
   if (window.FEUILLES) FEUILLES.regler(DECO.feuilles);
 }
@@ -1865,7 +1920,6 @@ function rendreStats() {
     ${items.length ? [
       pli("jour", parMois ? "Par mois" : "Par jour", `${fmt(totalItems)}${unite}`, `${barres(buckets.map(x => x.val), etiqGraph, buckets.length <= 14)}<p class="note-stats">${serieNom} ${libPeriode} : ${fmt(totalItems)}${unite}${statMetrique === "n" ? " colis" : ""}</p>`),
       pliGroupe("section", "Par section", groupe(c => section(c), 15)),
-      pliGroupe("commande", "Par commande ou stock", groupe(c => c.commande && (c.commande === STOCK ? "Stock" : "Cde " + c.commande), 15)),
       pliGroupe("lieu", "Par lieu de stock", groupe(c => c.lieu && "Lieu " + c.lieu, 12)),
       pli("heures", "Heures et jours", `pic à ${meilleureHeure}h`,
         `<p class="mini">Par heure</p>${barres(heures, heures.map((_, h) => (h % 3 === 0 ? h + "h" : "")), false)}<p class="note-stats">Heure la plus chargée : ${meilleureHeure}h à ${meilleureHeure + 1}h.</p>

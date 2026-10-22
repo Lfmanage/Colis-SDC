@@ -45,3 +45,9 @@ Réglages → Apparence : thème **Auto / Clair / Sombre**, animations, **couleu
 
 ## Réglages (config.js)
 `LETTRES_LIEU` : lettres du pavé du lieu (C, D, G, H) · `ESSENCES` / `LIEUX` : boutons proposés au pointage · `OPTIONS` · `ESSENCE_ETIQUETTE` (code imprimé pour chaque lettre, ex. S → SE) · `PHOTO: false` masque la photo · `ETIQUETTE_MM` : largeur de la copie sur PC.
+
+## v2.4
+- Pointage : plus de commande / stock, plus de lieu, plus de n° à taper. Le n° et le lieu viennent de la photo de l'étiquette ; sans photo, le colis est pointé sans n°.
+- Créer l'étiquette : plus de commande / stock ni de champ lieu (le lieu lu est gardé).
+- Photo réglée sur 25 vraies étiquettes : recalage par le code-barres, étiquettes larges (27 × 1100), essence D, lieu lu caractère par caractère, options à plusieurs hauteurs.
+- Icônes : chemins corrigés (fichiers à la racine du dépôt).

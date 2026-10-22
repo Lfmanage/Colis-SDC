@@ -51,3 +51,6 @@ Réglages → Apparence : thème **Auto / Clair / Sombre**, animations, **couleu
 - Créer l'étiquette : plus de commande / stock ni de champ lieu (le lieu lu est gardé).
 - Photo réglée sur 25 vraies étiquettes : recalage par le code-barres, étiquettes larges (27 × 1100), essence D, lieu lu caractère par caractère, options à plusieurs hauteurs.
 - Icônes : chemins corrigés (fichiers à la racine du dépôt).
+## v2.4.1
+- Barre du bas visible partout, même sur le pointage et les fiches ; toucher un onglet ferme l'écran ouvert.
+- Pointage plus compact : section + 📷 + Pointer en haut, essence en gros boutons (S, D, Autre), options sans légende, récap plus petit, Pointer / Photo / Corriger / Copie en bas.

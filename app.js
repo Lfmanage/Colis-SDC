@@ -201,7 +201,11 @@ function allerA(vue) {
 function majTitre() {
   $("#entete-titre").textContent = { accueil: "Accueil", nouveau: editionId ? "Modifier le colis" : "Calepin", colis: "Colis", stats: "Statistiques", reglages: "Réglages" }[vueActive];
 }
-$$(".onglets button").forEach(b => b.addEventListener("click", () => allerA(b.dataset.vue)));
+function fermerFeuilles() { // la barre du bas reste visible au-dessus des écrans (pointage, fiche…) : un onglet les ferme
+  if (!$("#pc").hidden) { try { garderPC(); } catch {} }
+  ["#pc", "#fiche", "#etq", "#introuvable"].forEach(s => { if (!$(s).hidden) cacher(s); });
+}
+$$(".onglets button").forEach(b => b.addEventListener("click", () => { fermerFeuilles(); allerA(b.dataset.vue); }));
 
 /* Feuilles */
 let ficheId = null;
@@ -719,25 +723,25 @@ function rendrePC() {
   pcOptions = new Set(c.options || []);
   const ref = c.ref_client || "";
   const essenceVal = c.essence || (lec && lec.essence) || "";
-  const essencesHtml = essencesConnues().map(x => `<button type="button" class="puce" data-ess="${esc(x)}" aria-pressed="${x === essenceVal.toUpperCase()}">${esc(x)}</button>`).join("");
   const plusieurs = filePC.length > 1;
   const cell = (lab, id, cls = "") => `<div class="${cls}"><span>${lab}</span><b id="t-${id}" class="vide">—</b></div>`;
   $("#pc-corps").innerHTML = `
     ${plusieurs ? `<div class="file-pc"><span>Colis ${posPC + 1} sur ${filePC.length}</span>
       <span><button type="button" class="lien" data-p="prec" ${posPC ? "" : "hidden"}>Précédent</button>
       <button type="button" class="lien" data-p="suiv" ${posPC < filePC.length - 1 ? "" : "hidden"}>Passer</button></span></div>` : ""}
-    <button type="button" class="btn btn-principal btn-photo btn-photo-haut" data-p="photo">📷 Photo de l'étiquette</button>
-    ${bandeauLecture(lec, c)}
     <div class="pc-titre">
-      <div>
-        <p class="fiche-section" style="font-size:34px">${esc(section(c))}</p>
+      <div class="pc-titre-txt">
+        <p class="fiche-section">${esc(section(c))}</p>
         <p class="fiche-sous">${esc(phraseLots(c))}</p>
       </div>
+      <button type="button" class="btn btn-secondaire btn-photo pc-photo" data-p="photo" aria-label="Photo de l'étiquette">📷</button>
       <button type="button" class="btn btn-principal btn-pointer-haut" data-p="valider">${c.statut === "a_etiqueter" ? "Pointer" : "Enregistrer"}</button>
     </div>
+    ${bandeauLecture(lec, c)}
     <div class="carte carte-or">
-      <label class="champ"><span>Essence</span><input id="pc-essence" class="majuscules" autocapitalize="characters" placeholder="S" value="${esc(essenceVal)}"></label>
-      ${essencesHtml ? `<div class="puces" id="pc-essences">${essencesHtml}</div>` : ""}
+      <span class="etiquette-champ">Essence</span>
+      <div class="pc-essences" id="pc-essences">${essencesConnues().map(x => `<button type="button" data-ess="${esc(x)}" aria-pressed="${x === essenceVal.toUpperCase()}">${esc(x)}</button>`).join("")}<button type="button" data-ess-autre aria-pressed="${!!essenceVal && !essencesConnues().includes(essenceVal.toUpperCase())}">Autre</button></div>
+      <label class="champ pc-essence-autre" ${essenceVal && !essencesConnues().includes(essenceVal.toUpperCase()) ? "" : "hidden"}><span>Autre essence</span><input id="pc-essence" class="majuscules" autocapitalize="characters" placeholder="S" value="${esc(essenceVal)}"></label>
       <span class="etiquette-champ">Options</span>
       <div class="puces" id="pc-options">${Object.entries(OPTIONS).map(([k, lib]) =>
         `<button type="button" class="puce" data-popt="${esc(k)}" aria-pressed="${pcOptions.has(k)}">${esc(k)} <small>${esc(lib)}</small></button>`).join("")}</div>
@@ -757,12 +761,12 @@ function rendrePC() {
       ${cell("Nature", "nature")}${cell("Lieu de stock", "lieu")}
       ${cell("Options", "options", "plein")}${cell("Référence client", "ref", "plein")}
     </div>
-    <button type="button" class="btn btn-principal" data-p="valider">${c.statut === "a_etiqueter" ? "Pointer" : "Enregistrer"}</button>
     <p class="alerte" id="pc-alerte" hidden></p>
-    <div class="actions" style="margin-top:6px">
-      <button type="button" class="btn btn-principal btn-photo" data-p="photo">📷 Photo de l'étiquette</button>
-      <button type="button" class="btn btn-secondaire" data-p="modifier">✏️ Corriger la note (section, pièces, longueur)</button>
-      <button type="button" class="btn btn-secondaire" data-p="imprimer">Copie de l'étiquette (imprimer)</button>
+    <div class="pc-bas">
+      <button type="button" class="btn btn-principal" data-p="valider">${c.statut === "a_etiqueter" ? "Pointer" : "Enregistrer"}</button>
+      <button type="button" class="btn btn-secondaire btn-photo" data-p="photo">📷 Photo</button>
+      <button type="button" class="btn btn-discret2" data-p="modifier">✏️ Corriger la note</button>
+      <button type="button" class="btn btn-discret2" data-p="imprimer">🖨 Copie</button>
     </div>`;
   majTerminal();
 }
@@ -773,8 +777,9 @@ function essencesConnues() {
   return [...new Set([...(CFG.ESSENCES || []), ...frequentes])].slice(0, 8);
 }
 function majChipsEssence() {
-  const v = PC("essence").value.trim().toUpperCase();
+  const v = PC("essence").value.trim().toUpperCase(), connue = essencesConnues().includes(v);
   $$("#pc-essences [data-ess]").forEach(b => b.setAttribute("aria-pressed", b.dataset.ess === v));
+  const autre = $("#pc-essences [data-ess-autre]"); if (autre) autre.setAttribute("aria-pressed", !!v && !connue);
 }
 function champsPC() {
   return { options: [...pcOptions], // commande et lieu ne se tapent plus : le lieu vient de la photo de l'étiquette
@@ -817,7 +822,8 @@ function validerNumeroPC() { // « Pointer » : le n° et le lieu viennent de la
 const garderPC = () => { if (PC("essence")) sauverChampsPC(); };
 $("#pc-corps").addEventListener("click", e => {
   const es = e.target.closest("[data-ess]");
-  if (es) { PC("essence").value = es.dataset.ess; majChipsEssence(); majTerminal(); return; }
+  if (es) { PC("essence").value = es.dataset.ess; $(".pc-essence-autre").hidden = true; majChipsEssence(); majTerminal(); return; }
+  if (e.target.closest("[data-ess-autre]")) { const l = $(".pc-essence-autre"); l.hidden = false; PC("essence").value = ""; majChipsEssence(); majTerminal(); PC("essence").focus(); return; }
   const o = e.target.closest("[data-popt]");
   if (o) {
     const k = o.dataset.popt; pcOptions.has(k) ? pcOptions.delete(k) : pcOptions.add(k);
@@ -1711,7 +1717,7 @@ const DECO = (() => {
 })();
 function appliquerDeco() {
   const html = document.documentElement;
-  html.style.setProperty("--fond-img", `url("fond-automne${DECO.flou ? "" : "-net"}.jpg?v=240")`);
+  html.style.setProperty("--fond-img", `url("fond-automne${DECO.flou ? "" : "-net"}.jpg?v=241")`);
   html.classList.toggle("fond-net", !DECO.flou);
   if (window.FEUILLES) FEUILLES.regler(DECO.feuilles);
 }

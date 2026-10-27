@@ -181,7 +181,7 @@ function ajusterAccueil() {
   if (!v || v.hidden || !nav) return;
   v.style.height = "";
   const dispo = nav.getBoundingClientRect().top - v.getBoundingClientRect().top - 10;
-  // hauteur naturelle (v2.4.7)
+  // hauteur naturelle (v2.4.8)
 }
 addEventListener("resize", ajusterAccueil);
 addEventListener("orientationchange", () => setTimeout(ajusterAccueil, 250));
@@ -653,10 +653,18 @@ function validerNumeroFiche() {
   if (err) { const a = $("#fiche-alerte"); a.textContent = err; a.hidden = false; return; }
   toast("N° d'étiquette enregistré");
 }
+function pointerDirect(id) { // v2.4.8 : bouton « Pointer » de la carte → pointé tout de suite, sans ouvrir l'écran
+  const c = parId(id); if (!c || c.statut !== "a_etiqueter") return;
+  const avant = { ...c };
+  enregistrer({ ...c, statut: "a_sortir", etiquete_le: maintenant() });
+  const maj = () => { if (vueActive === "colis") rendreListe(); if (vueActive === "accueil") rendreAccueil(); };
+  maj(); const reste = filePCTous().length;
+  toast(`✔ ${section(c)} pointé${reste ? ` · encore ${reste} en attente` : ""}`, "Annuler", () => { enregistrer(avant); maj(); });
+}
 function actionColis(action, id) {
   const c = parId(id); if (!c) return;
   switch (action) {
-    case "pointer": ouvrirPCsur(id); break;
+    case "pointer": pointerDirect(id); break;
     case "pc": ouvrirPC([id]); break;
     case "imprimer": imprimer(id); break;
     case "modifier": commencerEdition(id); break;
@@ -679,6 +687,7 @@ let filePC = [], posPC = 0, pcOptions = new Set();
 const lectures = {}; // ce que la photo de l'étiquette a lu, par colis
 const filePCTous = () => actifs().filter(c => c.statut === "a_etiqueter").sort((a, b) => t(a.cree_le) - t(b.cree_le)).map(c => c.id);
 const PC = id => $("#pc-" + id);
+window.ouvrirPCsur = id => ouvrirPCsur(id); // utile pour les essais
 function ouvrirPCsur(id) { // écran de pointage, positionné sur ce colis
   const ids = filePCTous(); filePC = ids; posPC = Math.max(0, ids.indexOf(id)); rendrePC(); montrer("#pc");
 }
@@ -1671,7 +1680,7 @@ const REGLAGES_DEFAUT = { mode: "clair", anim: true, c_princ: "#5B4FBF", c_fond:
 const anciens = lire(K.reglages, {});
 let reglages = { ...REGLAGES_DEFAUT, maj: anciens.maj || null, attente: !!anciens.attente };
 CLES_REGLAGES.forEach(k => { if (anciens[k] !== undefined) reglages[k] = anciens[k]; }); // les anciens réglages (vert, or, forêt…) sont abandonnés
-const THEME_V = 5; // v2.4.7 : toutes les couleurs réglables
+const THEME_V = 5; // v2.4.8 : toutes les couleurs réglables
 if (anciens.tv === 4) { Object.assign(reglages, { c_fond: "auto", c_carte: "auto", c_nav: "auto", c_texte: "auto" }); reglages.tv = THEME_V; ecrire(K.reglages, reglages); }
 else if (anciens.tv !== THEME_V) {
   Object.assign(reglages, { mode: REGLAGES_DEFAUT.mode, c_princ: REGLAGES_DEFAUT.c_princ, c_carte: "auto", c_texte: "auto", c_fond: REGLAGES_DEFAUT.c_fond, c_nav: REGLAGES_DEFAUT.c_nav, c_chiffre: REGLAGES_DEFAUT.c_chiffre, maj: maintenant(), attente: true });
@@ -1733,7 +1742,7 @@ const DECO = (() => {
 })();
 function appliquerDeco() {
   const html = document.documentElement;
-  html.style.setProperty("--fond-img", `url("fond-automne${DECO.flou ? "" : "-net"}.jpg?v=247")`);
+  html.style.setProperty("--fond-img", `url("fond-automne${DECO.flou ? "" : "-net"}.jpg?v=248")`);
   html.classList.toggle("fond-net", !DECO.flou);
   if (window.FEUILLES) FEUILLES.regler(DECO.feuilles);
 }

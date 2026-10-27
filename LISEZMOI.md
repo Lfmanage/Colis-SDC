@@ -75,3 +75,7 @@ Réglages → Apparence : thème **Auto / Clair / Sombre**, animations, **couleu
 
 ## v2.4.7
 - Accueil refait façon Poka : carte « En attente », 3 chiffres côte à côte, bouton « Nouveau colis », liste, 4 derniers pointés (touche = fiche).
+
+## v2.4.8
+- Bouton « Pointer » sur une carte : le colis est pointé tout de suite, sans ouvrir l'écran de pointage (bouton « Annuler » dans le message).
+- Glisser la carte vers la droite ouvre toujours l'écran de pointage complet (photo, essence, options).

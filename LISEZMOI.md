@@ -79,3 +79,9 @@ Réglages → Apparence : thème **Auto / Clair / Sombre**, animations, **couleu
 ## v2.4.8
 - Bouton « Pointer » sur une carte : le colis est pointé tout de suite, sans ouvrir l'écran de pointage (bouton « Annuler » dans le message).
 - Glisser la carte vers la droite ouvre toujours l'écran de pointage complet (photo, essence, options).
+
+## v2.5.0 — saisie rapide des sections
+- Pièces se remplissent toutes seules (en gris) quand la section est dans la liste (200x50 = 50x200). Si tu tapes les pièces, elles ne sont plus remplacées.
+- Le curseur passe tout seul à la case suivante (épaisseur → largeur → longueur/pièces), sauf s'il y a une valeur plus longue qui commence pareil (15 → 150/153 ; 27x100 → 27x1000).
+- Boutons de longueur sous « Longueur » pour les sections qui en ont (18x100 : 2 / 2,4 / 3 m).
+- Réglages → « Sections (remplissage auto) » : liste modifiable, rangée toute seule, synchronisée avec tes réglages.

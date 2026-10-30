@@ -181,7 +181,7 @@ function ajusterAccueil() {
   if (!v || v.hidden || !nav) return;
   v.style.height = "";
   const dispo = nav.getBoundingClientRect().top - v.getBoundingClientRect().top - 10;
-  // hauteur naturelle (v2.4.8)
+  // hauteur naturelle (v2.5.0)
 }
 addEventListener("resize", ajusterAccueil);
 addEventListener("orientationchange", () => setTimeout(ajusterAccueil, 250));
@@ -192,7 +192,7 @@ function allerA(vue) {
   $$(".onglets button").forEach(b => b.classList.toggle("actif", b.dataset.vue === vue));
   majTitre();
   if (vue === "colis") rendreListe();
-  if (vue === "reglages") { majEtat(); majUIapparence(); }
+  if (vue === "reglages") { majEtat(); majUIapparence(); if (typeof majUISections === "function") majUISections(); }
   if (vue === "stats") rendreStats();
   if (vue === "accueil") rendreAccueil();
   window.scrollTo(0, 0);
@@ -225,6 +225,7 @@ document.addEventListener("keydown", e => {
 /* ═════════════ Formulaire « Nouveau colis » ═════════════ */
 const F = id => $("#f-" + id);
 let editionId = null;
+let sautAuto = null; // champ où le curseur vient d'arriver tout seul (saisie rapide)
 let optionsChoisies = new Set();
 
 function rendrePuces() {
@@ -294,6 +295,7 @@ function remplirForm(c) {
   F("ref").value = c.ref_client || "";
   F("observation").value = c.observation || "";
   F("numero").value = c.numero || "";
+  delete F("pieces").dataset.auto; F("pieces").classList.remove("auto"); sautAuto = null;
   rendrePuces(); rendrePucesChoixEssence(); majLive();
 }
 
@@ -653,7 +655,7 @@ function validerNumeroFiche() {
   if (err) { const a = $("#fiche-alerte"); a.textContent = err; a.hidden = false; return; }
   toast("N° d'étiquette enregistré");
 }
-function pointerDirect(id) { // v2.4.8 : bouton « Pointer » de la carte → pointé tout de suite, sans ouvrir l'écran
+function pointerDirect(id) { // v2.5.0 : bouton « Pointer » de la carte → pointé tout de suite, sans ouvrir l'écran
   const c = parId(id); if (!c || c.statut !== "a_etiqueter") return;
   const avant = { ...c };
   enregistrer({ ...c, statut: "a_sortir", etiquete_le: maintenant() });
@@ -1675,12 +1677,12 @@ const PALETTES = {
   chiffre: [["Ambre", "#F0B04A"], ["Turquoise", "#1F8A8A"], ["Cuivre foncé", "#B4682F"], ["Bordeaux", "#843C4E"], ["Indigo", "#5B4FBF"], ["Vert", "#3F7F5B"], ["Bleu", "#2F6DA3"], ["Brique", "#C0533D"], ["Or foncé", "#8C6D1F"],
     ["Ardoise", "#5A6B7B"], ["Noir", "#26201F"], ["Violet", "#7A4E9A"], ["Framboise", "#B23B6B"], ["Olive", "#6B7F3A"]]
 };
-const CLES_REGLAGES = ["mode", "anim", "c_princ", "c_fond", "c_carte", "c_nav", "c_texte", "c_chiffre"];
+const CLES_REGLAGES = ["mode", "anim", "c_princ", "c_fond", "c_carte", "c_nav", "c_texte", "c_chiffre", "sections"];
 const REGLAGES_DEFAUT = { mode: "clair", anim: true, c_princ: "#5B4FBF", c_fond: "auto", c_carte: "auto", c_nav: "auto", c_texte: "auto", c_chiffre: "#5B4FBF" };
 const anciens = lire(K.reglages, {});
 let reglages = { ...REGLAGES_DEFAUT, maj: anciens.maj || null, attente: !!anciens.attente };
 CLES_REGLAGES.forEach(k => { if (anciens[k] !== undefined) reglages[k] = anciens[k]; }); // les anciens réglages (vert, or, forêt…) sont abandonnés
-const THEME_V = 5; // v2.4.8 : toutes les couleurs réglables
+const THEME_V = 5; // v2.5.0 : toutes les couleurs réglables
 if (anciens.tv === 4) { Object.assign(reglages, { c_fond: "auto", c_carte: "auto", c_nav: "auto", c_texte: "auto" }); reglages.tv = THEME_V; ecrire(K.reglages, reglages); }
 else if (anciens.tv !== THEME_V) {
   Object.assign(reglages, { mode: REGLAGES_DEFAUT.mode, c_princ: REGLAGES_DEFAUT.c_princ, c_carte: "auto", c_texte: "auto", c_fond: REGLAGES_DEFAUT.c_fond, c_nav: REGLAGES_DEFAUT.c_nav, c_chiffre: REGLAGES_DEFAUT.c_chiffre, maj: maintenant(), attente: true });
@@ -1742,7 +1744,7 @@ const DECO = (() => {
 })();
 function appliquerDeco() {
   const html = document.documentElement;
-  html.style.setProperty("--fond-img", `url("fond-automne${DECO.flou ? "" : "-net"}.jpg?v=248")`);
+  html.style.setProperty("--fond-img", `url("fond-automne${DECO.flou ? "" : "-net"}.jpg?v=250")`);
   html.classList.toggle("fond-net", !DECO.flou);
   if (window.FEUILLES) FEUILLES.regler(DECO.feuilles);
 }
@@ -2044,4 +2046,83 @@ $("#deco-fond").addEventListener("click", e => { const b = e.target.closest("[da
 appliquerDeco();
 // Pas de zoom à deux doigts (le double appui est déjà bloqué par le CSS)
 ["gesturestart", "gesturechange", "gestureend"].forEach(n => document.addEventListener(n, e => e.preventDefault()));
+
+/* ═════════════ Saisie rapide des sections (v2.5) : pièces auto, saut de case, longueurs rapides ═════════════ */
+const SECTIONS_DEFAUT = "200x200=15\n195x195=15\n153x153=28\n150x150=28\n145x145=28\n100x100=66\n100x150=42\n100x200=30\n100x225=30\n100x240=24\n100x250=24\n100x300=18\n75x100=88\n75x110=80\n75x150=56\n75x175=48\n75x200=40\n75x225=40\n75x250=32\n65x160=30\n63x76=117\n63x150=63\n63x175=54\n63x200=45\n63x225=45\n63x250=36\n51x108=132\n51x128=108\n51x153=84\n51x208=60\n51x228=60\n51x308=36\n50x50=252\n50x100=132\n50x125=108\n50x150=84\n50x175=72\n50x200=60\n50x225=60\n46x200=65:3/4\n45x95=132\n45x120=108\n45x145=84\n45x195=60\n45x220=60\n45x300=48\n40x40=379\n38x38=379\n38x60=221\n38x100=143\n38x110=130\n38x125=117\n38x150=91\n38x175=78\n38x200=65\n38x225=65\n37x177=102:3/4\n32x153=98\n30x40=576\n27x27=840\n27x38=576\n27x40=576\n27x75=260\n27x100=220\n27x125=180\n27x150=150\n27x200=100\n27x250=80\n27x300=60\n27x1000=20\n27x1100=20\n25x38=576\n25x40=576\n25x150=140\n25x200=100\n20x38=720\n20x40=720\n18x38=720\n18x40=720\n18x100=250:2/2.4/3\n18x150=189:3/4\n18x200=135:3/4/5\n18x1000=30:2/2.5/3\n18x1100=30:2/2.5/3\n15x150=252:3/4\n15x200=180:2/3";
+const lireListeSections = txt => { // « 75x110=80:3/4 » par ligne ou séparés par des espaces → { ép: { larg: {pieces, longs[]} } }
+  const T = {};
+  String(txt || "").split(/[\s;]+/).forEach(m => {
+    const r = /^(\d+)\s*[x×]\s*(\d+)\s*=\s*(\d+)(?::([\d.,\/]+))?$/i.exec(m.trim()); if (!r) return;
+    const longs = r[4] ? r[4].split("/").map(x => parseFloat(x.replace(",", "."))).filter(x => x > 0) : [];
+    (T[r[1]] = T[r[1]] || {})[r[2]] = { pieces: +r[3], longs };
+  });
+  return T;
+};
+const texteSectionsTrie = txt => { // rangé par épaisseur (grosse → fine), puis largeur
+  const T = lireListeSections(txt), L = [];
+  Object.keys(T).sort((a, b) => b - a).forEach(e => Object.keys(T[e]).sort((a, b) => b - a).forEach(l => {
+    const s = T[e][l]; L.push(`${e}x${l}=${s.pieces}${s.longs.length ? ":" + s.longs.join("/") : ""}`);
+  }));
+  return L.join("\n");
+};
+let cacheSections = { txt: null, T: {} };
+const sections = () => { const txt = reglages.sections || SECTIONS_DEFAUT; if (cacheSections.txt !== txt) cacheSections = { txt, T: lireListeSections(txt) }; return cacheSections.T; };
+const chercherSection = (e, l) => { const T = sections(); return (T[e] && T[e][l]) || (T[l] && T[l][e]) || null; }; // marche dans les deux sens
+const attendSuite = (v, liste) => liste.some(x => x !== v && x.startsWith(v)); // une autre valeur commence pareil : on attend
+function sauter(vers) { sautAuto = vers; vers.focus(); try { vers.select(); } catch (e) { /* tant pis */ } }
+
+function majPiecesAuto() {
+  const p = F("pieces"), e = F("epaisseur").value.trim(), l = F("largeur").value.trim(), s = e && l ? chercherSection(e, l) : null;
+  if (p.dataset.auto === "1" || p.value.trim() === "") {
+    if (s) { p.value = s.pieces; p.dataset.auto = "1"; p.classList.add("auto"); }
+    else if (p.dataset.auto === "1") { p.value = ""; delete p.dataset.auto; p.classList.remove("auto"); }
+  }
+}
+function majLongueursRapides() {
+  const zone = $("#f-long-rapides"), e = F("epaisseur").value.trim(), l = F("largeur").value.trim(), s = e && l ? chercherSection(e, l) : null;
+  if (!s || !s.longs.length) { zone.hidden = true; zone.innerHTML = ""; return; }
+  const cur = num(F("longueur").value);
+  zone.innerHTML = s.longs.map(x => `<button type="button" class="puce" data-long="${x}" aria-pressed="${cur === x}">${nf(x, x % 1 ? 1 : 0)} m</button>`).join("");
+  zone.hidden = false;
+}
+$("#f-long-rapides").addEventListener("click", ev => {
+  const b = ev.target.closest("[data-long]"); if (!b) return;
+  F("longueur").value = nf(+b.dataset.long, 2); majLive();
+});
+$("#form-colis").addEventListener("input", ev => {
+  const id = ev.target.id;
+  if (id === "f-pieces") { delete ev.target.dataset.auto; ev.target.classList.remove("auto"); }
+  if (id === "f-epaisseur" || id === "f-largeur" || id === "f-pieces") { if (sautAuto === ev.target) sautAuto = null; }
+  if (id !== "f-epaisseur" && id !== "f-largeur") return;
+  majPiecesAuto(); majLongueursRapides();
+  if (ev.inputType && ev.inputType.startsWith("delete")) return; // on ne saute pas quand j'efface
+  const T = sections(), e = F("epaisseur").value.trim(), l = F("largeur").value.trim();
+  if (id === "f-epaisseur") {
+    if (T[e] && !attendSuite(e, Object.keys(T))) sauter(F("largeur"));
+  } else if (T[F("epaisseur").value.trim()]) {
+    const ws = Object.keys(T[F("epaisseur").value.trim()]);
+    if (ws.includes(l) && !attendSuite(l, ws)) sauter(F("pieces").dataset.auto === "1" ? F("longueur") : F("pieces"));
+  }
+});
+$("#form-colis").addEventListener("keydown", ev => { // Entrée = case suivante (sans sauter deux fois après un saut automatique)
+  if (ev.key !== "Enter") return;
+  const id = ev.target.id;
+  if (!["f-epaisseur", "f-largeur", "f-pieces"].includes(id)) return;
+  ev.preventDefault();
+  if (sautAuto === ev.target && ev.target.value.trim() === "") return;
+  const suite = id === "f-epaisseur" ? F("largeur") : id === "f-largeur" ? (F("pieces").dataset.auto === "1" ? F("longueur") : F("pieces")) : F("longueur");
+  sauter(suite);
+});
+const _majLive = majLive;
+majLive = function () { _majLive(); majLongueursRapides(); };
+
+/* Réglages → Sections */
+function majUISections() { const z = $("#sections-texte"); if (z && document.activeElement !== z) z.value = texteSectionsTrie(reglages.sections || SECTIONS_DEFAUT); }
+$("#btn-sections-enreg").addEventListener("click", () => {
+  const brut = $("#sections-texte").value, n = Object.values(lireListeSections(brut)).reduce((s, o) => s + Object.keys(o).length, 0);
+  if (!n) { toast("Aucune section reconnue : écris par ex. 75x110=80"); return; }
+  changerReglages({ sections: texteSectionsTrie(brut) }); majUISections(); toast(`${n} sections enregistrées`);
+});
+$("#btn-sections-defaut").addEventListener("click", () => { changerReglages({ sections: "" }); $("#sections-texte").value = texteSectionsTrie(SECTIONS_DEFAUT); toast("Liste d'origine remise"); });
+majUISections();
 })();

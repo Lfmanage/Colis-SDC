@@ -344,9 +344,9 @@ pre.lu { white-space: pre-wrap; word-break: break-word; font-size: 11.5px; line-
 /* ═════════ Design 2.0 : verre dépoli sur bois d'automne flouté ═════════ */
 html { background: #1A100B; }
 body { background: transparent; }
-body::before { content: ""; position: fixed; inset: 0; z-index: -3; background: var(--fond-img, url("fond-automne.jpg?v=248")) center / cover no-repeat; transform: scale(1.05); }
+body::before { content: ""; position: fixed; inset: 0; z-index: -3; background: var(--fond-img, url("fond-automne.jpg?v=250")) center / cover no-repeat; transform: scale(1.05); }
 body::after { content: ""; position: fixed; inset: 0; z-index: -2; background: var(--voile, rgba(18, 10, 6, .5)); pointer-events: none; }
-.login { background: var(--voile, rgba(18, 10, 6, .5)), url("fond-automne.jpg?v=248") center / cover no-repeat; }
+.login { background: var(--voile, rgba(18, 10, 6, .5)), url("fond-automne.jpg?v=250") center / cover no-repeat; }
 
 /* verre */
 .carte, .stat, .pli, .tuile, .action, .feuille-panneau, .onglets, .recherche input, .fermer {
@@ -566,7 +566,7 @@ body.sur-accueil .contenu { padding-bottom: 0; }
 #vue-nouveau #btn-generer { padding: 11px 16px; }
 #vue-nouveau .actions { margin-top: 0; }
 
-/* ───── v2.4.8 : design Poka (thème clair) ───── */
+/* ───── v2.5.0 : design Poka (thème clair) ───── */
 html.poka body { background: linear-gradient(180deg, #ECE8F7 0, #F4F2F8 300px, #F7F6FA 100%) fixed, #F4F2F8; }
 html.poka body::before, html.poka body::after, html.poka .feuilles-canvas { display: none; }
 html.poka .entete { background: color-mix(in srgb, #F2EFF8 90%, transparent); }
@@ -592,7 +592,7 @@ html:not(.poka) .fab { bottom: calc(var(--bas) + 96px); }
 body:has(.feuille:not([hidden])) .fab { display: none; }
 html.poka .photo-geant, html.poka .tuile-plus { background: linear-gradient(135deg, #7A6FE0, #5B4FBF); }
 
-/* ───── v2.4.8 : onglet Photo + feuille « nouvelle étiquette » sur une seule page ───── */
+/* ───── v2.5.0 : onglet Photo + feuille « nouvelle étiquette » sur une seule page ───── */
 .onglets { grid-template-columns: repeat(5, 1fr) !important; }
 #introuvable .feuille-tete { margin-bottom: 6px; }
 #introuvable .feuille-tete .titre { font-size: 22px; }
@@ -614,7 +614,7 @@ html.poka .photo-geant, html.poka .tuile-plus { background: linear-gradient(135d
 .intro-actions { display: grid; grid-template-columns: 1fr 2fr; gap: 10px; margin-top: 12px; }
 .intro-actions .btn { margin: 0; padding: 12px 10px; }
 
-/* ───── v2.4.8 : accueil sans gros bouton photo, toutes les couleurs réglables ───── */
+/* ───── v2.5.0 : accueil sans gros bouton photo, toutes les couleurs réglables ───── */
 html.poka body, html.fond-perso body { background: linear-gradient(180deg, var(--fond-haut) 0, var(--fond) 300px) fixed, var(--fond); }
 html.fond-perso body::before, html.fond-perso body::after, html.fond-perso .feuilles-canvas { display: none; }
 html.poka .entete, html.fond-perso .entete { background: color-mix(in srgb, var(--fond-haut) 90%, transparent); }
@@ -628,7 +628,7 @@ html.poka .photo-geant, html.poka .tuile-plus { background: linear-gradient(135d
 .pastille-libre input { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; border: 0; padding: 0; }
 #c-reinit { width: 100%; margin-top: 6px; }
 
-/* ───── v2.4.8 : accueil façon Poka (carte héros + 3 chiffres + actions) ───── */
+/* ───── v2.5.0 : accueil façon Poka (carte héros + 3 chiffres + actions) ───── */
 #vue-accueil .tuiles { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; flex: none; }
 #vue-accueil .tuile { min-width: 0; overflow: hidden; }
 #vue-accueil .tuile-grande { grid-column: 1 / -1; display: grid; grid-template-columns: 1fr auto; align-items: center; padding: 20px 22px; border-radius: 26px;
@@ -652,3 +652,9 @@ html.poka .photo-geant, html.poka .tuile-plus { background: linear-gradient(135d
 .dernier b { font: 600 16px var(--titre); color: var(--texte); }
 .dernier span { grid-row: 2; font-size: 12.5px; color: var(--texte-doux); }
 .dernier em { grid-row: 1 / span 2; grid-column: 2; align-self: center; font-style: normal; font-weight: 700; color: var(--chiffre); font-size: 14px; }
+
+/* ───── v2.5 : saisie rapide des sections ───── */
+#f-pieces.auto { color: color-mix(in srgb, var(--texte) 42%, transparent); }
+.long-rapides { display: flex; gap: 8px; flex-wrap: wrap; margin: -2px 0 8px; }
+.long-rapides .puce { min-width: 64px; }
+#pli-sections .btn { width: 100%; margin-top: 8px; }

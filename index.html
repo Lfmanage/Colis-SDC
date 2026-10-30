@@ -15,7 +15,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=248">
+<link rel="stylesheet" href="style.css?v=250">
 </head>
 <body>
 <canvas id="feuilles-arriere" class="feuilles-canvas" aria-hidden="true"></canvas>
@@ -63,7 +63,7 @@
       <button type="button" class="action" id="acc-colis"><i class="rond"><svg viewBox="0 0 24 24"><path d="M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01"/></svg></i><b>Liste des colis</b><small id="acc-colis-s"></small></button>
     </div>
     <div class="carte acc-derniers" id="acc-derniers" hidden><div class="groupe"><h3>Derniers pointés</h3></div><div id="acc-derniers-l"></div></div>
-    <p class="version-acc"><button type="button" class="lien" id="btn-maj">v2.4.8 · Mettre à jour l'appli</button></p>
+    <p class="version-acc"><button type="button" class="lien" id="btn-maj">v2.5.0 · Mettre à jour l'appli</button></p>
   </section>
 
   <section id="vue-nouveau" class="vue" hidden>
@@ -100,6 +100,7 @@
           <label class="champ"><span>Longueur (m)</span><input id="f-longueur" inputmode="decimal" placeholder="4,00"></label>
         </div>
 
+        <div class="long-rapides" id="f-long-rapides" hidden></div>
         <div id="f-autres"></div>
 
         <div class="cal-ligne-vol">
@@ -185,6 +186,15 @@
 
   <!-- ───────── Réglages ───────── -->
   <section id="vue-reglages" class="vue" hidden>
+    <details class="pli" id="pli-sections">
+      <summary><span>Sections (remplissage auto)</span></summary>
+      <div class="pli-corps">
+        <p class="note-stats">Une section par ligne : <b>ÉPxLARG=PIÈCES</b>, et si besoin <b>:longueurs</b> en m (ex. <b>18x100=250:2/2.4/3</b>). Rangée toute seule de la plus grosse à la plus fine.</p>
+        <textarea id="sections-texte" rows="14" spellcheck="false" autocapitalize="off" style="width:100%;font:13px ui-monospace,monospace;border-radius:14px;border:1.5px solid var(--bord);padding:10px;background:var(--champ);color:var(--texte)"></textarea>
+        <button type="button" class="btn btn-principal" id="btn-sections-enreg">Enregistrer la liste</button>
+        <button type="button" class="btn btn-secondaire" id="btn-sections-defaut">Remettre la liste d'origine</button>
+      </div>
+    </details>
     <details class="pli" id="pli-apparence">
       <summary><span>Apparence</span></summary>
       <div class="pli-corps">
@@ -243,7 +253,7 @@
         <input type="file" id="restaurer-input" accept=".json,application/json" hidden>
       </div>
     </details>
-    <p class="version">Colis SDC · v2.4.8</p>
+    <p class="version">Colis SDC · v2.5.0</p>
   </section>
 </main>
 
@@ -321,10 +331,10 @@
 <!-- Zone imprimée (copie d'étiquette) -->
 <div id="impression" aria-hidden="true"></div>
 
-<script src="config.js?v=248"></script>
+<script src="config.js?v=250"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
-<script src="lecture.js?v=248"></script>
-<script src="feuilles.js?v=248"></script>
-<script src="app.js?v=248"></script>
+<script src="lecture.js?v=250"></script>
+<script src="feuilles.js?v=250"></script>
+<script src="app.js?v=250"></script>
 </body>
 </html>
